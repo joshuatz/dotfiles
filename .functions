@@ -1,0 +1,62 @@
+#!/bin/bash -e
+
+reload() {
+	if [[ -n "$ZSH_VERSION" ]]; then
+		source ~/.zshrc
+	elif [[ -n "$BASH_VERSION"  ]]; then
+		echo "@TODO"
+	else
+		echo "Not sure how to reload this shell"
+	fi
+}
+
+# Revert the last commit, but don't undo the changes
+git-revert-last() {
+	git reset HEAD~1
+}
+
+git-sha() {
+	short=$(git rev-parse --short HEAD)
+	long=$(git rev-parse HEAD)
+	echo "${short}\t${long}"
+}
+
+make-venv() {
+	if [[ -d ./venv ]]; then
+		echo "./venv already exists"
+	else
+		python3 -m venv venv
+		source ./venv/bin/activate
+	fi
+}
+
+# Search for, and activate, a local python virtual environment
+activate() {
+	fail=1
+	possible_envs=(./venv ./env)
+	for env_dir in ${possible_envs[@]}; do
+		if [[ -e "$env_dir/bin/activate" ]]; then
+			source "$env_dir/bin/activate"
+			fail=0
+			break
+		fi
+	done
+	return fail
+}
+
+pip-upgrade() {
+	python3 -m pip install --upgrade pip
+}
+
+# Like clear, but better :)
+wipe() {
+	for run in {1..10}; do
+		echo '\n'
+	done
+	clear
+}
+
+# Note: This is ZSH specific; todo - make agnostic?
+reload_func() {
+	unfunction "_$1" && compinit
+}

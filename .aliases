@@ -1,0 +1,3 @@
+#!/bin/bash -e
+alias list="ls -halt"
+alias gtask="task -t ~/Taskfile.global.yml"

@@ -1,0 +1,11 @@
+# macOS
+.DS_STORE
+
+# Python
+# I would prefer that these *ALSO* be included in per-project `.gitignore` files, for Python projects, but this is useful
+# to have as a last-resort safeguard due to the number of files
+env/
+venv/
+
+# Misc caching
+.task

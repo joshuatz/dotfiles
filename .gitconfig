@@ -1,0 +1,13 @@
+[user]
+	name = Joshua Tzucker
+	email = REDACTED
+	signingKey = REDACTED
+[init]
+	defaultBranch = main
+[core]
+	excludesFile = ~/global.gitignore
+	editor = code --wait
+[rerere]
+	enabled = true
+[commit]
+	gpgsign = true
