@@ -97,3 +97,109 @@ wipe() {
 reload_func() {
 	unfunction "_$1" && compinit
 }
+
+git_checkout_dirty() {
+	target_branch_name=$1
+	operation="git checkout $target_branch_name"
+	git_do_while_dirty "$operation"
+}
+
+git_do_while_dirty() {
+	IFS=
+	git_operation=$1
+	git_operation_results=$($SHELL -c "$git_operation" 2>&1)
+
+	# If checkout was clean, nothing to do
+	error_string_test=$(echo "$git_operation_results" | grep -E "error: Your local changes to the following files would be overwritten by checkout")
+
+	echo "$error_string_test"
+	if [[ "$error_string_test" == "" ]]; then
+		echo "Checkout was clean"
+		return 0
+	fi
+
+	# Get list of conflicting file paths
+	dirty_files=$(echo "$git_operation_results" | grep -E -o "^[[:blank:]]+.*" | sed -e 's/^[[:space:]]*//')
+	cat << EOF
+========= DIRTY FILES =========
+$dirty_files
+===============================
+EOF
+
+	# Use stash to temporarily stash changes
+	# Newer versions of git can support stashing just staged changes
+	use_staged_stash=false
+	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
+	if [[ $(parse_version_string "$git_version") -ge $(parse_version_string "2.35") ]]; then
+
+		echo "Found git version >= 2.35"
+
+		# TODO: A future improvement could be asking about this on a per-file basis
+		# I.e., go through list of dirty files and ask "[Dd]rop? [Ss]tash and pop? [Cc]ancel?"
+		while true; do
+			printf "Your git version supports staged stashes. Use feature? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
+			read -r answer
+			case $answer in
+				[Yy]* ) use_staged_stash=true && break;;
+				"" ) use_staged_stash=true && break;;
+				[Nn]* ) use_staged_stash=false && break;;
+				[Cc]* ) return 0;;
+			esac
+		done
+	else
+		while true; do
+			printf "Your git version does NOT support staged stashes. Continue? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
+			read -r answer
+			case $answer in
+				[Yy]* ) break;;
+				"" ) break;;
+				[Nn]* ) return 0;;
+				[Cc]* ) return 0;;
+			esac
+		done
+	fi
+
+	preserve="unsure"
+	# different fd (`<&9`) is to avoid conflict with inner `read`
+	# https://stackoverflow.com/q/6911520/11447682
+	while IFS= read -r dirty_file <&9; do
+		if [[ $preserve == "unsure" ]]; then
+			while true; do
+				# Ask user what to do about this (and rest) of files
+				printf "Keep changes to %s?\n" "$dirty_file"
+				printf "[Aa]ll files, [Yy]es / ENTER, [Nn]o, / [Dd]rop+rest, [Cc]ancel\n"
+				read -r answer
+				case $answer in
+					[Aa]* ) preserve="all" && break;;
+					[Yy]* ) preserve="yes" && break;;
+					"" ) break;;
+					[Nn]* ) preserve="no" && break;;
+					[Dd]* ) preserve="none" && break;;
+					[Cc]* ) return 0;;
+				esac
+			done
+		fi
+
+		if [[ $preserve == "none" ]]; then
+			git checkout "$dirty_file"
+		elif [[ $preserve == "all" ]]; then
+			git add "$dirty_file"
+		else
+			if [[ $preserve == "yes" ]]; then
+				git add "$dirty_file"
+			else
+				git checkout "$dirty_file"
+			fi
+			# Reset for next go-around
+			preserve="unsure"
+		fi
+	done 9<<< "$dirty_files"
+
+	if [[ $use_staged_stash == "true" ]]; then
+		git stash --staged
+	else
+		git stash
+	fi
+	$SHELL -c "$git_operation"
+	git stash pop
+}
