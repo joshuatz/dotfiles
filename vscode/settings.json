@@ -9,14 +9,14 @@
 	"editor.detectIndentation": true,
 	"editor.formatOnSave": false,
 	// Override tabs vs spaces (defaults)
-	"editor.insertSpaces": false,
+	// "editor.insertSpaces": false,
 	"prettier.useTabs": true,
 	// "editor.defaultFormatter": "esbenp.prettier-vscode",
 	// Control formatting being carried in clipboard --- https://github.com/microsoft/vscode/issues/63154
 	"editor.copyWithSyntaxHighlighting": false,
 	// ---- </Formatting Settings> -----
-	// Have wrap on by default (still overridable with ALT + Z)
-	"editor.wordWrap": "on",
+	// Control word wrap default (still overridable with ALT + Z)
+	"editor.wordWrap": "off",
 	// I don't like the instant search in global
 	"search.searchOnType": false,
 	// Speed up search with excludes
@@ -31,10 +31,6 @@
 	// Turn off annoying autocomplete...
 	"editor.wordBasedSuggestions": false,
 	"javascript.suggest.names": false,
-	// No manually attaching debugger (if === 'on')
-	// ISSUE: on Windows, this tends to eat up a LOT (!!!) of CPU....
-	// https://github.com/Microsoft/vscode/issues/60145
-	"debug.node.autoAttach": "off",
 	// Auto-update imports
 	"javascript.updateImportsOnFileMove.enabled": "always",
 	// Fixes annoying auto-import absolute path issue - https://stackoverflow.com/questions/52432191/auto-import-in-vscode-only-offering-absolute-path-with-lerna-subpackages-in-type
@@ -42,14 +38,9 @@
 	// NodeJS ESM requires full specifier in many settings
 	"typescript.preferences.importModuleSpecifierEnding": "auto",
 	"javascript.preferences.importModuleSpecifierEnding": "auto",
-	/**
-	 * === Editor GUI settings! ===
-	 */
-	// Mini-map
-	"editor.minimap.enabled": true,
 	// Limit number of open tabs
 	"workbench.editor.limit.enabled": true,
-	"workbench.editor.limit.value": 16,
+	"workbench.editor.limit.value": 20,
 	"workbench.editor.limit.perEditorGroup": false,
 	// WOO! Keep layout (e.g. three column), even if you *close* all the tabs within the editors! NOTE: This won't stop the action "Close all editor ***groups***" from closing the layout - instead use "close all ***editors***"
 	"workbench.editor.closeEmptyGroups": false,
@@ -58,9 +49,9 @@
 	// Emulate Notepad++ showing hidden chars
 	"editor.renderWhitespace": "all",
 	"editor.renderControlCharacters": true,
-	"editor.renderIndentGuides": true,
-	// Sidebar location
-	"workbench.sideBar.location": "left",
+	"[log]": {
+		"editor.renderControlCharacters": false
+	},
 	// Show line length ruler
 	"editor.rulers": [80, 120],
 	// ---- Highly Specific or Extension Specific Settings Below ----
@@ -73,9 +64,8 @@
 	"phpfmt.passes": ["AlignTypehint", "AlignEquals", "AlignDoubleArrow"],
 	"phpfmt.psr2": false,
 	// Git Settings
-	"git.path": [
-		"C:/laragon/bin/git/mingw64/libexec/git-core/git.exe"
-	],
+	// Windows
+	"git.path": ["C:/laragon/bin/git/mingw64/libexec/git-core/git.exe"],
 	// Git lens settings
 	"editor.codeLensFontSize": 10,
 	"gitlens.codeLens.includeSingleLineSymbols": false,
@@ -88,16 +78,15 @@
 	"prettier.singleQuote": true,
 	"prettier.printWidth": 120,
 	"prettier.tabWidth": 4,
-	"prettier.trailingComma": "none",
 	// CSS Linting
 	"css.lint.argumentsInColorFunction": "warning",
 	/**
-	* ==== File Specific Settings ====
-	*/
+	 * ==== File Specific Settings ====
+	 */
 	"[yaml]": {
 		"editor.insertSpaces": true,
 		"editor.tabSize": 2,
-		"editor.autoIndent": "full",
+		"editor.autoIndent": "full"
 	},
 	"[toml]": {
 		"editor.formatOnSave": false
@@ -114,27 +103,26 @@
 	"[javascript]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"[typescript]": {
-		"editor.defaultFormatter": "esbenp.prettier-vscode"
-	},
-	"[typescriptreact]": {
+	"[typescript,typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"[css]": {
-		"editor.defaultFormatter": "vscode.css-language-features"
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"[markdown]": {
 		"editor.defaultFormatter": "vscode.markdown-language-features",
 		"editor.formatOnSave": false,
-		"editor.quickSuggestions": false,
+		"editor.quickSuggestions": {
+			"comments": "off",
+			"strings": "off",
+			"other": "off"
+		},
 		// This changes the appearance of Markdown *source* styling, not the live preview
 		// "editor.fontFamily": "\"Lato\", sans-serif",
 		"editor.fontFamily": "'Hack', 'Roboto Mono', 'Ubuntu Mono', 'Fira Code', monospace",
 		"editor.fontSize": 14,
 		"editor.letterSpacing": 0.8,
-		"editor.wrappingStrategy": "advanced",
-		// With a non-mono-space font, tabs tend to get shrunk
-		"editor.tabSize": 6,
+		"editor.wrappingStrategy": "advanced"
 	},
 	"markdown.extension.toc.updateOnSave": false,
 	"markdown.extension.list.indentationSize": "inherit",
@@ -162,18 +150,17 @@
 		"!less",
 		"!php",
 		"!pug",
-		"!python",
 		"!restructuredtext",
 		"!rust",
 		"!scala",
 		"!scss",
-		"!typescript",
-		"!typescriptreact",
 		"!yaml",
 		"!yml",
 		"asciidoc",
 		"git-commit",
+		"ini",
 		"plaintext",
+		"shellscript",
 		"text"
 	],
 	"cSpell.ignorePaths": [
@@ -288,11 +275,17 @@
 	"typescript.tsserver.log": "off",
 	// bookmarks moving around
 	"bookmarks.useWorkaroundForFormatters": false,
+	// Bookmarks - start expanded
+	// Note: If you edit this, it seems like you need to reload to get it to take affect
+	"bookmarks.sideBar.expanded": true,
 	"workbench.colorCustomizations": {
 		"editorError.foreground": "#ff00006e",
 		"diffEditor.removedTextBorder": "#FF000055",
 		"diffEditor.insertedTextBorder": "#ffff0055",
-		"diffEditor.diagonalFill": "#ff000030"
+		"diffEditor.diagonalFill": "#ff000030",
+		"editorBracketMatch.border": "#2711a0b9",
+		// Declutter scrollbar overview ruler
+		"editorOverviewRuler.infoForeground": "#0400ff2f"
 	},
 	"workbench.iconTheme": "vscode-icons",
 	"peacock.favoriteColors": [
@@ -338,13 +331,142 @@
 		}
 	],
 	"editor.multiCursorModifier": "alt",
-	"debug.javascript.autoAttachFilter": "onlyWithFlag",
-	"diffEditor.ignoreTrimWhitespace": false,
 	"workbench.editorAssociations": {
 		"*.ipynb": "jupyter-notebook"
 	},
 	"workbench.colorTheme": "Halcyon",
 	// Turn on verbose logging if you are trying to figure out what Schema VSCode is using to validate a given JSON file
 	"json.trace.server": "off",
+	// This is great for HTML, renaming tag pairs
+	"editor.linkedEditing": true,
+	"redhat.telemetry.enabled": false,
+	"autoDocstring.guessTypes": false,
+	"python.linting.enabled": true,
+	"python.linting.flake8Enabled": true,
+	"python.linting.pycodestyleArgs": ["--max-line-length", "79"],
+	"python.linting.pylintArgs": [
+		"--enable=W0614" // Remove unused imports
+	],
+	"python.formatting.provider": "black",
+	"python.formatting.blackArgs": ["--line-length", "79", "--skip-string-normalization"],
+	"python.formatting.autopep8Args": ["--max-line-length", "79", "--experimental"],
+	"python.formatting.yapfArgs": ["--style='{based_on_style: pep8, column_limit: 79}'"],
+	// Aggressive python formatting!
+	"[python]": {
+		"editor.defaultFormatter": "ms-python.python",
+		"editor.formatOnType": true
+	},
+	"window.title": "${rootName} ${separator} ${activeEditorShort} ${separator} ${activeEditorMedium}",
+	"scm.alwaysShowRepositories": true,
+	"editor.bracketPairColorization.enabled": true,
+	// @SEE microsof https://github.com/microsoft/vscode/issues/132173
+	"[git-commit]": {
+		"workbench.editor.languageDetection": false,
+		"editor.rulers": [72],
+		"workbench.editor.restoreViewState": false
+	},
+	"editor.matchBrackets": "always",
+	"editor.guides.bracketPairs": "active",
+	// In some projects this is helpful (especially if dynamically typed WITHOUT annotations), but otherwise can add
+	// a bit too much noise
+	"editor.inlayHints.enabled": false,
+	"javascript.inlayHints.parameterNames.enabled": "all",
+	"editor.wrappingStrategy": "simple",
+	"workbench.editor.wrapTabs": false,
+	"search.showLineNumbers": true,
+	"editor.largeFileOptimizations": true,
+	"editor.codeLens": true,
+	"javascript.referencesCodeLens.enabled": true,
+	"javascript.referencesCodeLens.showOnAllFunctions": true,
+	"typescript.referencesCodeLens.enabled": true,
+	"typescript.referencesCodeLens.showOnAllFunctions": true,
+	"files.defaultLanguage": "markdown",
+	// Disable snippets from showing up WHILE typing, in intellisense
+	"editor.snippetSuggestions": "none",
+	"liveshare.showVerboseNotifications": true,
+	"liveshare.presence": false,
+	// For "go to" to open in new tab
+	"editor.gotoLocation.multipleReferences": "gotoAndPeek",
+	"vsicons.associations.files": [
+		{
+			"icon": "makefile",
+			"extensions": ["justfile"],
+			"filename": true,
+			"format": "svg"
+		}
+	],
+	"[svelte]": {
+		"editor.defaultFormatter": "svelte.svelte-vscode"
+	},
+	"liquid.format": true,
+	"editor.unicodeHighlight.invisibleCharacters": false,
+	"editor.accessibilitySupport": "off",
+	// IMPORTANT setting: If true, an open tab will be reused when switching between files, until you edit one (or explicitly use the "keep editor" command)
+	// inversely, if false, everytime you click on a file in explorer, a new tab will get opened
+	"workbench.editor.enablePreview": true,
+	// Related to above
+	// @see https://www.nicoespeon.com/en/2020/01/change-vscode-preview-files/
+	"workbench.editor.enablePreviewFromQuickOpen": true,
+	"window.openFilesInNewWindow": "off",
+	"labeledBookmarks.colors": [
+		["teal", "#00dddd"],
+		["white", "#fff"],
+		["magenta", "#dd00dd"],
+		["red", "#dd0000"],
+		["yellow", "#dddd00"],
+		["green", "#00dd00"]
+	],
+	"outline.showVariables": false,
+	"files.insertFinalNewline": true,
+	// WARNING: this runs on save!!!!
+	"files.trimTrailingWhitespace": true,
+	"editor.guides.indentation": true,
+	"[dockerfile]": {
+		"editor.defaultFormatter": "ms-azuretools.vscode-docker"
+	},
+	// Disables the new three-way merge conflict editor
+	"git.mergeEditor": false,
+	"jest.autoRun": "off",
+	"workbench.commandPalette.experimental.suggestCommands": true,
+	// No manually attaching debugger (if === 'always')
+	// ISSUE: on Windows, this tends to eat up a LOT (!!!) of CPU....
+	// https://github.com/Microsoft/vscode/issues/60145
+	// Also, will cause issues if running `npm install` inside a VSCode terminal
+	// with set to "always"
+	// Thus, recommend generally keeping off and just with flag
+	"debug.javascript.autoAttachFilter": "onlyWithFlag",
+	"files.associations": {
+		".prettierrc": "json"
+	},
+	// Set this to false to disable live as-you-type copilot suggestions, which is helpful for not conflicting with intellisense as much
+	"editor.inlineSuggest.enabled": false,
+	"github.copilot.enable": {
+		"*": true,
+		"plaintext": false,
+		"markdown": true,
+		"scminput": false,
+		"yaml": true
+	},
+	"[typescriptreact]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"diffEditor.ignoreTrimWhitespace": false,
+	"editor.stickyScroll.enabled": true,
+	"githubPullRequests.fileListLayout": "tree",
+	"githubPullRequests.showPullRequestNumberInTree": true,
+	// Huge improvement - without this on (defaults to off) the gutter highlights
+	// the commentable range, which is more than the actual lines changed in a PR,
+	// without differentiating against the _actual_ diff
+	// @see https://github.com/microsoft/vscode-pull-request-github/issues/392
+	"githubPullRequests.quickDiff": true,
+	// Although sometimes handy, this gets _really_ annoying quickly, as this triggers autocomplete
+	// in the debugger REPL with all past entries, when I'm often using autocomplete as an
+	// investigatory tool and am not interested in unrelated past entries
+	"debug.console.historySuggestions": false,
 	"window.zoomLevel": -1
+	// macOS, BT mouse only (comment out if using trackpad)
+	// "editor.mouseWheelScrollSensitivity": 0.1
+	// Things that there are no exposed settings for in `settings.json`, but are worth changing
+	// outline pane -> set "Follow Cursor" to TRUE
+	// Move outline panel to below file explorer in sidebar
 }
