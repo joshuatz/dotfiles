@@ -101,20 +101,49 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 if type brew &>/dev/null; then
-  FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
+	FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
 
-  autoload -Uz compinit
-  compinit
+	# Docker autocompletion
+	DOCKER_COMPLETION_DIR=/Applications/Docker.app/Contents/Resources/etc
+	DOCKER_COMPLETION_PATHS=(
+		"$DOCKER_COMPLETION_DIR/docker.zsh-completion"
+		"$DOCKER_COMPLETION_DIR/docker-compose.zsh-completion"
+	)
+	for _path in $DOCKER_COMPLETION_PATHS; do
+		if [[ -f $_path ]]; then
+			# Compute autocomplete filename
+			# E.g. `docker-compose.zsh-completion` -> `_docker-compose`
+			# ZSH_FILENAME="_${$(basename $_path)%.*}"
+			# ln -s "$_path" "/usr/local/share/zsh/site-functions/$ZSH_FILENAME"
+			FPATH="$FPATH:$_path"
+		fi
+	done
+
+	autoload -Uz compinit
+	compinit
 fi
-. /usr/local/opt/asdf/asdf.sh
 
 
 # ==== Customizations =====
 
-# Load main customiation files
+# Load main customization files
 [[ -f ~/.functions ]] && source ~/.functions
 [[ -f ~/.aliases ]] && source ~/.aliases
 
 unsetopt complete_aliases
+
+# GPG signing
+export GPG_TTY=$(tty)
+
+# Poetry
+POETRY_BIN_DIR="$HOME/Library/Application Support/pypoetry/venv/bin"
+if [[ -d $POETRY_BIN_DIR ]]; then
+	export PATH="$POETRY_BIN_DIR:$PATH"
+fi
+
+# Make sure asdf comes last, so its shims can override any path stuff filled in
+# previous steps
+export ASDF_GOLANG_MOD_VERSION_ENABLED=true
+. /usr/local/opt/asdf/libexec/asdf.sh
 
 # =========================
