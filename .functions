@@ -98,6 +98,13 @@ reload_func() {
 	unfunction "_$1" && compinit
 }
 
+git_branch_backup() {
+	current_branch_name=$(git rev-parse --abbrev-ref HEAD)
+	backup_branch_name="backup/$current_branch_name--$(date '+%Y-%m-%d--%I-%M-%p')"
+	git branch "$backup_branch_name"
+	echo "✅ Backed up branch to $backup_branch_name"
+}
+
 git_checkout_dirty() {
 	target_branch_name=$1
 	operation="git checkout $target_branch_name"
