@@ -114,14 +114,33 @@ git_checkout_dirty() {
 git_do_while_dirty() {
 	IFS=
 	git_operation=$1
+
+	# If user forgot to include `git`, add it for them. E.g., passing `pull` instead of `git pull`
+	if [[ $git_operation != git* ]]; then
+		git_operation="git $git_operation"
+	fi
+
+	# Error out when command is NOT run from root of git repo, as this can cause issues with things
+	# like `git checkout ${PATHSPEC}`, as the paths git's stdout uses are relative to repo root,
+	# even if you running command from subdirectory
+	git_root=$(git rev-parse --show-toplevel)
+	if [[ "$git_root" != "$PWD" ]]; then
+		echo "ERROR: You are not running this command from the root of a git repository"
+		echo "This can cause issues with things like \`git checkout\`, as the paths git's stdout"
+		echo "uses are relative to repo root, even if you running command from subdirectory"
+		echo "Current directory: $PWD"
+		echo "Git root: $git_root"
+		return 1
+	fi
+
 	git_operation_results=$($SHELL -c "$git_operation" 2>&1)
 
-	# If checkout was clean, nothing to do
-	error_string_test=$(echo "$git_operation_results" | grep -E "error: Your local changes to the following files would be overwritten by checkout")
+	# If operation was clean, nothing to do
+	error_string_test=$(echo "$git_operation_results" | grep -E "error: Your local changes to the following files would be overwritten by")
 
 	echo "$error_string_test"
 	if [[ "$error_string_test" == "" ]]; then
-		echo "Checkout was clean"
+		echo "Operation was clean"
 		return 0
 	fi
 
