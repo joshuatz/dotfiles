@@ -1,0 +1,236 @@
+{
+	// Place your global snippets here. Each snippet is defined under a snippet name and has a scope, prefix, body and
+	// description. Add comma separated ids of the languages where the snippet is applicable in the scope field. If scope
+	// is left empty or omitted, the snippet gets applied to all languages. The prefix is what is
+	// used to trigger the snippet and the body will be expanded and inserted. Possible variables are:
+	// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders.
+	// Placeholders with the same ids are connected.
+	// Example:
+	// "Print to console": {
+	// 	"scope": "javascript,typescript",
+	// 	"prefix": "log",
+	// 	"body": [
+	// 		"console.log('$1');",
+	// 		"$2"
+	// 	],
+	// 	"description": "Log output to console"
+	// }
+	// ================================
+	// ========= Converters ===========
+	// HTML -> escaped snippet:
+	// https://gchq.github.io/CyberChef/#recipe=Find_/_Replace(%7B'option':'Regex','string':'%5B%5C%5Cr%5C%5Cn%5D'%7D,'%5C%5C%5C%5Cn',true,false,true,false)Find_/_Replace(%7B'option':'Regex','string':'%5C%5Ct'%7D,'%5C%5C%5C%5Ct',true,false,true,false)Find_/_Replace(%7B'option':'Regex','string':'%22'%7D,'%5C%5C%5C%5C%22',true,false,true,false)
+	// Escaped snippet -> HTML:
+	// https://gchq.github.io/CyberChef/#recipe=Find_/_Replace(%7B'option':'Regex','string':'%5C%5C%5C%5Cn%7C%5C%5C%5C%5Cr'%7D,'%5C%5Cn',true,false,true,false)Find_/_Replace(%7B'option':'Regex','string':'%5C%5C%5C%5Ct'%7D,'%5C%5Ct',true,false,true,false)Find_/_Replace(%7B'option':'Regex','string':'%5C%5C%5C%5C%22'%7D,'%22',true,false,true,false)
+	"XDebug Break": {
+		"scope": "php",
+		"prefix": "XDebug Break Debugger",
+		"description": "Call xdebug_break()",
+		"body": "xdebug_break();"
+	},
+	"Safe Link New Tab": {
+		"scope": "html, markdown, svelte",
+		"prefix": "Safe Link New Tab",
+		"body": ["<a href=\"${1:#}\" rel=\"noopener\" target=\"_blank\">${TM_SELECTED_TEXT:$2}</a>"],
+		"description": "Wrap in <a> tag with noopener"
+	},
+	"Convert to Safe Link New Tab": {
+		"scope": "html, markdown, svelte",
+		"prefix": "Convert to Safe Link New Tab",
+		"body": "${TM_SELECTED_TEXT/<a.*?href=\"([^\"]+)\".*?>/<a href=\"$1\" rel=\"noopener\" target=\"_blank\">/gm}",
+		"description": "Convert existing links to be new tab, safe"
+	},
+	"HTML Video Element - Autoplay Loop": {
+		"scope": "html, markdown, svelte",
+		"prefix": "HTML Video Element - Autoplay Loop",
+		"body": [
+			"<video loop muted autoplay controls src=\"${1:${CLIPBOARD:VIDEO_SOURCE}}\" style=\"width: 90%; margin:auto; max-width:600px; display:block;\">",
+			"\tSorry, your browser doesn't support embedded videos.",
+			"</video>"
+		],
+		"description": "Insert an autoplaying repeating looped video element"
+	},
+	"HTML Video Element - Generic Template": {
+		"scope": "html, markdown, svelte, php",
+		"prefix": "HTML Video Element - Generic Template",
+		"body": "<!-- Change preload to 'none' for true lazy-load, leave as metadata for length -->\n<!-- if you use autoplay, that overrides preload -->\n<video controls loop muted preload=\"metadata\" style=\"display:block; width:94%; margin:auto;\" title=\"\">\n\t<source src=\"REPLACEME.mp4\" type=\"video/mp4\">\n\tSorry, your browser doesn't support embedded videos.\n</video>"
+	},
+	"Ignore Table of Contents Comment": {
+		"scope": "markdown, html, svelte",
+		"prefix": "Ignore or exclude section from table of contents",
+		"body": "<!-- omit in toc -->"
+	},
+	"Non-Breaking Space": {
+		"scope": "markdown, html, php, svelte",
+		"prefix": "nbsp",
+		"body": "&nbsp;",
+		"description": "Inserts a non-breaking space"
+	},
+	"MD Link to Safe Link New Tab": {
+		"scope": "markdown",
+		"prefix": "link",
+		"body": [
+			"${TM_SELECTED_TEXT/([^!]{1})\\[([^\\[\\]]+)\\]\\(([^)]+)\\)/$1<a href=\"$3\" rel=\"noopener\" target=\"_blank\">$2<\\/a>/gm}"
+		],
+		"description": "Convert markdown links to <a> tags with noopener newtab"
+	},
+	"Github MD Checkbox": {
+		"scope": "markdown",
+		"prefix": "checkbox",
+		"body": [" - [ ] ${TM_SELECTED_TEXT:$2}"],
+		"description": "Insert Github styled markdown checkbox"
+	},
+	"MD List to GH Checkbox": {
+		"scope": "markdown",
+		"prefix": "list-to-checkbox",
+		"body": ["${TM_SELECTED_TEXT/^([\t ]*-) ?(.*)$/$1 [ ] $2/gm}"],
+		"description": "Transform MD list to MD checkbox list"
+	},
+	"POSIX slash path formatter": {
+		"prefix": "posix",
+		"body": "${CLIPBOARD/(\\\\)/\\//gmi}",
+		"description": "Force path to posix format"
+	},
+	"HTML collapse block": {
+		"prefix": "HTML collapse block",
+		"scope": "html, markdown, md, php, svelte",
+		"body": "<details>\n\t<summary>CLICKABLE_TITLE</summary>\n\nEXPANDED_TEXT\n</details>",
+		"description": "A HTML collapsible section / block. Markdown compatible."
+	},
+	"HTML collapse block - changing invite": {
+		"prefix": "HTML collapse block - changing invite",
+		"scope": "html, markdown, md, php, svelte",
+		"body": "<style>details[open] .isClosed{display:none}details[open] .isOpen{display:inline!important}</style>\n<details>\n\t<summary><span class=\"isClosed\">Open Details</span><span style=\"display:none;\" class=\"isOpen\">Close Details</span></summary>\n\nEXPANDED_TEXT\n</details>",
+		"description": "A HTML collapsible section / block, with auto-changing invite text based on state.  Markdown compatible."
+	},
+	"Responsive Image": {
+		"scope": "html, markdown",
+		"prefix": "responsive image",
+		"body": "<img src=\"${1:${CLIPBOARD:IMAGE_SOURCE}}\" alt=\"${2:ALT_TEXT}\" style=\"margin: auto; display:block; max-width: ${3|200,500,800,1200|}px; width: 95%; height: auto;\" />"
+	},
+	"Responsive Image - WP": {
+		"scope": "html, markdown",
+		"prefix": "responsive image wp",
+		"body": "<a href=\"${1:${CLIPBOARD:IMAGE_SOURCE}}\" style=\"margin: auto; display:block; width: 95%; height: auto; text-align:center;\" target=\"_blank\"><img src=\"${2:${CLIPBOARD:IMAGE_SOURCE}}\" alt=\"${3:ALT_TEXT}\" style=\"width:100%;max-width: ${4|200,500,800,1200|}px;height:auto;\" loading=\"lazy\" /></a>"
+	},
+	"Regular Image - WP": {
+		"scope": "html, markdown",
+		"prefix": "regular image wp",
+		"body": "<a href=\"${1:${CLIPBOARD:IMAGE_SOURCE}}\" target=\"_blank\"><img src=\"${2:${CLIPBOARD:IMAGE_SOURCE}}\" alt=\"${3:ALT_TEXT}\" loading=\"lazy\" /></a>"
+	},
+	"Style - Center": {
+		"scope": "html, markdown",
+		"prefix": "style center margin auto",
+		"body": "style=\"display:block; margin: auto;\""
+	},
+	"Insert More About Me Markdown Footer": {
+		"prefix": "more about me markdown footer",
+		"scope": "markdown",
+		"body": "More About Me (Joshua Tzucker):\n\n - 🔗<a href=\"https://joshuatz.com/\" rel=\"noopener\" target=\"_blank\">joshuatz.com</a>\n - 👨‍💻<a href=\"https://dev.to/joshuatz\" rel=\"noopener\" target=\"_blank\">dev.to/joshuatz</a>\n - 💬<a href=\"https://twitter.com/1joshuatz\" rel=\"noopener\" target=\"_blank\">@1joshuatz</a>\n - 💾<a href=\"https://github.com/joshuatz\" rel=\"noopener\" target=\"_blank\">github.com/joshuatz</a>"
+	},
+	"Insert Markdown Frontmatter": {
+		"prefix": "markdown frontmatter",
+		"scope": "markdown",
+		"body": "---\ntitle: About_50_to_60_chars\ndescription: About_150_to_160_chars\ncover_image: \ncanonical_url: \nposted: false\ntags:\n - DELETE_ME\n---\n\nTitle: 50-60 || Description: 150-160\n))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))\ntitle\n))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))\ndescription"
+	},
+	"Insert Resources Section and Table": {
+		"prefix": "Insert Resources Section and Table",
+		"scope": "markdown",
+		"body": "## Resources\nWhat & Link | Type\n--- | ---\nMDN - [Using Fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch) | Guide"
+	},
+	"Transform Heading Text to Anchor": {
+		"prefix": "Transform (Markdown) Heading Text to Anchor",
+		"scope": "markdown, html",
+		"description": "Transform regular heading text to anchor ID (GH style)",
+		"body": "${CLIPBOARD/(^#* |[^a-z0-9 -]|#)|( )|([a-z0-9 -])/${2:+-}${3:/downcase}/gi}"
+	},
+	"URL Encode Query String": {
+		"prefix": "URL Encode Query String",
+		"description": "URL Encode Query String - escapes slashes, so don't use for full URL / path",
+		"body": "${CLIPBOARD/( )|(\\\\)|(\\^)|(!)|(#)|(\\$)|(%)|(&)|(')|(\\()|(\\))|(\\*)|(\\+)|(,)|(\\/)|(:)|(;)|(=)|(\\?)|(@)|(\\[)|(\\])/${1:+%20}${2:+%5C}${3:+%5E}${4:+%21}${5:+%23}${6:+%24}${7:+%25}${8:+%26}${9:+%27}${10:+%28}${11:+%29}${12:+%2A}${13:+%2B}${14:+%2C}${15:+%2F}${16:+%3A}${17:+%3B}${18:+%3D}${19:+%3F}${20:+%40}${21:+%5B}${22:+%5D}/gi}"
+	},
+	"Create Scroll to Text Fragment Anchor": {
+		"prefix": "Create Scroll to Text Fragment Anchor",
+		"scope": "markdown, html",
+		"description": "Takes text and creates a scroll-to-text-fragment anchor ending for a link",
+		"body": "#:~:text=${CLIPBOARD/( )|(\\\\)|(\\^)|(!)|(#)|(\\$)|(%)|(&)|(')|(\\()|(\\))|(\\*)|(\\+)|(,)|(\\/)|(:)|(;)|(=)|(\\?)|(@)|(\\[)|(\\])/${1:+%20}${2:+%5C}${3:+%5E}${4:+%21}${5:+%23}${6:+%24}${7:+%25}${8:+%26}${9:+%27}${10:+%28}${11:+%29}${12:+%2A}${13:+%2B}${14:+%2C}${15:+%2F}${16:+%3A}${17:+%3B}${18:+%3D}${19:+%3F}${20:+%40}${21:+%5B}${22:+%5D}/gi}"
+	},
+	"Insert Node Shebang": {
+		"prefix": "Insert the Node Shebang",
+		"description": "Insert the Node / NodeJS Shebang / HashBang",
+		"scope": "javascript, typescript",
+		"body": "#!/usr/bin/env node"
+	},
+	"Insert MIT License": {
+		"prefix": "Insert the MIT License Text Copyright",
+		"description": "Inserts the complete MIT license text, complete with name and year",
+		"scope": "markdown, plaintext",
+		"body": "MIT License\n\nCopyright (c) 2023 Joshua Tzucker\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+	},
+	"Insert Google Apps Scripts Types": {
+		"prefix": "gas types",
+		"scope": "javascript, typescript",
+		"body": "/// <reference path=\"C:/laragon/bin/nodejs/node-v12/node_modules/@types/google-apps-script/index.d.ts\" />"
+	},
+	"Insert @types/node reference triple slash directive": {
+		"prefix": "Insert @types->node reference triple slash directive",
+		"description": "Add / insert @types/node as triple slash directive comment",
+		"scope": "javascript, typescript",
+		"body": "/// <reference path=\"C:/Users/Joshua/AppData/Local/Yarn/Data/global/node_modules/@types/node/index.d.ts\" />"
+	},
+	"Emoji Log Picker": {
+		"prefix": "Emoji Log Picker",
+		"description": "Pick an Emoji Log Emoji to use as a prefix",
+		"body": "${1|📦 NEW,👌 IMPROVE,🐛 FIX,📖 DOC,🚀 RELEASE,🤖 TEST,‼️ BREAKING|}: ${2:IMPERATIVE_MESSAGE_GOES_HERE}"
+	},
+	"Svelte TypeScript SFC": {
+		"prefix": "Svelte TypeScript TS SFC",
+		"scope": "svelte, markdown",
+		"body": [
+			"<script lang=\"ts\">",
+			"\t//",
+			"</script>",
+			"",
+			"<main>",
+			"\t<div></div>",
+			"</main>",
+			"",
+			"<style>",
+			"\t/*  */",
+			"</style>"
+		]
+	},
+	"Prettier - Ignore Next Line - JS / TS": {
+		"prefix": "Prettier - Ignore Next Line - JS / TS",
+		"scope": "javascript, typescript, svelte, vue",
+		"body": "// prettier-ignore",
+		"description": "Tell Prettier to ignore the next line / leave it alone"
+	},
+	"Prettier - Ignore Next Line - CSS": {
+		"prefix": "Prettier - Ignore Next Line - CSS",
+		"scope": "html, css",
+		"body": "/* prettier-ignore */"
+	},
+	"Wrap Emoji - Non Descriptive": {
+		"prefix": "Wrap Emoji - Non Descriptive",
+		"scope": "javascript, html, markdown, svelte, vue, php, text",
+		"body": "<span aria-hidden=\"true\">${TM_SELECTED_TEXT}</span>"
+	},
+	"Add multiline comment prefix character": {
+		"prefix": "Add multiline comment prefix character",
+		"body": "${TM_SELECTED_TEXT/^(.)/ * $1/gmi}"
+	},
+	"Insert Em Dash (Long Dash)": {
+		"prefix": "Insert Em Dash (Long Dash)",
+		"body": "–"
+	},
+	"Insert Bash Shebang, with exit on error": {
+		"prefix": "Insert Bash Shebang, with exit on error",
+		"description": "Insert the Bash Shebang / HashBang, with -e flag to exit on error.",
+		"scope": "bash, shellscript, text, markdown",
+		"body": "#!/usr/bin/env bash\nset -e"
+	},
+	"Convert kwargs to dict": {
+		"scope": "python, markdown",
+		"body": ["${TM_SELECTED_TEXT/^([ \t]*)([^\r\n=]+)=([^\r\n\\(]+)$/$1\"$2\": $3/gm}"]
+	}
+}

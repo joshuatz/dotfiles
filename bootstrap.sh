@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+set -e
 
 function copyFiles() {
 	cp Taskfile.global.yml ~/Taskfile.global.yml

@@ -1,0 +1,216 @@
+version: 6
+profiles: []
+hotkeys:
+  toggle-window: []
+  copy-current-path: []
+  ctrl-c:
+    - Ctrl-C
+  copy:
+    - ⌘-C
+  paste:
+    - - ⌘-V
+  clear:
+    - ⌘-K
+  select-all:
+    - ⌘-A
+  zoom-in:
+    - ⌘-=
+    - ⌘-Shift-=
+  zoom-out:
+    - ⌘--
+    - ⌘-Shift--
+  reset-zoom:
+    - ⌘-0
+  home:
+    - ⌘-Left
+    - Home
+  end:
+    - ⌘-Right
+    - End
+  previous-word:
+    - ⌥-Left
+  next-word:
+    - ⌥-Right
+  delete-previous-word:
+    - ⌥-Backspace
+  delete-next-word:
+    - ⌥-Delete
+  search:
+    - ⌘-F
+  pane-focus-all:
+    - ⌘-Shift-I
+  telnet-profile-selector: []
+  restart-telnet-session: []
+  ssh-profile-selector: []
+  restart-ssh-session: []
+  launch-winscp: []
+  settings:
+    - ⌘-,
+  serial:
+    - Alt-K
+  restart-serial-session: []
+  new-window:
+    - ⌘-N
+  new-tab:
+    - ⌘-T
+  profile: {}
+  toggle-fullscreen:
+    - Ctrl+⌘+F
+  close-tab: []
+  reopen-tab:
+    - ⌘-Shift-T
+  toggle-last-tab: []
+  rename-tab:
+    - ⌘-R
+  next-tab:
+    - Ctrl-Tab
+  previous-tab:
+    - Ctrl-Shift-Tab
+  move-tab-left:
+    - ⌘-Shift-Left
+  move-tab-right:
+    - ⌘-Shift-Right
+  rearrange-panes:
+    - ⌘-Shift
+  tab-1:
+    - ⌘-1
+  tab-2:
+    - ⌘-2
+  tab-3:
+    - ⌘-3
+  tab-4:
+    - ⌘-4
+  tab-5:
+    - ⌘-5
+  tab-6:
+    - ⌘-6
+  tab-7:
+    - ⌘-7
+  tab-8:
+    - ⌘-8
+  tab-9:
+    - ⌘-9
+  tab-10:
+    - ⌘-0
+  tab-11: []
+  tab-12: []
+  tab-13: []
+  tab-14: []
+  tab-15: []
+  tab-16: []
+  tab-17: []
+  tab-18: []
+  tab-19: []
+  tab-20: []
+  split-right: []
+  split-bottom: []
+  split-left: []
+  pane-nav-right:
+    - ⌘-⌥-Right
+  pane-nav-down:
+    - ⌘-⌥-Down
+  pane-nav-up:
+    - ⌘-⌥-Up
+  pane-nav-left:
+    - ⌘-⌥-Left
+  pane-nav-previous:
+    - ⌘-⌥-[
+  pane-nav-next:
+    - ⌘-⌥-]
+  pane-maximize:
+    - ⌘-⌥-Enter
+  close-pane:
+    - - ⌘-W
+  profile-selector:
+    - ⌘-E
+  switch-profile:
+    - ⌘-Shift-E
+  split-top: []
+  profile-selectors: {}
+  delete-line:
+    - ⌘-Backspace
+  focus-all-tabs:
+    - ⌘-⌥-Shift-I
+  scroll-to-top:
+    - Shift-PageUp
+  scroll-up:
+    - ⌥-PageUp
+  scroll-down:
+    - ⌥-PageDown
+  scroll-to-bottom:
+    - Shift-PageDown
+  settings-tab: {}
+  duplicate-tab: []
+  restart-tab: []
+  reconnect-tab: []
+  explode-tab:
+    - ⌘-Shift-.
+  combine-tabs:
+    - ⌘-Shift-,
+  pane-nav-1: []
+  pane-nav-2: []
+  pane-nav-3: []
+  pane-nav-4: []
+  pane-nav-5: []
+  pane-nav-6: []
+  pane-nav-7: []
+  pane-nav-8: []
+  pane-nav-9: []
+  pane-increase-vertical: []
+  pane-decrease-vertical: []
+  pane-increase-horizontal: []
+  pane-decrease-horizontal: []
+  command-selector:
+    - ⌘-Shift-P
+  disconnect-tab: []
+terminal:
+  searchOptions: {}
+  colorScheme:
+    name: 3024 Night
+    foreground: '#a5a2a2'
+    background: '#090300'
+    cursor: '#a5a2a2'
+    colors:
+      - '#090300'
+      - '#db2d20'
+      - '#01a252'
+      - '#fded02'
+      - '#01a0e4'
+      - '#a16a94'
+      - '#b5e4f4'
+      - '#a5a2a2'
+      - '#5c5855'
+      - '#e8bbd0'
+      - '#3a3432'
+      - '#4a4543'
+      - '#807d7c'
+      - '#d6d5d4'
+      - '#cdab53'
+      - '#f7f7f7'
+  customColorSchemes: []
+  bell: visual
+  font: Menlo, NovaMono for Powerline
+  altIsMeta: true
+  copyOnSelect: true
+  ligatures: true
+ssh: {}
+configSync:
+  parts: {}
+appearance:
+  vibrancy: false
+  css: |-
+    split-tab>.child {
+        border: 1px dashed #ffffff2e;
+    }
+pluginBlacklist: []
+enableAnalytics: false
+enableWelcomeTab: false
+clickableLinks:
+  modifier: metaKey
+profileDefaults: {}
+accessibility: {}
+hacks: {}
+providerBlacklist: []
+commandBlacklist: []
+groups: []
+profileBlacklist: []

@@ -63,9 +63,6 @@
 	"phpfmt.cakephp": true,
 	"phpfmt.passes": ["AlignTypehint", "AlignEquals", "AlignDoubleArrow"],
 	"phpfmt.psr2": false,
-	// Git Settings
-	// Windows
-	"git.path": ["C:/laragon/bin/git/mingw64/libexec/git-core/git.exe"],
 	// Git lens settings
 	"editor.codeLensFontSize": 10,
 	"gitlens.codeLens.includeSingleLineSymbols": false,
@@ -341,15 +338,22 @@
 	"editor.linkedEditing": true,
 	"redhat.telemetry.enabled": false,
 	"autoDocstring.guessTypes": false,
+	// DEFAULT = ON, and Flake8
 	"python.linting.enabled": true,
 	"python.linting.flake8Enabled": true,
+	"python.linting.flake8Path": "/Users/joshua/jtzdev/python-scratch/venv/bin/flake8",
+	"python.linting.pycodestylePath": "/Users/joshua/jtzdev/python-scratch/venv/bin/pycodestyle",
 	"python.linting.pycodestyleArgs": ["--max-line-length", "79"],
+	"python.linting.pylintPath": "/Users/joshua/jtzdev/python-scratch/venv/bin/pylint",
 	"python.linting.pylintArgs": [
 		"--enable=W0614" // Remove unused imports
 	],
 	"python.formatting.provider": "black",
+	"python.formatting.blackPath": "/Users/joshua/jtzdev/python-scratch/venv/bin/black",
 	"python.formatting.blackArgs": ["--line-length", "79", "--skip-string-normalization"],
+	"python.formatting.autopep8Path": "/Users/joshua/jtzdev/python-scratch/venv/bin/autopep8",
 	"python.formatting.autopep8Args": ["--max-line-length", "79", "--experimental"],
+	"python.formatting.yapfPath": "/Users/joshua/jtzdev/python-scratch/venv/bin/yapf",
 	"python.formatting.yapfArgs": ["--style='{based_on_style: pep8, column_limit: 79}'"],
 	// Aggressive python formatting!
 	"[python]": {
@@ -359,8 +363,9 @@
 	"window.title": "${rootName} ${separator} ${activeEditorShort} ${separator} ${activeEditorMedium}",
 	"scm.alwaysShowRepositories": true,
 	"editor.bracketPairColorization.enabled": true,
-	// @SEE microsof https://github.com/microsoft/vscode/issues/132173
+	// @SEE https://github.com/microsoft/vscode/issues/132173
 	"[git-commit]": {
+		// >:(
 		"workbench.editor.languageDetection": false,
 		"editor.rulers": [72],
 		"workbench.editor.restoreViewState": false
@@ -371,6 +376,7 @@
 	// a bit too much noise
 	"editor.inlayHints.enabled": false,
 	"javascript.inlayHints.parameterNames.enabled": "all",
+	// "typescript.inlayHints.parameterNames.enabled": "all"
 	"editor.wrappingStrategy": "simple",
 	"workbench.editor.wrapTabs": false,
 	"search.showLineNumbers": true,
@@ -450,7 +456,6 @@
 	"[typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"diffEditor.ignoreTrimWhitespace": false,
 	"editor.stickyScroll.enabled": true,
 	"githubPullRequests.fileListLayout": "tree",
 	"githubPullRequests.showPullRequestNumberInTree": true,
@@ -459,6 +464,8 @@
 	// without differentiating against the _actual_ diff
 	// @see https://github.com/microsoft/vscode-pull-request-github/issues/392
 	"githubPullRequests.quickDiff": true,
+	"githubPullRequests.defaultCommentType": "review",
+	"githubPullRequests.createOnPublishBranch": "never",
 	// Although sometimes handy, this gets _really_ annoying quickly, as this triggers autocomplete
 	// in the debugger REPL with all past entries, when I'm often using autocomplete as an
 	// investigatory tool and am not interested in unrelated past entries

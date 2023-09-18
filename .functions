@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
 
-# You can use this to parse version strings and then use the resulting number for comparison
-# Example:
-#     if [[ $(parse_version_string $(git --version | grep -E -o "\d+\.\d+.\d+$")) -ge $(parse_version_string "2.39.0") ]]
-# https://stackoverflow.com/a/37939589/11447682
-function parse_version_string { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
-
 get_shell_type() {
 	if [[ -n "$ZSH_VERSION" ]]; then
 		echo "ZSH"
@@ -14,12 +8,18 @@ get_shell_type() {
 		echo "BASH"
 	fi
 }
+SHELL_TYPE=$(get_shell_type)
+
+# You can use this to parse version strings and then use the resulting number for comparison
+# Example:
+#     if [[ $(parse_version_string $(git --version | grep -E -o "\d+\.\d+.\d+$")) -ge $(parse_version_string "2.39.0") ]]
+# https://stackoverflow.com/a/37939589/11447682
+function parse_version_string { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 
 reload() {
-	shell_type=$(get_shell_type)
-	if [[ $shell_type == "ZSH" ]]; then
+	if [[ $SHELL_TYPE == "ZSH" ]]; then
 		source ~/.zshrc
-	elif [[ $shell_type == "BASH"  ]]; then
+	elif [[ $SHELL_TYPE == "BASH"  ]]; then
 		echo "@TODO"
 	else
 		echo "Not sure how to reload this shell"
@@ -46,6 +46,13 @@ git_sha() {
 	short=$(git rev-parse --short HEAD)
 	long=$(git rev-parse HEAD)
 	echo "${short}\t${long}"
+}
+
+git_behind_ahead() {
+	# Get the trunk / main branch in the repo (e.g. `main`)
+	TRUNK_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//')
+	echo "Behind | Ahead"
+	echo "      $(git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD)"
 }
 
 make_venv() {
@@ -85,7 +92,7 @@ pip_upgrade() {
 	python3 -m pip install --upgrade pip
 }
 
-# Like clear, but better :)
+# Like clear, but extra space to pad the start
 wipe() {
 	for run in {1..10}; do
 		echo $'\n'
@@ -157,21 +164,9 @@ EOF
 	use_staged_stash=false
 	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
 	if [[ $(parse_version_string "$git_version") -ge $(parse_version_string "2.35") ]]; then
-
-		echo "Found git version >= 2.35"
-
-		# TODO: A future improvement could be asking about this on a per-file basis
-		# I.e., go through list of dirty files and ask "[Dd]rop? [Ss]tash and pop? [Cc]ancel?"
-		while true; do
-			printf "Your git version supports staged stashes. Use feature? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
-			read -r answer
-			case $answer in
-				[Yy]* ) use_staged_stash=true && break;;
-				"" ) use_staged_stash=true && break;;
-				[Nn]* ) use_staged_stash=false && break;;
-				[Cc]* ) return 0;;
-			esac
-		done
+		echo "Found git version >= 2.3"
+		echo "Your git version supports staged stashes."
+		use_staged_stash=true
 	else
 		while true; do
 			printf "Your git version does NOT support staged stashes. Continue? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
@@ -185,6 +180,7 @@ EOF
 		done
 	fi
 
+	# Go through list of conflicting files and ask what the user wants to do
 	preserve="unsure"
 	# different fd (`<&9`) is to avoid conflict with inner `read`
 	# https://stackoverflow.com/q/6911520/11447682
@@ -193,7 +189,7 @@ EOF
 			while true; do
 				# Ask user what to do about this (and rest) of files
 				printf "Keep changes to %s?\n" "$dirty_file"
-				printf "[Aa]ll files, [Yy]es / ENTER, [Nn]o, / [Dd]rop+rest, [Cc]ancel\n"
+				printf "[Aa]ll files, [Yy]es / ENTER, [Nn]o, / [Dd]rop+rest, [Pp]review, [Cc]ancel\n"
 				read -r answer
 				case $answer in
 					[Aa]* ) preserve="all" && break;;
@@ -201,6 +197,7 @@ EOF
 					"" ) break;;
 					[Nn]* ) preserve="no" && break;;
 					[Dd]* ) preserve="none" && break;;
+					[Pp]* ) git diff "$dirty_file";;
 					[Cc]* ) return 0;;
 				esac
 			done
@@ -228,4 +225,36 @@ EOF
 	fi
 	$SHELL -c "$git_operation"
 	git stash pop
+}
+
+
+# This is currently pretty macoS specific
+# Also, runs code that triggers OS permission checks, so will fail if denied
+whats_up() {
+	WINDOW_TITLE=$(cat << "EOF" | xargs -0 osascript -e
+global frontApp, frontAppName, windowTitle
+
+set windowTitle to ""
+tell application "System Events"
+	set frontApp to first application process whose frontmost is true
+	set frontAppName to name of frontApp
+	tell process frontAppName
+		tell (1st window whose value of attribute "AXMain" is true)
+			set windowTitle to value of attribute "AXTitle"
+		end tell
+	end tell
+end tell
+
+return {frontAppName, windowTitle}
+EOF
+)
+	cat << EOF
+Active Window = $WINDOW_TITLE
+EOF
+
+	if (which jttu > /dev/null); then
+		printf '==== Time Tracker ====\n'
+		jttu harvest status
+		printf '======================'
+	fi
 }
