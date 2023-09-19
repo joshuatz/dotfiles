@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+# Don't use `set -e`
 
 alias list="ls -halt"
 alias gtask="task -t ~/Taskfile.global.yml"

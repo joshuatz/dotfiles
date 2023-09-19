@@ -11,10 +11,12 @@ function copyFiles() {
 	# email = REDACTED
 	# cp .gitconfig ~/.gitconfig
 
-	if [ -n "$ZSH_VERSION" ]; then
+	if [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
+		echo "Bootstrapping for ZSH"
 		cp .zshrc ~/.zshrc
-		source ~/.zshrc
-	elif [ -n "$BASH_VERSION" ]; then
+		exec zsh
+	elif [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
+		echo "Bootstrapping for Bash"
 		source ~/.bash_profile
 	else
 		echo 'unknown shell'

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 get_shell_type() {
-	if [[ -n "$ZSH_VERSION" ]]; then
+	if [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
 		echo "ZSH"
 		return
-	elif [[ -n "$BASH_VERSION" ]]; then
+	elif [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
 		echo "BASH"
 	fi
 }
@@ -18,9 +18,11 @@ function parse_version_string { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n"
 
 reload() {
 	if [[ $SHELL_TYPE == "ZSH" ]]; then
-		source ~/.zshrc
+		# Note: Don't use source ~/.zshrc
+		# See: https://github.com/ohmyzsh/ohmyzsh/wiki/FAQ#how-do-i-reload-the-zshrc-file
+		exec zsh
 	elif [[ $SHELL_TYPE == "BASH"  ]]; then
-		echo "@TODO"
+		source ~/.bash_profile
 	else
 		echo "Not sure how to reload this shell"
 	fi
@@ -159,6 +161,11 @@ git_checkout_dirty() {
 	operation="git checkout $target_branch_name"
 	git_do_while_dirty "$operation"
 }
+if [[ $SHELL_TYPE == "ZSH" ]]; then
+	:
+	# TODO: This is close, but not working perfectly
+	# compdef _git git_checkout_dirty=git-checkout
+fi
 
 git_do_while_dirty() {
 	IFS=

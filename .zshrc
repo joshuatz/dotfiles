@@ -118,19 +118,19 @@ if type brew &>/dev/null; then
 			FPATH="$FPATH:$_path"
 		fi
 	done
-
-	autoload -Uz compinit
-	compinit
 fi
 
 
 # ==== Customizations =====
 
+# Autocomplete - ORDER MATTERS
+unsetopt complete_aliases
+autoload -Uz compinit
+compinit
+
 # Load main customization files
 [[ -f ~/.functions ]] && source ~/.functions
 [[ -f ~/.aliases ]] && source ~/.aliases
-
-unsetopt complete_aliases
 
 # GPG signing
 export GPG_TTY=$(tty)
