@@ -71,6 +71,48 @@ make_venv() {
 	fi
 }
 
+check_venv() {
+	which python | grep "$PWD"
+}
+
+# Generates the poetry named environment string
+# Although this _can_ be used to check that the correct virtual environment is
+# activated, it is generally much easier to just use a regular venv and point
+# poetry to it (because then you can just do something like `which python | grep $PWD`)
+# For implementation reference see
+#   https://github.com/python-poetry/poetry/blob/7c86992909257caa4f51a50c001f5894bfe5065e/src/poetry/utils/env.py#L635
+#   https://github.com/python-poetry/poetry/blob/7c86992909257caa4f51a50c001f5894bfe5065e/src/poetry/utils/env.py#L1212-L1220
+generate_poetry_env_name_str() {
+	PROJECT_NAME=$(basename "$PWD")
+	if [[ -f pyproject.toml ]]; then
+		PROJECT_NAME=$(poetry version | sed -E -n 's/(.+) [.0-9]+$/\1/p')
+	fi
+	PROJECT_NAME=$PROJECT_NAME python << "EOF"
+import base64
+import os
+import re
+import hashlib
+
+# shim - re-implement poetry encode method
+def encode(string: str):
+	if isinstance(string, bytes):
+		return string
+	return string.encode("utf-8")
+
+def generate_env_name(package_name: str, cwd: str) -> str:
+	package_name = package_name.lower()
+	sanitized_name = re.sub(r'[ $`!*@"\\\r\n\t]', "_", package_name)[:42]
+	normalized_cwd = os.path.normcase(os.path.realpath(cwd))
+	h_bytes = hashlib.sha256(encode(normalized_cwd)).digest()
+	h_str = base64.urlsafe_b64encode(h_bytes).decode()[:8]
+	return f"{sanitized_name}-{h_str}"
+
+cwd = os.getcwd()
+print(generate_env_name(os.environ["PROJECT_NAME"], cwd))
+# Should print something like `project-name-ABCD1a-Z`
+EOF
+}
+
 # Search for, and activate, a local python virtual environment
 # @TODO - if python env is *already* activated, check if path matches, and if not
 # 	deactivate and then activate
@@ -225,6 +267,11 @@ EOF
 	fi
 	$SHELL -c "$git_operation"
 	git stash pop
+}
+
+get_docker_working_dir() {
+	CONTAINER_REF=$1
+	docker inspect --format='{{json .Config.Labels}}' "$CONTAINER_REF" | jq '.["com.docker.compose.project.working_dir"]'
 }
 
 

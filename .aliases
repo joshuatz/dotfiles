@@ -1,3 +1,5 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+set -e
+
 alias list="ls -halt"
 alias gtask="task -t ~/Taskfile.global.yml"
