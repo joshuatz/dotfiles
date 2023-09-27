@@ -232,5 +232,9 @@
 	"Convert kwargs to dict": {
 		"scope": "python, markdown",
 		"body": ["${TM_SELECTED_TEXT/^([ \t]*)([^\r\n=]+)=([^\r\n\\(]+)$/$1\"$2\": $3/gm}"]
+	},
+	"Insert debugpy (:5678)": {
+		"scope": "python",
+		"body": "import debugpy\ndebugpy.listen(5678)\nprint(\"Waiting for debugpy client to connect...\")\ndebugpy.wait_for_client()\nprint(\"Debugpy connected!\")"
 	}
 }

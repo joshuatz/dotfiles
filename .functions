@@ -28,6 +28,24 @@ reload() {
 	fi
 }
 
+printpath() {
+	echo "$PATH" | tr ":" "\n"
+}
+
+date_iso() {
+	# 2020-11-28T12:11:28Z
+	date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+date_ms() {
+	if which gdate > /dev/null; then
+		gdate +%s%3N
+	else
+		date +%s000
+		echo "WARNING: gdate not found; faking millseconds from seconds"
+	fi
+}
+
 # Like `touch` + `mkdir -p`: creates intermediate directories if they don't exist yet
 make-file() {
 	file_path=$1
@@ -302,13 +320,19 @@ end tell
 return {frontAppName, windowTitle}
 EOF
 )
-	cat << EOF
+	STATUS_STRING=$(cat << EOF
 Active Window = $WINDOW_TITLE
 EOF
+)
 
 	if (which jttu > /dev/null); then
-		printf '==== Time Tracker ====\n'
-		jttu harvest status
-		printf '======================'
+		STATUS_STRING=$(cat << EOF
+$STATUS_STRING
+==== Time Tracker ====
+$(jttu harvest status)
+======================
+EOF
+)
 	fi
+	echo "$STATUS_STRING"
 }
