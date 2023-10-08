@@ -10,6 +10,15 @@ get_shell_type() {
 }
 SHELL_TYPE=$(get_shell_type)
 
+# Not perfect across all OSes, but a "good enough" approach for most
+get_computer_name() {
+	if (which scutil > /dev/null); then
+		scutil --get ComputerName
+		return 0
+	fi
+	uname -n | sed -e 's/\.local$//'
+}
+
 # You can use this to parse version strings and then use the resulting number for comparison
 # Example:
 #     if [[ $(parse_version_string $(git --version | grep -E -o "\d+\.\d+.\d+$")) -ge $(parse_version_string "2.39.0") ]]
@@ -167,6 +176,10 @@ reload_func() {
 	unfunction "_$1" && compinit
 }
 
+git_branch_name() {
+	git rev-parse --abbrev-ref HEAD
+}
+
 git_branch_backup() {
 	current_branch_name=$(git rev-parse --abbrev-ref HEAD)
 	backup_branch_name="backup/$current_branch_name--$(date '+%Y-%m-%d--%I-%M-%p')"
@@ -186,13 +199,15 @@ if [[ $SHELL_TYPE == "ZSH" ]]; then
 fi
 
 git_do_while_dirty() {
+	git_operation="$*"
 	IFS=
-	git_operation=$1
 
 	# If user forgot to include `git`, add it for them. E.g., passing `pull` instead of `git pull`
 	if [[ $git_operation != git* ]]; then
 		git_operation="git $git_operation"
 	fi
+
+	echo "Operation to try = '$git_operation'"
 
 	# Error out when command is NOT run from root of git repo, as this can cause issues with things
 	# like `git checkout ${PATHSPEC}`, as the paths git's stdout uses are relative to repo root,

@@ -3,6 +3,13 @@ set -e
 
 echo "Starting dotfiles pull / copying into dotfiles"
 
+COMPUTER_NAME=""
+if (which scutil > /dev/null); then
+	COMPUTER_NAME=$(scutil --get ComputerName)
+else
+	COMPUTER_NAME=$(uname -n | sed -e 's/\.local$//')
+fi
+
 # Tabby
 if [[ -f "$HOME/Library/Application Support/tabby/config.yaml" ]]; then
 	cp "$HOME/Library/Application Support/tabby/config.yaml" ./tabby.config.yml
@@ -33,4 +40,16 @@ if (which code > /dev/null); then
 	echo "✅ Pulled VS Code"
 else
 	echo "⏩ Skipped: VS Code"
+fi
+
+
+# OBS
+obs_settings_dir="$HOME/Library/Application Support/obs-studio/basic"
+if (stat "$obs_settings_dir" > /dev/null); then
+	obs_backup_dir="./obs/$COMPUTER_NAME"
+	mkdir -p "$obs_backup_dir"
+	cp -R "$obs_settings_dir" "$obs_backup_dir"
+	echo "✅ Pulled OBS"
+else
+	echo "⏩ Skipped: OBS"
 fi
