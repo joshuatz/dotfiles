@@ -4,5 +4,10 @@
 	"editor.formatOnSave": true,
 	"yaml.schemas": {
 		"https://taskfile.dev/schema.json": "Taskfile.global.yml"
+	},
+	"shellformat.flag": "-ci -sr -kp --indent 0",
+	"[shellscript]": {
+		// Hmm. Not thrilled with shfmt defaults and extensibilty at the moment
+		"editor.formatOnSave": false
 	}
 }
