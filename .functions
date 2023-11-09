@@ -66,22 +66,12 @@ make-file() {
 	fi
 }
 
-# Revert the last commit, but don't undo the changes
-git_revert_last() {
-	git reset HEAD~1
-}
-
-git_sha() {
-	short=$(git rev-parse --short HEAD)
-	long=$(git rev-parse HEAD)
-	echo "${short}\t${long}"
-}
-
-git_behind_ahead() {
-	# Get the trunk / main branch in the repo (e.g. `main`)
-	TRUNK_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//')
-	echo "Behind | Ahead"
-	echo "      $(git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD)"
+get_cpu_throttle_info() {
+	if [[ $* == *--watch* ]]; then
+		pmset -g thermlog
+		return
+	fi
+	pmset -g therm
 }
 
 make_venv() {
@@ -174,6 +164,48 @@ wipe() {
 # Note: This is ZSH specific; todo - make agnostic?
 reload_func() {
 	unfunction "_$1" && compinit
+}
+
+# Revert the last commit, but don't undo the changes
+git_revert_last() {
+	git reset HEAD~1
+}
+
+git_sha() {
+	short=$(git rev-parse --short HEAD)
+	long=$(git rev-parse HEAD)
+	echo "${short}\t${long}"
+}
+
+git_behind_ahead() {
+	# Get the trunk / main branch in the repo (e.g. `main`)
+	TRUNK_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//')
+	echo "Behind | Ahead"
+	echo "      $(git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD)"
+}
+
+git_select_commit() {
+	MAX_PAST_COMMITS_TO_LIST=40
+	commits=$(git log --pretty=format:"%h %s" -n $MAX_PAST_COMMITS_TO_LIST)
+
+	# Use fzf to interactively select a commit
+	commit=$(echo "$commits" | fzf --height 70% --reverse --ansi)
+
+	# Extract the commit hash from the selected line
+	commit_hash=$(echo "$commit" | awk '{print $1}')
+
+	echo "$commit_hash"
+}
+
+git_copy_commit() {
+	commit_hash=$(git_select_commit)
+	echo "$commit_hash" | pbcopy
+}
+
+# Use this to interactively select a past commit to target for `git commit --fixup=`
+git_fixup() {
+	commit_hash=$(git_select_commit)
+	git commit --fixup="$commit_hash"
 }
 
 git_branch_name() {
@@ -309,7 +341,52 @@ EOF
 	git stash pop
 }
 
-get_docker_working_dir() {
+# You can use this to delete branch names nested under a slash (or other patterns)
+#	Example: `git_branch_delete_pattern feature-a/tmp/*`
+git_branch_delete_pattern() {
+	git_branch_pattern=$1
+	matching_branches=$(git branch --list "$git_branch_pattern")
+	echo "This will delete the following branches"
+	echo "$matching_branches"
+	hard_delete=0
+	while true; do
+		printf "Are you sure? [Yy]es / ENTER, [Hh]ard delete, [Cc]ancel / [Nn]o\n"
+		read -r answer
+		case $answer in
+			[Yy]* ) break;;
+			[Hh]* ) hard_delete=1 && break;;
+			"" ) break;;
+			[Cc]* ) return 0;;
+			[Nn]* ) return 0;;
+		esac
+	done
+	if [[ $hard_delete == 1 ]]; then
+		echo "$matching_branches" | xargs git branch -D
+		return 0
+	fi
+	echo "$matching_branches" | xargs git branch -d
+}
+
+git_tree_view() {
+	ALL=1
+	while true; do
+		printf "What to show? [Aa]ll / ENTER, Current [Bb]ranch\n"
+		read -r answer
+		case $answer in
+			[Yy]* ) break;;
+			"" ) break;;
+			[Nn]* ) ALL=0 && break;;
+			[Cc]* ) return 0;;
+		esac
+	done
+	if [[ $ALL == 1 ]]; then
+		git log --graph --oneline --decorate --all
+	else
+		git log --graph --oneline --decorate
+	fi
+}
+
+docker_get_working_dir() {
 	CONTAINER_REF=$1
 	docker inspect --format='{{json .Config.Labels}}' "$CONTAINER_REF" | jq '.["com.docker.compose.project.working_dir"]'
 }
