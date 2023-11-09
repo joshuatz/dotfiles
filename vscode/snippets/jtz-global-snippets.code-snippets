@@ -236,5 +236,10 @@
 	"Insert debugpy (:5678)": {
 		"scope": "python",
 		"body": "import debugpy\ndebugpy.listen(5678)\nprint(\"Waiting for debugpy client to connect...\")\ndebugpy.wait_for_client()\nprint(\"Debugpy connected!\")"
-	}
+	},
+	"Join Multiline String with Plus Operator": {
+		"scope": "javascript",
+		"body": ["${TM_SELECTED_TEXT/^( *)(.+)$/$1'$2' + /gm}"],
+		"description": "Wraps each line of a multiline block of code in string delimiters, and adds a `+` at the end to join"
+	},
 }

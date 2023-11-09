@@ -1,0 +1,8 @@
+{
+	"editor.insertSpaces": false,
+	"editor.detectIndentation": false,
+	"editor.formatOnSave": true,
+	"yaml.schemas": {
+		"https://taskfile.dev/schema.json": "Taskfile.global.yml"
+	}
+}
