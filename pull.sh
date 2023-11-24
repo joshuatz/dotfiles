@@ -36,12 +36,12 @@ if (which code > /dev/null); then
 	# Export config files
 	CODE_USER_DIR=/Users/$USER/Library/Application\ Support/Code/User
 	cp "$CODE_USER_DIR/settings.json" vscode/settings.json
+	cp "$CODE_USER_DIR/tasks.json" vscode/tasks.json
 	cp -R "$CODE_USER_DIR/snippets" vscode
 	echo "✅ Pulled VS Code"
 else
 	echo "⏩ Skipped: VS Code"
 fi
-
 
 # OBS
 obs_settings_dir="$HOME/Library/Application Support/obs-studio/basic"
@@ -53,3 +53,5 @@ if (stat "$obs_settings_dir" > /dev/null); then
 else
 	echo "⏩ Skipped: OBS"
 fi
+
+# TODO: Add browser bookmarks backups

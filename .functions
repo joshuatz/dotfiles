@@ -9,6 +9,10 @@ get_shell_type() {
 	fi
 }
 SHELL_TYPE=$(get_shell_type)
+IS_MAC=0
+if [[ "$OSTYPE" == "darwin"* ]]; then
+	IS_MAC=1
+fi
 
 # Not perfect across all OSes, but a "good enough" approach for most
 get_computer_name() {
@@ -30,7 +34,7 @@ reload() {
 		# Note: Don't use source ~/.zshrc
 		# See: https://github.com/ohmyzsh/ohmyzsh/wiki/FAQ#how-do-i-reload-the-zshrc-file
 		exec zsh
-	elif [[ $SHELL_TYPE == "BASH"  ]]; then
+	elif [[ $SHELL_TYPE == "BASH" ]]; then
 		source ~/.bash_profile
 	else
 		echo "Not sure how to reload this shell"
@@ -39,6 +43,58 @@ reload() {
 
 printpath() {
 	echo "$PATH" | tr ":" "\n"
+}
+
+convert_clipboard_to_plaintext() {
+	# Takes the clipboard contents and converts it to plaintext, in-place
+	text=$(pbpaste)
+	echo "$text" | pbcopy
+}
+
+copy_html_to_clipboard() {
+	html="$1"
+	plaintext="$2"
+	# Fallback to HTML as plaintext if not set
+	if [[ -z "$plaintext" ]]; then
+		plaintext="$html"
+	fi
+	if [[ $IS_MAC -eq 1 ]]; then
+		# If HTML is not prefixed with meta charset tag, add it
+		if [[ -z "$NO_WRAP" ]] && (! echo "$html" | grep -q -E "^<meta charset"); then
+			html="<meta charset=\"utf-8\">${html}"
+		fi
+
+		# https://stackoverflow.com/a/11089226/11447682
+		# https://aaron.cc/copying-the-current-safari-tab-as-a-to-the-clipboard-as-a-clickable-link/
+		html_hex=$(echo -n "$html" | hexdump -ve '1/1 "%.2x"')
+		if [[ -n "$NO_PLAIN" ]]; then
+			osascript <<- EOF
+				set the clipboard to «data HTML${html_hex}»
+			EOF
+			return
+		fi
+		osascript <<- EOF
+			set the clipboard to {«class HTML»:«data HTML${html_hex}», string:"${plaintext}"}
+		EOF
+	else
+		echo "$html" | xclip -selection clipboard -t text/html
+	fi
+}
+
+markdown_to_html_clipboard() {
+	md="$1"
+	# If no arg, grab from clipboard
+	if [[ -z "$md" ]]; then
+		md=$(pbpaste)
+	fi
+	html=""
+	if (which pandoc > /dev/null); then
+		html=$(echo "$md" | pandoc -f markdown -t html)
+	else
+		html=$(npx marked --gfm -s "$md")
+	fi
+	copy_html_to_clipboard "$html" "$md"
+	echo "✅ HTML copied to clipboard"
 }
 
 date_iso() {
@@ -208,6 +264,14 @@ git_fixup() {
 	git commit --fixup="$commit_hash"
 }
 
+# Use this with `--fixup` commits, to auto-target the last commit before fixup
+# with interactive rebase
+git_auto_rebase() {
+	MAX_PAST_COMMITS_TO_SCAN=40
+	# Iterate over git log until the earliest fixup [...]
+	# TODO
+}
+
 git_branch_name() {
 	git rev-parse --abbrev-ref HEAD
 }
@@ -286,10 +350,10 @@ EOF
 			printf "Your git version does NOT support staged stashes. Continue? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
 			read -r answer
 			case $answer in
-				[Yy]* ) break;;
-				"" ) break;;
-				[Nn]* ) return 0;;
-				[Cc]* ) return 0;;
+				[Yy]*) break ;;
+				"") break ;;
+				[Nn]*) return 0 ;;
+				[Cc]*) return 0 ;;
 			esac
 		done
 	fi
@@ -306,13 +370,13 @@ EOF
 				printf "[Aa]ll files, [Yy]es / ENTER, [Nn]o, / [Dd]rop+rest, [Pp]review, [Cc]ancel\n"
 				read -r answer
 				case $answer in
-					[Aa]* ) preserve="all" && break;;
-					[Yy]* ) preserve="yes" && break;;
-					"" ) break;;
-					[Nn]* ) preserve="no" && break;;
-					[Dd]* ) preserve="none" && break;;
-					[Pp]* ) git diff "$dirty_file";;
-					[Cc]* ) return 0;;
+					[Aa]*) preserve="all" && break ;;
+					[Yy]*) preserve="yes" && break ;;
+					"") break ;;
+					[Nn]*) preserve="no" && break ;;
+					[Dd]*) preserve="none" && break ;;
+					[Pp]*) git diff "$dirty_file" ;;
+					[Cc]*) return 0 ;;
 				esac
 			done
 		fi
@@ -353,11 +417,11 @@ git_branch_delete_pattern() {
 		printf "Are you sure? [Yy]es / ENTER, [Hh]ard delete, [Cc]ancel / [Nn]o\n"
 		read -r answer
 		case $answer in
-			[Yy]* ) break;;
-			[Hh]* ) hard_delete=1 && break;;
-			"" ) break;;
-			[Cc]* ) return 0;;
-			[Nn]* ) return 0;;
+			[Yy]*) break ;;
+			[Hh]*) hard_delete=1 && break ;;
+			"") break ;;
+			[Cc]*) return 0 ;;
+			[Nn]*) return 0 ;;
 		esac
 	done
 	if [[ $hard_delete == 1 ]]; then
@@ -367,16 +431,27 @@ git_branch_delete_pattern() {
 	echo "$matching_branches" | xargs git branch -d
 }
 
+git_stats() {
+	# TODO
+	:
+}
+
+# Get information about the state of things while stopped during a rebase
+git_rebase_info() {
+	# TODO
+	:
+}
+
 git_tree_view() {
 	ALL=1
 	while true; do
 		printf "What to show? [Aa]ll / ENTER, Current [Bb]ranch\n"
 		read -r answer
 		case $answer in
-			[Yy]* ) break;;
-			"" ) break;;
-			[Nn]* ) ALL=0 && break;;
-			[Cc]* ) return 0;;
+			[Yy]*) break ;;
+			"") break ;;
+			[Nn]*) ALL=0 && break ;;
+			[Cc]*) return 0 ;;
 		esac
 	done
 	if [[ $ALL == 1 ]]; then
@@ -390,7 +465,6 @@ docker_get_working_dir() {
 	CONTAINER_REF=$1
 	docker inspect --format='{{json .Config.Labels}}' "$CONTAINER_REF" | jq '.["com.docker.compose.project.working_dir"]'
 }
-
 
 # This is currently pretty macoS specific
 # Also, runs code that triggers OS permission checks, so will fail if denied

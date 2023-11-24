@@ -25,6 +25,7 @@ koalamer.labeled-bookmarks
 medo64.render-crlf
 mrmlnc.vscode-scss
 ms-azuretools.vscode-docker
+ms-python.black-formatter
 ms-python.isort
 ms-python.mypy-type-checker
 ms-python.python

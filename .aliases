@@ -3,3 +3,11 @@
 
 alias list="ls -halt"
 alias gtask="task -t ~/Taskfile.global.yml"
+
+# Git
+alias git-search="git log -p -G"
+# 3rd party aliases (provided by oh-my-zsh)
+#	https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/git/git.plugin.zsh
+#	gd = git diff
+#	gds = git diff --staged
+#	... many more
