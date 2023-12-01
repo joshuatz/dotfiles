@@ -264,13 +264,90 @@ git_fixup() {
 	git commit --fixup="$commit_hash"
 }
 
+
+# TODO: This works, but really should be re-written in JS or Python
+# (too many ZSH and bash workarounds, hard to read)
+git_find_fixup_base() {
+	array_index_start=0
+	if [[ "$SHELL_TYPE" == "ZSH" ]]; then
+		# cmon y'all, can't we just agree on things for once?
+		array_index_start=1
+	fi
+	MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP=40
+	LOG_DIVIDER=$(echo $'\x1F')
+	seeking_commit_msgs=()
+	commit_scan_counter=0
+	# Iterate over all git log entries
+	git log --pretty=format:"%H${LOG_DIVIDER}%s" | while read line
+	do
+		# Check if we already at limit and need to bail out
+		commit_scan_counter=$((commit_scan_counter+1))
+		if [[ $commit_scan_counter -gt $MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP ]]; then
+			echo "Could not find the ultimate fixup base, and limit of $MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP scan commits reached"
+			return 1
+		fi
+
+		# Extract out commit hash and message from git log line
+		commit_hash=$(echo "$line" | awk -F"$LOG_DIVIDER" '{ print $1 }')
+		commit_msg=$(echo "$line" | awk -F"$LOG_DIVIDER" '{ print $2 }')
+
+		# Is this a `fixup! {original message}` commit?
+		if [[ "$commit_msg" == "fixup! "* ]]; then
+			# Add message, without `fixup! ` prefix, to search list
+			target_commit_msg=${commit_msg#"fixup! "}
+			seeking_commit_msgs+=("$target_commit_msg")
+
+			# Reset the scan counter, so we can search x num past this new point
+			commit_scan_counter=0
+		elif [[ ${#seeking_commit_msgs[@]} -gt 0 ]]; then
+			# Remove all fixups that fix this commit
+			holes_count=0
+			for ((i=0; i<${#seeking_commit_msgs[@]}; i++)); do
+				if [[ ${seeking_commit_msgs[$i+$array_index_start]} == "$commit_msg" ]]; then
+					unset -v 'seeking_commit_msgs[$i+$array_index_start]'
+					holes_count=$((holes_count+1))
+				fi
+			done
+
+			# Are we done yet?
+			if [[ $holes_count -eq ${#seeking_commit_msgs[@]} ]]; then
+				echo "${commit_hash}~1"
+				return 0
+			fi
+
+			# Remove holes / sparse -> dense
+			seeking_commit_msgs=("${seeking_commit_msgs[@]}")
+		fi
+	done
+}
+
 # Use this with `--fixup` commits, to auto-target the last commit before fixup
 # with interactive rebase
 git_auto_rebase() {
-	MAX_PAST_COMMITS_TO_SCAN=40
-	# Iterate over git log until the earliest fixup [...]
-	# TODO
+	new_target_base=$(git_find_fixup_base)
+
+	if [[ $? -ne 0 ]]; then
+		echo "Could not auto-find new base. Cancelling auto-rebase"
+		return 1
+	fi
+
+	while true; do
+		echo "Found target base:"
+		printf "\t%s\n" "$new_target_base"
+		printf "\t%s\n" "$(git show --no-patch --oneline "$new_target_base" | cat)"
+		printf "Continue? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
+		read -r answer
+		case $answer in
+			[Yy]*) break ;;
+			"") break ;;
+			[Nn]*) return 0 ;;
+			[Cc]*) return 0 ;;
+		esac
+	done
+
+	git rebase --autosquash --interactive "$new_target_base"
 }
+
 
 git_branch_name() {
 	git rev-parse --abbrev-ref HEAD
