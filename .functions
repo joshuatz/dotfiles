@@ -284,6 +284,8 @@ git_find_fixup_base() {
 		commit_scan_counter=$((commit_scan_counter+1))
 		if [[ $commit_scan_counter -gt $MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP ]]; then
 			echo "Could not find the ultimate fixup base, and limit of $MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP scan commits reached"
+			echo "Still seeking / could not find within limit:"
+			printf "\t%s\n" "$(declare -p seeking_commit_msgs)"
 			return 1
 		fi
 
@@ -316,7 +318,11 @@ git_find_fixup_base() {
 			fi
 
 			# Remove holes / sparse -> dense
-			seeking_commit_msgs=("${seeking_commit_msgs[@]}")
+			# Not double-quoting this is the easiest way to do this without
+			# accidentally leaving empty strings
+			# shellcheck disable=SC2128
+			# shellcheck disable=SC2206
+			seeking_commit_msgs=($seeking_commit_msgs)
 		fi
 	done
 }
@@ -327,6 +333,7 @@ git_auto_rebase() {
 	new_target_base=$(git_find_fixup_base)
 
 	if [[ $? -ne 0 ]]; then
+		echo "$new_target_base"
 		echo "Could not auto-find new base. Cancelling auto-rebase"
 		return 1
 	fi
@@ -334,7 +341,7 @@ git_auto_rebase() {
 	while true; do
 		echo "Found target base:"
 		printf "\t%s\n" "$new_target_base"
-		printf "\t%s\n" "$(git show --no-patch --oneline "$new_target_base" | cat)"
+		printf "\t%s\n Target Base = " "$(git show --no-patch --oneline "$new_target_base" | cat)"
 		printf "Continue? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
 		read -r answer
 		case $answer in
