@@ -236,6 +236,10 @@
 		"scope": "python",
 		"body": "import debugpy\ndebugpy.listen(5678)\nprint(\"Waiting for debugpy client to connect...\")\ndebugpy.wait_for_client()\nprint(\"Debugpy connected!\")"
 	},
+	"Django Management Command Scaffold": {
+		"scope": "python",
+		"body": "from typing import Any\n\nfrom django.core.management.base import BaseCommand\n\n\nclass Command(BaseCommand):\n    help = \"Command Help\"\n\n    # You might also want to override `add_arguments`\n\n    def handle(self, *args: Any, **options: Any) -> str | None:\n        pass\n"
+	},
 	"Join Multiline String with Plus Operator": {
 		"scope": "javascript",
 		"body": ["${TM_SELECTED_TEXT/^( *)(.+)$/$1'$2' + /gm}"],

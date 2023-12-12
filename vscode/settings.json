@@ -29,7 +29,7 @@
 		"**/package-lock.json": true
 	},
 	// Turn off annoying autocomplete...
-	"editor.wordBasedSuggestions": false,
+	"editor.wordBasedSuggestions": "off",
 	"javascript.suggest.names": false,
 	// Auto-update imports
 	"javascript.updateImportsOnFileMove.enabled": "always",
@@ -330,7 +330,8 @@
 	],
 	"editor.multiCursorModifier": "alt",
 	"workbench.editorAssociations": {
-		"*.ipynb": "jupyter-notebook"
+		"*.ipynb": "jupyter-notebook",
+		"git-rebase-todo": "gitlens.rebase"
 	},
 	"workbench.colorTheme": "Halcyon",
 	// Turn on verbose logging if you are trying to figure out what Schema VSCode is using to validate a given JSON file
@@ -458,6 +459,7 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"editor.stickyScroll.enabled": true,
+	"workbench.tree.enableStickyScroll": true,
 	"githubPullRequests.fileListLayout": "tree",
 	"githubPullRequests.showPullRequestNumberInTree": true,
 	// Huge improvement - without this on (defaults to off) the gutter highlights
