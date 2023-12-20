@@ -360,6 +360,10 @@ git_branch_name() {
 	git rev-parse --abbrev-ref HEAD
 }
 
+git_remote_url() {
+	git remote get-url origin
+}
+
 git_branch_backup() {
 	current_branch_name=$(git rev-parse --abbrev-ref HEAD)
 	backup_branch_name="backup/$current_branch_name--$(date '+%Y-%m-%d--%I-%M-%p')"

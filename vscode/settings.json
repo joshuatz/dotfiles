@@ -34,8 +34,10 @@
 	// Auto-update imports
 	"javascript.updateImportsOnFileMove.enabled": "always",
 	// Fixes annoying auto-import absolute path issue - https://stackoverflow.com/questions/52432191/auto-import-in-vscode-only-offering-absolute-path-with-lerna-subpackages-in-type
-	"typescript.preferences.importModuleSpecifier": "relative",
+	// if you use `relative`, it won't use aliases (like `@my-internal-lib` over `../../lib/`)
+	"typescript.preferences.importModuleSpecifier": "shortest",
 	// NodeJS ESM requires full specifier in many settings
+	// If working in a project that requires them, change "auto" to "js"
 	"typescript.preferences.importModuleSpecifierEnding": "auto",
 	"javascript.preferences.importModuleSpecifierEnding": "auto",
 	// Limit number of open tabs
@@ -476,8 +478,13 @@
 	"[typescript]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"window.zoomLevel": -1,
-	"svelte.enable-ts-plugin": true
+	"svelte.enable-ts-plugin": true,
+	"explorer.autoRevealExclude": {
+		// This defaults to true, which is annoying; introspecting node_modules is useful!
+		"**/node_modules": false,
+		"**/bower_components": true
+	},
+	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
 	// Things that there are no exposed settings for in `settings.json`, but are worth changing
