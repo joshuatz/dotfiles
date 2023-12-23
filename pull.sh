@@ -34,7 +34,7 @@ if (which code > /dev/null); then
 	code --list-extensions > vscode/extensions.txt
 
 	# Export config files
-	CODE_USER_DIR=/Users/$USER/Library/Application\ Support/Code/User
+	CODE_USER_DIR=$HOME/Library/Application\ Support/Code/User
 	cp "$CODE_USER_DIR/settings.json" vscode/settings.json
 	cp "$CODE_USER_DIR/tasks.json" vscode/tasks.json
 	cp -R "$CODE_USER_DIR/snippets" vscode

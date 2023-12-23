@@ -13,3 +13,5 @@
 	gpgsign = true
 [rebase]
 	autoStash = true
+[gpg]
+	format = ssh

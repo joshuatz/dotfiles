@@ -2,7 +2,7 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
-export ZSH="/Users/joshua/.oh-my-zsh"
+export ZSH="$HOME/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -144,6 +144,6 @@ fi
 # Make sure asdf comes last, so its shims can override any path stuff filled in
 # previous steps
 export ASDF_GOLANG_MOD_VERSION_ENABLED=true
-. /usr/local/opt/asdf/libexec/asdf.sh
+[[ -f /usr/local/opt/asdf/libexec/asdf.sh ]] && source /usr/local/opt/asdf/libexec/asdf.sh
 
 # =========================
