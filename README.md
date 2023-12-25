@@ -1,11 +1,22 @@
 ## Joshua's Dotfiles
-> Currently very rough! Haven't devoted much time to customizing this yet.
+
+>  As per usual with dotfile repos, this should be used more for inspiration rather than ran as-is (unless you are me).
+
+## Dependencies
+
+I try to avoid implicit dependencies with shell scripting when possible, but sometimes it is unavoidable.
+
+As of right now, the most frequently used dependencies would be:
+
+- [Python](https://www.python.org/)
+- [fzf](https://github.com/junegunn/fzf)
+- Some sort of clipboard manager (which is only an issue on Linux distros where it is not bundled with it)
 
 ## Primary Commands
 
-Run `./bootstrap.sh` to copy files _out_ of this repo.
+Run `. ./manage.sh && push` to copy files _out_ of this repo.
 
-Run `./pull.sh` to pull local settings _into_ this repo.
+Run `. ./manage.sh && pull` to pull local settings _into_ this repo.
 
 ## Notes to Self
 
