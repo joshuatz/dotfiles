@@ -1,0 +1,8 @@
+# Quirks configuration for libinput - https://wayland.freedesktop.org/libinput/doc/latest/device-quirks.html
+# Use MatchUdevType=touchpad for touchpads
+# see libinput source for full details - https://gitlab.freedesktop.org/libinput/libinput
+
+[Lenovo Legion Pro 5 Keyboard]
+MatchUdevType=keyboard
+MatchName=ITE Tech. Inc. ITE Device(8910) Keyboard
+AttrKeyboardIntegration=internal

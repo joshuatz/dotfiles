@@ -45,10 +45,34 @@ printpath() {
 	echo "$PATH" | tr ":" "\n"
 }
 
+get_clipboard_contents() {
+	if (which pbpaste > /dev/null); then
+		pbpaste
+	elif (which xclip > /dev/null); then
+		xclip -selection clipboard -o
+	elif (which wl-paste > /dev/null); then
+		wl-paste
+	else
+		echo "ERROR: Could not find a clipboard utility"
+	fi
+}
+
+copy_to_clipboard() {
+	if (which pbcopy > /dev/null); then
+		pbcopy
+	elif (which xclip > /dev/null); then
+		xclip -selection clipboard
+	elif (which wl-copy > /dev/null); then
+		wl-copy
+	else
+		echo "ERROR: Could not find a clipboard utility"
+	fi
+}
+
 convert_clipboard_to_plaintext() {
 	# Takes the clipboard contents and converts it to plaintext, in-place
-	text=$(pbpaste)
-	echo "$text" | pbcopy
+	text=$(get_clipboard_contents)
+	echo "$text" | copy_to_clipboard
 }
 
 copy_html_to_clipboard() {
@@ -85,7 +109,7 @@ markdown_to_html_clipboard() {
 	md="$1"
 	# If no arg, grab from clipboard
 	if [[ -z "$md" ]]; then
-		md=$(pbpaste)
+		md=$(get_clipboard_contents)
 	fi
 	html=""
 	if (which pandoc > /dev/null); then
@@ -242,7 +266,7 @@ git_behind_ahead() {
 
 git_select_commit() {
 	MAX_PAST_COMMITS_TO_LIST=40
-	commits=$(git log --pretty=format:"%h %s" -n $MAX_PAST_COMMITS_TO_LIST)
+	commits=$(git log --pretty=format:"%H %s" -n $MAX_PAST_COMMITS_TO_LIST)
 
 	# Use fzf to interactively select a commit
 	commit=$(echo "$commits" | fzf --height 70% --reverse --ansi)
@@ -255,7 +279,7 @@ git_select_commit() {
 
 git_copy_commit() {
 	commit_hash=$(git_select_commit)
-	echo "$commit_hash" | pbcopy
+	echo "$commit_hash" | copy_to_clipboard
 }
 
 # Use this to interactively select a past commit to target for `git commit --fixup=`

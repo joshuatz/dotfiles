@@ -32,6 +32,7 @@ bootstrap() {
 		source ~/.bash_profile
 	else
 		echo 'unknown shell'
+		return 1
 	fi
 }
 
@@ -116,6 +117,12 @@ push() {
 		echo "✅ Pushed VS Code"
 	else
 		echo "⏩ Skipped: VS Code"
+	fi
+
+	# For files that require sudo, let's diff first to avoid password prompt if we don't have to use it
+	LIBINPUT_QUIRKS_FILE=./libinput-local-overrides.quirks
+	if ! (diff /etc/libinput/local-overrides.quirks "$LIBINPUT_QUIRKS_FILE" > /dev/null); then
+		sudo cp "$LIBINPUT_QUIRKS_FILE" /etc/libinput/local-overrides.quirks
 	fi
 
 	bootstrap

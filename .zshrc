@@ -144,6 +144,13 @@ fi
 # Make sure asdf comes last, so its shims can override any path stuff filled in
 # previous steps
 export ASDF_GOLANG_MOD_VERSION_ENABLED=true
-[[ -f /usr/local/opt/asdf/libexec/asdf.sh ]] && source /usr/local/opt/asdf/libexec/asdf.sh
+if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
+	# Homebrew
+	source /usr/local/opt/asdf/libexec/asdf.sh
+elif [[ -f ~/.asdf/asdf.sh ]]; then
+	# Manual install (e.g. git cloned)
+	source ~/.asdf/asdf.sh
+fi
+
 
 # =========================
