@@ -68,7 +68,10 @@ pull() {
 		cp -R "$CODE_USER_DIR/snippets" vscode/
 
 		# Separate keyboard settings by OS
-		cp "$CODE_USER_DIR/keybindings.json" "vscode/keybindings.$OS_NAME.json"
+		os_keybinding_file="vscode/keybindings.$OS_NAME.json"
+		if [[ -f "$os_keybinding_file" ]]; then
+			cp "$CODE_USER_DIR/keybindings.json" "$os_keybinding_file"
+		fi
 		echo "✅ Pulled VS Code"
 	else
 		echo "⏩ Skipped: VS Code"
@@ -121,8 +124,10 @@ push() {
 
 	# For files that require sudo, let's diff first to avoid password prompt if we don't have to use it
 	LIBINPUT_QUIRKS_FILE=./libinput-local-overrides.quirks
-	if ! (diff /etc/libinput/local-overrides.quirks "$LIBINPUT_QUIRKS_FILE" > /dev/null); then
-		sudo cp "$LIBINPUT_QUIRKS_FILE" /etc/libinput/local-overrides.quirks
+	if [[ "$OS_NAME" == "linux" ]]; then
+		if ! [[ -f "$LIBINPUT_QUIRKS_FILE" ]] || ! (diff /etc/libinput/local-overrides.quirks "$LIBINPUT_QUIRKS_FILE" > /dev/null); then
+			sudo cp "$LIBINPUT_QUIRKS_FILE" /etc/libinput/local-overrides.quirks
+		fi
 	fi
 
 	bootstrap

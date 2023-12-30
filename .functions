@@ -257,9 +257,13 @@ git_sha() {
 	echo "${short}\t${long}"
 }
 
+git_trunk_branch() {
+	git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'
+}
+
 git_behind_ahead() {
 	# Get the trunk / main branch in the repo (e.g. `main`)
-	TRUNK_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//')
+	TRUNK_BRANCH=$(git_trunk_branch)
 	echo "Behind | Ahead"
 	echo "      $(git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD)"
 }
@@ -435,6 +439,8 @@ git_do_while_dirty() {
 	# If operation was clean, nothing to do
 	error_string_test=$(echo "$git_operation_results" | grep -E "error: Your local changes to the following files would be overwritten by")
 
+	# TODO: Add check for `error: The following untracked working tree files would be overwritten by merge:`
+
 	echo "$error_string_test"
 	if [[ "$error_string_test" == "" ]]; then
 		echo "Operation was clean"
@@ -544,8 +550,14 @@ git_branch_delete_pattern() {
 }
 
 git_stats() {
-	# TODO
-	:
+	TRUNK_BRANCH=$(git_trunk_branch)
+	trunk_diff_stats=$(git diff --staged --stat "origin/$TRUNK_BRANCH" | tail -n 1)
+	behind_ahead=$(git_behind_ahead)
+	cat <<- EOF
+		Trunk Branch = $TRUNK_BRANCH
+		Trunk Diff Stats = $trunk_diff_stats
+		Behind / Ahead = $behind_ahead
+	EOF
 }
 
 # Get information about the state of things while stopped during a rebase
@@ -560,9 +572,9 @@ git_tree_view() {
 		printf "What to show? [Aa]ll / ENTER, Current [Bb]ranch\n"
 		read -r answer
 		case $answer in
-			[Yy]*) break ;;
+			[Aa]*) break ;;
 			"") break ;;
-			[Nn]*) ALL=0 && break ;;
+			[Bb]*) ALL=0 && break ;;
 			[Cc]*) return 0 ;;
 		esac
 	done
