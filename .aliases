@@ -5,11 +5,12 @@ alias list="ls -halt"
 alias gtask="task -t ~/Taskfile.global.yml"
 
 # Git
+alias git-search="git log -p -G"
+alias gca="git commit --amend"
+alias gcan="git commit --amend --no-edit"
+alias gl="git log"
 # 3rd party aliases (provided by oh-my-zsh)
 #	https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/git/git.plugin.zsh
 #	gd = git diff
 #	gds = git diff --staged
 #	... many more
-alias git-search="git log -p -G"
-alias gcan="git commit --amend --no-edit"
-alias gl="git log"

@@ -116,7 +116,10 @@ push() {
 		cp vscode/settings.json "$CODE_USER_DIR/settings.json"
 		cp vscode/tasks.json "$CODE_USER_DIR/tasks.json"
 		cp -R vscode/snippets "$CODE_USER_DIR/"
-		cp "vscode/keybindings.$OS_NAME.json" "$CODE_USER_DIR/keybindings.json"
+		OS_KEYBINDINGS_FILE="vscode/keybindings.$OS_NAME.json"
+		if [[ -f "$OS_KEYBINDINGS_FILE" ]]; then
+			cp "$OS_KEYBINDINGS_FILE" "$CODE_USER_DIR/keybindings.json"
+		fi
 		echo "✅ Pushed VS Code"
 	else
 		echo "⏩ Skipped: VS Code"

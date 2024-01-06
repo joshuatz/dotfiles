@@ -100,6 +100,19 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
+# ==== Customizations =====
+
+# Autocomplete - ORDER MATTERS
+unsetopt complete_aliases
+autoload -Uz compinit
+compinit
+
+# Load main customization files
+[[ -f ~/.functions ]] && source ~/.functions
+[[ -f ~/.aliases ]] && source ~/.aliases
+
+computer_name=$(get_computer_name)
+
 if type brew &>/dev/null; then
 	FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
 
@@ -118,19 +131,13 @@ if type brew &>/dev/null; then
 			FPATH="$FPATH:$_path"
 		fi
 	done
+
+	# monkey business with PG via homebrew - especially useful / necessary for psycopg2
+	if [[ "$computer_name" == "Joshua’s MacBook Pro" ]]; then
+		PG_CONFIG_PATH="$(greadlink -f $(brew --prefix postgresql@12))/bin"
+		export PATH="$PATH:$PG_CONFIG_PATH"
+	fi
 fi
-
-
-# ==== Customizations =====
-
-# Autocomplete - ORDER MATTERS
-unsetopt complete_aliases
-autoload -Uz compinit
-compinit
-
-# Load main customization files
-[[ -f ~/.functions ]] && source ~/.functions
-[[ -f ~/.aliases ]] && source ~/.aliases
 
 # GPG signing
 export GPG_TTY=$(tty)
