@@ -41,9 +41,9 @@ pull() {
 
 	# Tabby
 	if [[ -f "$TABBY_CONFIG_FILE" ]]; then
-		cp "$TABBY_CONFIG_FILE" ./tabby.config.yml
+		cp "$TABBY_CONFIG_FILE" ./tabby.config.yml.tmp
 		# Remove `recentProfiles` YML entry, that doesn't need to be synced and contains folder names
-		TABBY_CONFIG="$(cat ./tabby.config.yml)" node <<-"EOF" > tabby.config.yml
+		TABBY_CONFIG="$(cat ./tabby.config.yml.tmp)" node <<-"EOF" > tabby.config.yml
 		const TABBY_CONFIG = process.env.TABBY_CONFIG
 		cleaned = TABBY_CONFIG.replace(/recentProfiles:.*^clickableLinks:/gms, 'clickableLinks:');
 		if (cleaned.includes('cwd')) {
@@ -52,6 +52,7 @@ pull() {
 		}
 		console.log(cleaned)
 		EOF
+		rm ./tabby.config.yml.tmp
 		echo "✅ Pulled: Tabby"
 	else
 		echo "⏩ Skipped: Tabby"

@@ -9,6 +9,7 @@ alias git-search="git log -p -G"
 alias gca="git commit --amend"
 alias gcan="git commit --amend --no-edit"
 alias gl="git log"
+alias git-commit-skip-hooks="git commit --no-verify"
 # 3rd party aliases (provided by oh-my-zsh)
 #	https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/git/git.plugin.zsh
 #	gd = git diff

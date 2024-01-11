@@ -198,6 +198,26 @@
 			"</style>"
 		]
 	},
+	"Svelte TypeScript SFC, with component comment": {
+		"prefix": "Svelte TypeScript TS SFC, with component comment",
+		"scope": "svelte, markdown",
+		"body": [
+			"<!--",
+			"@component COMPONENT_DESCRIPTION"
+			"-->",
+			"",
+			"<script lang=\"ts\">",
+			"\t//",
+			"</script>",
+			"",
+			"<div class=\"\">",
+			"</div>",
+			"",
+			"<style>",
+			"\t/*  */",
+			"</style>"
+		]
+	},
 	"Prettier - Ignore Next Line - JS / TS": {
 		"prefix": "Prettier - Ignore Next Line - JS / TS",
 		"scope": "javascript, typescript, svelte, vue",

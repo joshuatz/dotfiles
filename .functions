@@ -261,6 +261,16 @@ git_trunk_branch() {
 	git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'
 }
 
+git_update_local_trunk() {
+	TRUNK_BRANCH=$(git_trunk_branch)
+	CURRENT_BRANCH=$(git_branch_name)
+	if [[ "$TRUNK_BRANCH" == "$CURRENT_BRANCH" ]]; then
+		git pull
+		return
+	fi
+	git fetch . origin/"$TRUNK_BRANCH":"$TRUNK_BRANCH"
+}
+
 git_behind_ahead() {
 	# Get the trunk / main branch in the repo (e.g. `main`)
 	TRUNK_BRANCH=$(git_trunk_branch)
@@ -588,6 +598,58 @@ git_tree_view() {
 docker_get_working_dir() {
 	CONTAINER_REF=$1
 	docker inspect --format='{{json .Config.Labels}}' "$CONTAINER_REF" | jq '.["com.docker.compose.project.working_dir"]'
+}
+
+# Pick a small(ish) docker image; useful for various ephemeral purposes
+docker_pick_minimal_image_name() {
+	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)"; do
+		case $image in
+			# https://hub.docker.com/_/busybox
+			busybox*) echo "busybox" && break ;;
+			# https://hub.docker.com/_/alpine
+			alpine*) echo "alpine" && break ;;
+			# https://hub.docker.com/_/debian
+			debian*) echo "debian" && break ;;
+			# https://hub.docker.com/_/ubuntu
+			ubuntu*) echo "ubuntu" && break ;;
+			*) echo "Invalid selection" ;;
+		esac
+	done
+}
+
+# Uses a temporary (small) docker container to mount a volume for inspection
+docker_inspect_volume() {
+	VOLUME_NAME=$1
+	if ! (docker volume ls | grep "$VOLUME_NAME$" > /dev/null); then
+		echo "Volume not found"
+		return 1
+	fi
+	IMAGE_NAME=$(docker_pick_minimal_image_name)
+	IMAGE_SHELL=$(echo "$IMAGE_NAME" | grep -q -E "busybox|alpine" && echo "sh" || echo "bash")
+	cat <<- EOF
+		Temp Image = $IMAGE_NAME
+		Shell = $IMAGE_SHELL
+		Volume = $VOLUME_NAME
+		Container Mount = /tmp/volume
+
+		Have fun inspecting!
+	EOF
+	docker run --rm -it -v "$VOLUME_NAME":/tmp/volume "$IMAGE_NAME" "$IMAGE_SHELL" -c "cd /tmp/volume; exec $IMAGE_SHELL"
+}
+
+npm_find_npx_global_pkg() {
+	PACKAGE_NAME=$1
+	find ~/.npm/_npx -type d -name "$PACKAGE_NAME"
+}
+
+# Execute a command with the global version of an asdf plugin, regardless of which dir
+# you are in.
+# @example `asdf_exec_with_global_version node --version`
+asdf_exec_with_global_version() {
+	# This is kind of hacky, but it works and asdf doesn't provide a "get global version" API
+	# https://github.com/asdf-vm/asdf/issues/1340
+	(cd /; asdf exec "$@")
+	# Note: Above should pass through exit code, so no need to check and re-throw
 }
 
 # This is currently pretty macoS specific

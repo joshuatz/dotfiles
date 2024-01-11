@@ -8,15 +8,21 @@ I try to avoid implicit dependencies with shell scripting when possible, but som
 
 As of right now, the most frequently used dependencies would be:
 
-- [Python](https://www.python.org/)
 - [fzf](https://github.com/junegunn/fzf)
-- Some sort of clipboard manager (which is only an issue on Linux distros where it is not bundled with it)
+- Some sort of clipboard manager (which is only an issue on Linux distros where it is not bundled with it):
+	- macOS: `pbcopy` / `pbpaste`
+	- Linux, X: `xclip`
+	- Linux, Wayland: `wl-copy` / `wl-paste`
+- [Node.js](https://nodejs.org/en)
+- [Python](https://www.python.org/)
 
 ## Primary Commands
 
 Run `. ./manage.sh && push` to copy files _out_ of this repo.
 
 Run `. ./manage.sh && pull` to pull local settings _into_ this repo.
+
+> If either of the above commands fail and your terminal exits, use ` || true` for easier debugging
 
 ## Notes to Self
 
