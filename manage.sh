@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+SCRIPT_DIR=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
+
 COMPUTER_NAME=""
 if (which scutil > /dev/null); then
 	COMPUTER_NAME=$(scutil --get ComputerName)
@@ -24,11 +26,11 @@ TABBY_CONFIG_FILE=$USER_CONFIG_DIR/tabby/config.yaml
 bootstrap() {
 	if [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
 		echo "Bootstrapping for ZSH"
-		cp .zshrc ~/.zshrc
+		cp "$SCRIPT_DIR/.zshrc" ~/.zshrc
 		exec zsh
 	elif [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
 		echo "Bootstrapping for Bash"
-		cp .bash_profile ~/.bash_profile
+		cp "$SCRIPT_DIR/.bash_profile" ~/.bash_profile
 		source ~/.bash_profile
 	else
 		echo 'unknown shell'
@@ -61,17 +63,17 @@ pull() {
 	# VS Code
 	if (which code > /dev/null); then
 		# Export extensions
-		code --list-extensions > vscode/extensions.txt
+		code --list-extensions > "$SCRIPT_DIR/vscode/extensions.txt"
 
 		# Export config files
-		cp "$CODE_USER_DIR/settings.json" vscode/settings.json
-		cp "$CODE_USER_DIR/tasks.json" vscode/tasks.json
-		cp -R "$CODE_USER_DIR/snippets" vscode/
+		cp "$CODE_USER_DIR/settings.json" "$SCRIPT_DIR/vscode/settings.json"
+		cp "$CODE_USER_DIR/tasks.json" "$SCRIPT_DIR/vscode/tasks.json"
+		cp -R "$CODE_USER_DIR/snippets" "$SCRIPT_DIR/vscode/"
 
 		# Separate keyboard settings by OS
 		os_keybinding_file="vscode/keybindings.$OS_NAME.json"
 		if [[ -f "$os_keybinding_file" ]]; then
-			cp "$CODE_USER_DIR/keybindings.json" "$os_keybinding_file"
+			cp "$CODE_USER_DIR/keybindings.json" "$SCRIPT_DIR/$os_keybinding_file"
 		fi
 		echo "✅ Pulled VS Code"
 	else
@@ -81,7 +83,7 @@ pull() {
 	# OBS - Mac
 	obs_settings_dir="$HOME/Library/Application Support/obs-studio/basic"
 	if (stat "$obs_settings_dir" > /dev/null); then
-		obs_backup_dir="./obs/$COMPUTER_NAME"
+		obs_backup_dir="$SCRIPT_DIR/obs/$COMPUTER_NAME"
 		mkdir -p "$obs_backup_dir"
 		cp -R "$obs_settings_dir" "$obs_backup_dir"
 		echo "✅ Pulled OBS"
@@ -91,10 +93,10 @@ pull() {
 }
 
 push() {
-	cp Taskfile.global.yml ~/Taskfile.global.yml
-	cp .functions ~/.functions
-	cp .aliases ~/.aliases
-	cp global.gitignore ~/global.gitignore
+	cp "$SCRIPT_DIR/Taskfile.global.yml" ~/Taskfile.global.yml
+	cp "$SCRIPT_DIR/.functions" ~/.functions
+	cp "$SCRIPT_DIR/.aliases" ~/.aliases
+	cp "$SCRIPT_DIR/global.gitignore" ~/global.gitignore
 
 	# Todo: This needs to be merged, not overwritten, because it contains stuff like
 	# email = REDACTED
@@ -114,10 +116,10 @@ push() {
 		rm "$TEMP_PATH"
 
 		# Sync config files
-		cp vscode/settings.json "$CODE_USER_DIR/settings.json"
-		cp vscode/tasks.json "$CODE_USER_DIR/tasks.json"
-		cp -R vscode/snippets "$CODE_USER_DIR/"
-		OS_KEYBINDINGS_FILE="vscode/keybindings.$OS_NAME.json"
+		cp "$SCRIPT_DIR/vscode/settings.json" "$CODE_USER_DIR/settings.json"
+		cp "$SCRIPT_DIR/vscode/tasks.json" "$CODE_USER_DIR/tasks.json"
+		cp -R "$SCRIPT_DIR/vscode/snippets" "$CODE_USER_DIR/"
+		OS_KEYBINDINGS_FILE="$SCRIPT_DIR/vscode/keybindings.$OS_NAME.json"
 		if [[ -f "$OS_KEYBINDINGS_FILE" ]]; then
 			cp "$OS_KEYBINDINGS_FILE" "$CODE_USER_DIR/keybindings.json"
 		fi
@@ -127,7 +129,7 @@ push() {
 	fi
 
 	# For files that require sudo, let's diff first to avoid password prompt if we don't have to use it
-	LIBINPUT_QUIRKS_FILE=./libinput-local-overrides.quirks
+	LIBINPUT_QUIRKS_FILE="$SCRIPT_DIR/libinput-local-overrides.quirks"
 	if [[ "$OS_NAME" == "linux" ]]; then
 		if ! [[ -f "$LIBINPUT_QUIRKS_FILE" ]] || ! (diff /etc/libinput/local-overrides.quirks "$LIBINPUT_QUIRKS_FILE" > /dev/null); then
 			sudo cp "$LIBINPUT_QUIRKS_FILE" /etc/libinput/local-overrides.quirks
