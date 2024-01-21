@@ -113,6 +113,30 @@ compinit
 
 computer_name=$(get_computer_name)
 
+# GPG signing
+export GPG_TTY=$(tty)
+
+# Poetry
+POETRY_BIN_DIR="$HOME/Library/Application Support/pypoetry/venv/bin"
+if [[ -d $POETRY_BIN_DIR ]]; then
+	export PATH="$POETRY_BIN_DIR:$PATH"
+fi
+
+# asdf
+# Note that this is coming before brew, so that asdf plugins will be preferred
+# over global brew installs (e.g., if accidentally installed some bin through
+# both tools)
+export ASDF_GOLANG_MOD_VERSION_ENABLED=true
+if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
+	# Homebrew
+	source /usr/local/opt/asdf/libexec/asdf.sh
+elif [[ -f ~/.asdf/asdf.sh ]]; then
+	# Manual install (e.g. git cloned)
+	source ~/.asdf/asdf.sh
+fi
+
+# Make sure brew comes last, so its shims can override any path stuff filled in
+# previous steps
 if type brew &>/dev/null; then
 	FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
 
@@ -138,26 +162,5 @@ if type brew &>/dev/null; then
 		export PATH="$PATH:$PG_CONFIG_PATH"
 	fi
 fi
-
-# GPG signing
-export GPG_TTY=$(tty)
-
-# Poetry
-POETRY_BIN_DIR="$HOME/Library/Application Support/pypoetry/venv/bin"
-if [[ -d $POETRY_BIN_DIR ]]; then
-	export PATH="$POETRY_BIN_DIR:$PATH"
-fi
-
-# Make sure asdf comes last, so its shims can override any path stuff filled in
-# previous steps
-export ASDF_GOLANG_MOD_VERSION_ENABLED=true
-if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
-	# Homebrew
-	source /usr/local/opt/asdf/libexec/asdf.sh
-elif [[ -f ~/.asdf/asdf.sh ]]; then
-	# Manual install (e.g. git cloned)
-	source ~/.asdf/asdf.sh
-fi
-
 
 # =========================
