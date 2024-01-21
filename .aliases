@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Don't use `set -e`
 
+alias is_symlink="test -L"
 alias list="ls -halt"
 alias gtask="task -t ~/Taskfile.global.yml"
+alias npxg="npx_exec_global"
 
 # Git
 alias git-search="git log -p -G"
@@ -15,3 +17,6 @@ alias git-commit-skip-hooks="git commit --no-verify"
 #	gd = git diff
 #	gds = git diff --staged
 #	... many more
+
+# Work
+alias work-time="asdf_exec_with_global_version npm exec -- jttu harvest rollup --target-user=just-me --target-week=this"

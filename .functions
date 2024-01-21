@@ -241,6 +241,30 @@ wipe() {
 	clear
 }
 
+render_image() {
+	IMAGE_PATH=$1
+
+	# ImageMagick
+	if (which display > /dev/null); then
+		# Sometimes can be installed, but misconfigured. Can use a simple` --version`
+		# check to verify
+		if (display --version > /dev/null 2>&1); then
+			display "$IMAGE_PATH"
+			return
+		else
+			echo "WARNING: ImageMagick installed, but not configured correctly"
+		fi
+	fi
+
+	if (which chafa > /dev/null); then
+		chafa "$IMAGE_PATH"
+		return
+	fi
+
+	echo "ERROR: Could not find a suitable image viewer"
+	return 1
+}
+
 # Note: This is ZSH specific; todo - make agnostic?
 reload_func() {
 	unfunction "_$1" && compinit
@@ -637,7 +661,14 @@ docker_inspect_volume() {
 	docker run --rm -it -v "$VOLUME_NAME":/tmp/volume "$IMAGE_NAME" "$IMAGE_SHELL" -c "cd /tmp/volume; exec $IMAGE_SHELL"
 }
 
-npm_find_npx_global_pkg() {
+# Find the true global package dir / bin for a brew installed package
+# e.g. `brew_find_global_pkd_dir fzf` -> `/usr/local/Cellar/fzf/0.45.0`
+brew_find_global_pkd_dir() {
+	PACKAGE_NAME=$1
+	readlink -f "$(brew --prefix "$PACKAGE_NAME")"
+}
+
+npm_find_npx_global_pkg_dir() {
 	PACKAGE_NAME=$1
 	find ~/.npm/_npx -type d -name "$PACKAGE_NAME"
 }
@@ -650,6 +681,14 @@ asdf_exec_with_global_version() {
 	# https://github.com/asdf-vm/asdf/issues/1340
 	(cd /; asdf exec "$@")
 	# Note: Above should pass through exit code, so no need to check and re-throw
+}
+
+npx_exec_global() {
+	asdf_exec_with_global_version npx --no-install "$@"
+}
+
+npm_ls_global() {
+	asdf_exec_with_global_version npm ls -g --depth=0 "$1"
 }
 
 # This is currently pretty macoS specific
