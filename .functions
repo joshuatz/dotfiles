@@ -673,6 +673,23 @@ npm_find_npx_global_pkg_dir() {
 	find ~/.npm/_npx -type d -name "$PACKAGE_NAME"
 }
 
+npm_find_global_pkg_dir() {
+	PACKAGE_NAME=$1
+	GLOBAL_NODE_MODULES=$(asdf_exec_with_global_version npm root -g)
+	# Make sure to scan for symlinks as well, to handle `npm link` and friends
+	find -L "$GLOBAL_NODE_MODULES" -type d -name "$PACKAGE_NAME"
+}
+
+# Generate an ESM import statement, out of your global node_modules
+# Pretty hacky: not many good reasons to use this, other than for fiddling around
+scaffold_global_node_import() {
+	PACKAGE_NAME=$1
+	PACKAGE_DIR=$(npm_find_global_pkg_dir "$PACKAGE_NAME")
+	copy_to_clipboard <<- EOF
+	import {} from '$PACKAGE_DIR'
+	EOF
+}
+
 # Execute a command with the global version of an asdf plugin, regardless of which dir
 # you are in.
 # @example `asdf_exec_with_global_version node --version`
