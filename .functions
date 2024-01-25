@@ -760,6 +760,24 @@ npm_ls_global() {
 	asdf_exec_with_global_version npm ls -g --depth=0 "$1"
 }
 
+# This is a workaround to tell the task runner that a given task is up-to-date,
+# without actually running the task to generate the new fingerprint / checksum.
+# Ideally, there would be a way to do this directly via the task cli (e.g. `task --mark-up-to-date`)
+# See `scripts/task_mark_up_to_date.mjs` for full details`
+task_mark_up_to_date() {
+	: "${TASKFILE_PATH:="$PWD/Taskfile.yml"}"
+	if [[ ! -f "$TASKFILE_PATH" ]]; then
+		echo "ERROR: Could not find $TASKFILE_PATH"
+		return 1
+	fi
+	if [[ -z "$TASK_NAME" ]]; then
+		echo "ERROR: Please define $TASK_NAME"
+		return 1
+	fi
+	run_file_in_global_node "$HOME/scripts/task_mark_up_to_date.mjs"
+}
+
+
 # This is currently pretty macoS specific
 # Also, runs code that triggers OS permission checks, so will fail if denied
 whats_up() {

@@ -93,10 +93,15 @@ pull() {
 }
 
 push() {
+	# Single files
 	cp "$SCRIPT_DIR/Taskfile.global.yml" ~/Taskfile.global.yml
 	cp "$SCRIPT_DIR/.functions" ~/.functions
 	cp "$SCRIPT_DIR/.aliases" ~/.aliases
 	cp "$SCRIPT_DIR/global.gitignore" ~/global.gitignore
+
+	# Dirs
+	# TODO, make this more streamlined (symlinks? dynamic resolution?)
+	cp -r "$SCRIPT_DIR/scripts" ~/
 
 	# Todo: This needs to be merged, not overwritten, because it contains stuff like
 	# email = REDACTED
