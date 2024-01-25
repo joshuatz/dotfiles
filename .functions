@@ -23,6 +23,10 @@ get_computer_name() {
 	uname -n | sed -e 's/\.local$//'
 }
 
+pretty_path() {
+	echo "$PATH" | tr ':' '\n'
+}
+
 # You can use this to parse version strings and then use the resulting number for comparison
 # Example:
 #     if [[ $(parse_version_string $(git --version | grep -E -o "\d+\.\d+.\d+$")) -ge $(parse_version_string "2.39.0") ]]
@@ -131,7 +135,7 @@ date_ms() {
 		gdate +%s%3N
 	else
 		date +%s000
-		echo "WARNING: gdate not found; faking millseconds from seconds"
+		# echo "WARNING: gdate not found; faking millseconds from seconds"
 	fi
 }
 
@@ -670,24 +674,71 @@ brew_find_global_pkd_dir() {
 
 npm_find_npx_global_pkg_dir() {
 	PACKAGE_NAME=$1
-	find ~/.npm/_npx -type d -name "$PACKAGE_NAME"
+	find "$HOME/.npm/_npx" -type d -name "$PACKAGE_NAME"
+}
+
+# NOTE: This is for packages installed with `-g`, not those installed via npx
+# For npx, use `npm_find_npx_global_pkg_dir`, for which each package gets an isolated
+# subdir, not a shared node_modules
+npm_find_global_node_modules() {
+	asdf_exec_with_global_version npm root -g
 }
 
 npm_find_global_pkg_dir() {
 	PACKAGE_NAME=$1
-	GLOBAL_NODE_MODULES=$(asdf_exec_with_global_version npm root -g)
+	GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
 	# Make sure to scan for symlinks as well, to handle `npm link` and friends
-	find -L "$GLOBAL_NODE_MODULES" -type d -name "$PACKAGE_NAME"
+	found_dir=$(find -L "$GLOBAL_NODE_MODULES" -type d -depth 1 -name "$PACKAGE_NAME")
+	if [[ -z "$found_dir" ]]; then
+		echo "ERROR: Could not find $PACKAGE_NAME in global node_modules"
+		return 1
+	fi
+	echo "$found_dir" | head -n 1
 }
 
 # Generate an ESM import statement, out of your global node_modules
 # Pretty hacky: not many good reasons to use this, other than for fiddling around
+# @see run_...in_global_node fns for a slightly better approach (but still hacky / just for fiddling)
 scaffold_global_node_import() {
 	PACKAGE_NAME=$1
 	PACKAGE_DIR=$(npm_find_global_pkg_dir "$PACKAGE_NAME")
 	copy_to_clipboard <<- EOF
 	import {} from '$PACKAGE_DIR'
 	EOF
+}
+
+run_file_in_global_node() {
+	GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
+	# TODO clean this up with piping?
+	FILE_TO_EXEC="$1"
+	FILENAME=$(basename "$FILE_TO_EXEC")
+	# no-clobber
+	cp -n "$FILE_TO_EXEC" "$GLOBAL_NODE_MODULES/"
+	# WARNING: This might seem super hacky - why not just use `NODE_PATH=$GLOBAL_NODE_MODULES`?
+	# Well, that *would* work, except for that they decided to ignore `NODE_PATH` when
+	# moving to ESM `import` 🙃
+	# https://nodejs.org/api/esm.html#esm_no_node_path
+	(
+		cd "$GLOBAL_NODE_MODULES" || exit
+		node "$FILENAME"
+	)
+	rm "$GLOBAL_NODE_MODULES/$FILENAME"
+}
+
+run_raw_js_in_global_node() {
+	RAW_CODE_TO_RUN=$1
+	GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
+	(
+		cd "$GLOBAL_NODE_MODULES" || exit
+		node --eval "$RAW_CODE_TO_RUN"
+	)
+}
+
+repl_in_global_node() {
+	GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
+	pushd "$GLOBAL_NODE_MODULES" || exit
+	node --experimental-repl-await
+	popd || exit
 }
 
 # Execute a command with the global version of an asdf plugin, regardless of which dir
@@ -700,6 +751,7 @@ asdf_exec_with_global_version() {
 	# Note: Above should pass through exit code, so no need to check and re-throw
 }
 
+# Note to self: you can use `--package` to avoid ambiguity around package name vs bin / entrypoint
 npx_exec_global() {
 	asdf_exec_with_global_version npx --no-install "$@"
 }
