@@ -766,15 +766,16 @@ npm_ls_global() {
 # See `scripts/task_mark_up_to_date.mjs` for full details`
 task_mark_up_to_date() {
 	: "${TASKFILE_PATH:="$PWD/Taskfile.yml"}"
+	TASK_NAME=$1
 	if [[ ! -f "$TASKFILE_PATH" ]]; then
 		echo "ERROR: Could not find $TASKFILE_PATH"
 		return 1
 	fi
 	if [[ -z "$TASK_NAME" ]]; then
-		echo "ERROR: Please define $TASK_NAME"
+		echo "ERROR: Please define TASK_NAME"
 		return 1
 	fi
-	run_file_in_global_node "$HOME/scripts/task_mark_up_to_date.mjs"
+	TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/scripts/task_mark_up_to_date.mjs"
 }
 
 

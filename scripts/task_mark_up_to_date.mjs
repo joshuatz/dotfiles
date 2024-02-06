@@ -26,7 +26,7 @@ const taskName = process.env.TASK_NAME;
 const taskfilePath = process.env.TASKFILE_PATH;
 
 if (!taskName || !taskfilePath) {
-	console.error('Invalid taskfile path or task name');
+	console.error(`Invalid taskfile path (${taskfilePath}) or task name (${taskName})`);
 	process.exit(1);
 }
 const taskfileDir = path.dirname(taskfilePath);
