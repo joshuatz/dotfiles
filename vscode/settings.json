@@ -342,6 +342,7 @@
 	"editor.linkedEditing": true,
 	"redhat.telemetry.enabled": false,
 	"autoDocstring.guessTypes": false,
+	// @TODO - python.linting deprecated --- need to cleap up
 	// DEFAULT = ON, and Flake8
 	"python.linting.enabled": true,
 	"python.linting.flake8Enabled": true,
@@ -352,6 +353,7 @@
 	"python.linting.pylintArgs": [
 		"--enable=W0614" // Remove unused imports
 	],
+	// @TODO - python.formatting deprecated --- need to cleap up
 	"python.formatting.provider": "black",
 	"python.formatting.blackPath": "/Users/joshua/jtzdev/python-scratch/venv/bin/black",
 	"python.formatting.blackArgs": ["--line-length", "79", "--skip-string-normalization"],
@@ -359,6 +361,10 @@
 	"python.formatting.autopep8Args": ["--max-line-length", "79", "--experimental"],
 	"python.formatting.yapfPath": "/Users/joshua/jtzdev/python-scratch/venv/bin/yapf",
 	"python.formatting.yapfArgs": ["--style='{based_on_style: pep8, column_limit: 79}'"],
+	// Type-checking, auto-import, etc.
+	// If good type support, up to 'strict'
+	"python.analysis.typeCheckingMode": "basic",
+	"python.analysis.autoImportCompletions": true,
 	// Aggressive python formatting!
 	"[python]": {
 		"editor.defaultFormatter": "ms-python.python",

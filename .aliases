@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 # Don't use `set -e`
 
+# === File management ===
 alias is_symlink="test -L"
 alias list="ls -halt"
+# -c = created
+# -z = compress
+# -v = verbose
+# -f = file / file as archive
+# Can pass dirs and/or files
+# Example: `tar -czvf output.tar.gz /dir/sub_dir file_a file_b`
+alias tgz_create="tar -czvf"
+
+# === Global stuff ===
 alias gtask="task -t ~/Taskfile.global.yml"
 alias npxg="npx_exec_global"
+alias node_repl="node --experimental-repl-await"
 
 # Git
 alias git-search="git log -p -G"
@@ -19,4 +30,4 @@ alias git-commit-skip-hooks="git commit --no-verify"
 #	... many more
 
 # Work
-alias work-time="asdf_exec_with_global_version npm exec -- jttu harvest rollup --target-user=just-me --target-week=this"
+alias work-time="npx --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"
