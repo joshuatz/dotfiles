@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Don't use `set -e`
 
+# === Docs / Help ===
+alias docs="open https://docs.joshuatz.com/"
+
 # === File management ===
 alias is_symlink="test -L"
 alias list="ls -halt"
@@ -11,13 +14,20 @@ alias list="ls -halt"
 # Can pass dirs and/or files
 # Example: `tar -czvf output.tar.gz /dir/sub_dir file_a file_b`
 alias tgz_create="tar -czvf"
+alias tgz_list="tar -tzvf"
+alias exif="exiftool"
+# -D = show with decimal
+# -u = include unknown
+# -U = include binary unknown
+# Tip: exiftool supports JSON output! `-json`
+alias exif_full="exiftool -D -u -U"
 
 # === Global stuff ===
 alias gtask="task -t ~/Taskfile.global.yml"
 alias npxg="npx_exec_global"
 alias node_repl="node --experimental-repl-await"
 
-# Git
+# === git ===
 alias git-search="git log -p -G"
 alias gca="git commit --amend"
 alias gcan="git commit --amend --no-edit"
@@ -29,5 +39,5 @@ alias git-commit-skip-hooks="git commit --no-verify"
 #	gds = git diff --staged
 #	... many more
 
-# Work
+# === work ===
 alias work-time="npx --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"

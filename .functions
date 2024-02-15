@@ -45,10 +45,6 @@ reload() {
 	fi
 }
 
-printpath() {
-	echo "$PATH" | tr ":" "\n"
-}
-
 get_clipboard_contents() {
 	if (which pbpaste > /dev/null); then
 		pbpaste
@@ -623,6 +619,18 @@ git_tree_view() {
 	fi
 }
 
+docker_pick_container() {
+	container_list=$(docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}")
+	container=$(echo "$container_list" | fzf --height 40% --reverse)
+	container_id=$(echo "$container" | awk '{print $1}')
+	echo "$container_id"
+}
+
+docker_exec_it() {
+	CONTAINER_REF=$(docker_pick_container)
+	docker exec -it "$CONTAINER_REF" bash
+}
+
 docker_get_working_dir() {
 	CONTAINER_REF=$1
 	docker inspect --format='{{json .Config.Labels}}' "$CONTAINER_REF" | jq '.["com.docker.compose.project.working_dir"]'
@@ -804,11 +812,11 @@ Active Window = $WINDOW_TITLE
 EOF
 )
 
-	if (which jttu > /dev/null); then
+	if (npx --package jtz-time-tracker-utils jttu --version > /dev/null); then
 		STATUS_STRING=$(cat << EOF
 $STATUS_STRING
 ==== Time Tracker ====
-$(jttu harvest status)
+$(npx --package jtz-time-tracker-utils jttu harvest status)
 ======================
 EOF
 )
