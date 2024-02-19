@@ -448,6 +448,24 @@ git_do_while_dirty() {
 	git_operation="$*"
 	IFS=
 
+	# If no operation was provided, default to very last command
+	if [[ -z "$git_operation" ]]; then
+		git_operation=$(fc -ln -1)
+		echo "No command passed. Did you want to retry your last command?"
+		printf "\t%s\n" "$git_operation"
+		while true; do
+			printf "Retry? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
+			read -r answer
+			case $answer in
+				[Yy]*) break ;;
+				"") break ;;
+				[Nn]*) return 0 ;;
+				[Cc]*) return 0 ;;
+			esac
+		done
+	fi
+
+
 	# If user forgot to include `git`, add it for them. E.g., passing `pull` instead of `git pull`
 	if [[ $git_operation != git* ]]; then
 		git_operation="git $git_operation"
@@ -510,6 +528,7 @@ EOF
 		done
 	fi
 
+	ITEMS_PRESERVED=0
 	# Go through list of conflicting files and ask what the user wants to do
 	preserve="unsure"
 	# different fd (`<&9`) is to avoid conflict with inner `read`
@@ -537,9 +556,11 @@ EOF
 			git checkout "$dirty_file"
 		elif [[ $preserve == "all" ]]; then
 			git add "$dirty_file"
+			ITEMS_PRESERVED=$((ITEMS_PRESERVED+1))
 		else
 			if [[ $preserve == "yes" ]]; then
 				git add "$dirty_file"
+				ITEMS_PRESERVED=$((ITEMS_PRESERVED+1))
 			else
 				git checkout "$dirty_file"
 			fi
@@ -548,13 +569,20 @@ EOF
 		fi
 	done 9<<< "$dirty_files"
 
-	if [[ $use_staged_stash == "true" ]]; then
-		git stash --staged
-	else
-		git stash
+	if [[ $ITEMS_PRESERVED -gt 0 ]]; then
+		if [[ $use_staged_stash == "true" ]]; then
+			git stash --staged
+		else
+			git stash
+		fi
 	fi
+
+	# Actually do the thing
 	$SHELL -c "$git_operation"
-	git stash pop
+
+	if [[ $ITEMS_PRESERVED -gt 0 ]]; then
+		git stash pop
+	fi
 }
 
 # You can use this to delete branch names nested under a slash (or other patterns)
@@ -621,7 +649,7 @@ git_tree_view() {
 
 docker_pick_container() {
 	container_list=$(docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}")
-	container=$(echo "$container_list" | fzf --height 40% --reverse)
+	container=$(echo "$container_list" | fzf --height 40% --reverse --header-lines=1)
 	container_id=$(echo "$container" | awk '{print $1}')
 	echo "$container_id"
 }
@@ -671,6 +699,14 @@ docker_inspect_volume() {
 		Have fun inspecting!
 	EOF
 	docker run --rm -it -v "$VOLUME_NAME":/tmp/volume "$IMAGE_NAME" "$IMAGE_SHELL" -c "cd /tmp/volume; exec $IMAGE_SHELL"
+}
+
+docker_inspect_image() {
+	: "${DOCKER_SHELL:="bash"}"
+	all_images=$(docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}")
+	selected_image=$(echo "$all_images" | fzf --height 40% --reverse --header-lines=1)
+	image_id=$(echo "$selected_image" | awk '{print $2}')
+	docker run --rm -it "$image_id" "/bin/$DOCKER_SHELL"
 }
 
 # Find the true global package dir / bin for a brew installed package
