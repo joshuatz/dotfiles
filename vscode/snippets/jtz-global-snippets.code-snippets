@@ -268,5 +268,9 @@
 	"Quoted Prop to JSX Braces": {
 		"scope": "javascripreact, typescriptreact",
 		"body": ["${TM_SELECTED_TEXT/^[\"'](.*)[\"']$/{`$1`}/g}"],
+	},
+	"Quoted String to JS Braces": {
+		"scope": "javascript, javascriptreact, typescript, typescriptreact",
+		"body": ["${TM_SELECTED_TEXT/^[\"'](.*)[\"']$/`$1`/g}"],
 	}
 }

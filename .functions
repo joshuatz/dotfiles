@@ -285,6 +285,19 @@ git_trunk_branch() {
 	git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'
 }
 
+git_trunk_ahead_files() {
+	TRUNK_BRANCH=$(git_trunk_branch)
+	git fetch
+	git --no-pager diff --name-only origin/"$TRUNK_BRANCH"...HEAD
+}
+
+# This should essentially be the file list of the diff for your `push`
+git_local_ahead_of_remote_files() {
+	CURRENT_BRANCH=$(git_branch_name)
+	git fetch
+	git --no-pager diff --name-only origin/"$CURRENT_BRANCH"...HEAD
+}
+
 git_update_local_trunk() {
 	TRUNK_BRANCH=$(git_trunk_branch)
 	CURRENT_BRANCH=$(git_branch_name)
@@ -298,6 +311,7 @@ git_update_local_trunk() {
 git_behind_ahead() {
 	# Get the trunk / main branch in the repo (e.g. `main`)
 	TRUNK_BRANCH=$(git_trunk_branch)
+	git fetch
 	echo "Behind | Ahead"
 	echo "      $(git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD)"
 }
@@ -420,6 +434,14 @@ git_auto_rebase() {
 
 git_branch_name() {
 	git rev-parse --abbrev-ref HEAD
+}
+
+# NOTE: This returns the remote branch name, prefixed with the name of the remote itself
+# E.g.
+#	`origin/my-branch`
+git_remote_branch() {
+	# https://stackoverflow.com/a/9753364/11447682
+	git for-each-ref --format='%(upstream:short)' "$(git symbolic-ref -q HEAD)"
 }
 
 git_remote_url() {
@@ -612,12 +634,19 @@ git_branch_delete_pattern() {
 }
 
 git_stats() {
+	git fetch
+	CURRENT_BRANCH=$(git_branch_name)
+	REMOTE_BRANCH=$(git_remote_branch)
+	remote_diff_stats=$(git diff --stat "$REMOTE_BRANCH" | tail -n 1)
 	TRUNK_BRANCH=$(git_trunk_branch)
 	trunk_diff_stats=$(git diff --staged --stat "origin/$TRUNK_BRANCH" | tail -n 1)
 	behind_ahead=$(git_behind_ahead)
 	cat <<- EOF
+		Branch = $CURRENT_BRANCH
 		Trunk Branch = $TRUNK_BRANCH
 		Trunk Diff Stats = $trunk_diff_stats
+		Remote Branch = $REMOTE_BRANCH
+		Remote Diff Stats = $remote_diff_stats
 		Behind / Ahead = $behind_ahead
 	EOF
 }
@@ -820,6 +849,76 @@ task_mark_up_to_date() {
 		return 1
 	fi
 	TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/scripts/task_mark_up_to_date.mjs"
+}
+
+# This might seem like a lot of code just to wrap ffmpeg's `scale`, but this:
+# - Handles rounding auto-heights to be divisible by 2 (which ffmpeg does not)
+# - Picks a `_resized` output filename based on the input
+# - Prompts for target width if not provided, from selection
+ffmpeg_resize() {
+	INPUT_FILE=$1
+	TARGET_WIDTH=$2
+	INPUT_DIR=$(dirname "$INPUT_FILE")
+	INPUT_FILE_EXT=$(basename "$INPUT_FILE" | sed -E 's/^.+(\.[^.]+)$/\1/')
+	INPUT_FILE_NO_EXT=$(basename "$INPUT_FILE" | sed -E 's/\.[^.]+$//')
+	: "${OUTPUT_FILE:="$INPUT_FILE_NO_EXT"_resized"$INPUT_FILE_EXT"}"
+
+	# If target width, not provided, use choices
+	if [[ -z "$TARGET_WIDTH" ]]; then
+		printf "What should the target width be?\n\t[Aa])1920\n\t[Bb])1280\n\t[Cc])720\n\t[Dd])480\n"
+		read -r answer
+		case $answer in
+			A|a) TARGET_WIDTH=1920 ;;
+			B|b) TARGET_WIDTH=1280 ;;
+			C|c) TARGET_WIDTH=720 ;;
+			D|d) TARGET_WIDTH=480 ;;
+			*) echo "Invalid selection" && return 1 ;;
+		esac
+	fi
+
+	# Get width and height of input file
+	INPUT_DIMENSIONS=$(ffprobe -v error -select_streams v -show_entries stream=width,height -of csv=p=0:s=x "$INPUT_FILE")
+	print "INPUT_DIMENSIONS = $INPUT_DIMENSIONS"
+	if ! TARGET_HEIGHT=$(INPUT_DIMENSIONS=$INPUT_DIMENSIONS TARGET_WIDTH=$TARGET_WIDTH node <<- "EOF"
+	const regPatt = /(?<width>\d+)x(?<height>\d+)/i;
+	const INPUT_DIMENSIONS = /** @type {`${string}x${string}`} */ (process.env.INPUT_DIMENSIONS);
+	const TARGET_WIDTH = parseInt(process.env.TARGET_WIDTH);
+
+	if (!regPatt.test(INPUT_DIMENSIONS)) {
+		throw new Error(`Invalid input dimensions (${INPUT_DIMENSIONS})`);
+	}
+
+	if (Number.isNaN(TARGET_WIDTH)) {
+		throw new Error(`Invalid target width (${TARGET_WIDTH})`);
+	}
+
+	const {
+		groups: { width: _width, height: _height },
+	} = regPatt.exec(INPUT_DIMENSIONS);
+	const width = parseInt(_width);
+	const height = parseInt(_height);
+
+	let targetHeight = (TARGET_WIDTH * height) / width;
+
+	// Handle rounding auto-heights to be divisible by 2
+	if (targetHeight % 2 !== 0) {
+		const roundedTargetHeight = Math.round(targetHeight / 2) * 2;
+		console.warn(`Rounding auto-height to be divisible by 2: ${targetHeight} -> ${roundedTargetHeight}`);
+		targetHeight = roundedTargetHeight;
+	}
+
+	console.log(targetHeight);
+	EOF
+	); then
+		echo "ERROR: Could not parse input dimensions"
+		return 1
+	fi
+
+
+	echo "Resizing $INPUT_FILE to $TARGET_WIDTH pixels wide (out = $INPUT_DIR/$OUTPUT_FILE)"
+	ffmpeg -loglevel warning -stats -i "$INPUT_FILE" -vf scale="$TARGET_WIDTH:$TARGET_HEIGHT" "$INPUT_DIR/$OUTPUT_FILE"
+	echo "Rendered to $INPUT_DIR/$OUTPUT_FILE"
+	echo "✅ Done"
 }
 
 
