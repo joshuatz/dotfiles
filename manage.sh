@@ -143,3 +143,28 @@ push() {
 
 	bootstrap
 }
+
+# If no option pre-selected, prompt for choice
+COMMAND="$1"
+if [[ -z "$COMMAND" ]]; then
+	echo "No command specified"
+	select opt in "pull" "push" "bootstrap"; do
+		COMMAND=$opt
+		break
+	done
+fi
+
+case $COMMAND in
+	"pull")
+		pull
+		;;
+	"push")
+		push
+		;;
+	"bootstrap")
+		bootstrap
+		;;
+	*)
+		echo "Invalid option"
+		;;
+esac

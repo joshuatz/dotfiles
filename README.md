@@ -18,11 +18,9 @@ As of right now, the most frequently used dependencies would be:
 
 ## Primary Commands
 
-Run `. ./manage.sh && push` to copy files _out_ of this repo.
+Run `./manage.sh push` to copy files _out_ of this repo.
 
-Run `. ./manage.sh && pull` to pull local settings _into_ this repo.
-
-> If either of the above commands fail and your terminal exits, use ` || true` for easier debugging
+Run `. ./manage.sh pull` to pull local settings _into_ this repo.
 
 ## Notes to Self
 
