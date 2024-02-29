@@ -270,6 +270,87 @@ reload_func() {
 	unfunction "_$1" && compinit
 }
 
+normalize_name() {
+	input_name="$1"
+	# SPACE -> `-`
+	# (anything else, non alpha-numeric) -> REMOVED
+	echo "$input_name" | tr ' ' '-' | tr -cd '[:alnum:]-'
+}
+
+project_name() {
+	project_dir=$1
+	if [[ -z "$project_dir" ]]; then
+		project_dir="$PWD"
+	fi
+	project_dirname=$(basename "$project_dir")
+
+	# DEFAULT
+	project_name="$project_dirname"
+
+	# Is there a pyproject.toml file?
+	if [[ -f "$project_dir/pyproject.toml" ]]; then
+		project_name=$(poetry version | awk '{print $1}')
+	# How about `package.json`?
+	elif [[ -f "$project_dir/package.json" ]]; then
+		project_name=$(jq -r '.name' "$project_dir/package.json")
+	# How about a git remote / named repo?
+	elif [[ -d "$project_dir/.git" ]]; then
+		remote_url=$(git_remote_url)
+		project_name=$(basename "$remote_url")
+	fi
+
+	echo "$project_name"
+}
+
+project_name_normalized() {
+	project_name_raw=$(project_name "$1")
+	normalize_name "$project_name_raw"
+}
+
+tmux_generate_session_name() {
+	tmux_session_name=$1
+	if [[ -z "$tmux_session_name" ]]; then
+		project_name=$(project_name_normalized "")
+		tmux_session_name="$project_name"
+		# Default to project name + end of branch name
+		current_git_branch_name=$(git_branch_name 2>&1)
+		if [[ $? -eq 0 ]]; then
+			tmux_session_name="${tmux_session_name}-$(basename "$current_git_branch_name")"
+		fi
+	fi
+	echo "$tmux_session_name"
+}
+
+tmux_auto_open() {
+	tmux_session_name=$(tmux_generate_session_name "$1")
+	echo "Session name = $tmux_session_name"
+
+	# Search for active session first, and attach if exists
+	if (tmux has-session -t "$tmux_session_name" 2>/dev/null); then
+		echo "Attaching to existing session"
+		tmux attach-session -t "$tmux_session_name"
+		return
+	fi
+
+	# Create a new session, with 1 pane on the left, v-split on the right
+	echo "Creating new session"
+	tmux new-session -s "$tmux_session_name" -d
+	tmux split-window -h
+	tmux select-pane -t 1
+	tmux split-window -v
+	tmux attach-session -t "$tmux_session_name"
+}
+
+tmux_auto_close() {
+	tmux_session_name=$(tmux_generate_session_name "$1")
+	if (tmux has-session -t "$tmux_session_name" 2>/dev/null); then
+		echo "Killing session ('$tmux_session_name')"
+		tmux kill-session -t "$tmux_session_name"
+	else
+		echo "No session to kill (could not find '$tmux_session_name')"
+	fi
+}
+
 # Revert the last commit, but don't undo the changes
 git_revert_last() {
 	git reset HEAD~1
@@ -637,16 +718,29 @@ git_stats() {
 	git fetch
 	CURRENT_BRANCH=$(git_branch_name)
 	REMOTE_BRANCH=$(git_remote_branch)
-	remote_diff_stats=$(git diff --stat "$REMOTE_BRANCH" | tail -n 1)
 	TRUNK_BRANCH=$(git_trunk_branch)
 	trunk_diff_stats=$(git diff --staged --stat "origin/$TRUNK_BRANCH" | tail -n 1)
 	behind_ahead=$(git_behind_ahead)
+
+	remote_diff_str=""
+	if [[ -n "$REMOTE_BRANCH" ]]; then
+		remote_diff_stats=$(git diff --stat "$REMOTE_BRANCH" | tail -n 1)
+		remote_diff_str=$(cat <<- EOF
+
+			Remote Diff Stats = $remote_diff_stats
+		EOF
+		)
+	else
+		REMOTE_BRANCH="(UNSET)"
+	fi
+
+
+
 	cat <<- EOF
 		Branch = $CURRENT_BRANCH
 		Trunk Branch = $TRUNK_BRANCH
 		Trunk Diff Stats = $trunk_diff_stats
-		Remote Branch = $REMOTE_BRANCH
-		Remote Diff Stats = $remote_diff_stats
+		Remote Branch = ${REMOTE_BRANCH}${remote_diff_str}
 		Behind / Ahead = $behind_ahead
 	EOF
 }
