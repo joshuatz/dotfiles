@@ -20,7 +20,7 @@ As of right now, the most frequently used dependencies would be:
 
 Run `./manage.sh push` to copy files _out_ of this repo.
 
-Run `. ./manage.sh pull` to pull local settings _into_ this repo.
+Run `./manage.sh pull` to pull local settings _into_ this repo.
 
 ## Notes to Self
 
