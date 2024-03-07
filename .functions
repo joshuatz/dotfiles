@@ -332,12 +332,32 @@ tmux_auto_open() {
 		return
 	fi
 
-	# Create a new session, with v-split on left, single on right
-	echo "Creating new session"
+	PANE_NUM=1
+	select pane_config in "1 Pane" "2 Pane (H-Split)" "3 Pane (V, HH)"; do
+		case $pane_config in
+			"1 Pane") break ;;
+			"2 Pane (H-Split)") PANE_NUM=2 && break ;;
+			"3 Pane (V, HH)") PANE_NUM=3 && break ;;
+		esac
+	done
+	echo "Creating new session ($tmux_session_name)"
 	tmux new-session -s "$tmux_session_name" -d
-	tmux split-window -h
-	tmux select-pane -t 0
-	tmux split-window -v
+
+	if [[ $PANE_NUM -gt 1 ]]; then
+		tmux split-window -h -t "$tmux_session_name:0"
+		# For 3-pane, v-split the first pane
+		if [[ $PANE_NUM -eq 3 ]]; then
+			tmux select-pane -t "$tmux_session_name":0.0
+			tmux split-window -v -t "$tmux_session_name"
+		fi
+	fi
+
+	# Loop through all panes and exec `activate`
+	for pane_id in $(tmux list-panes -F "#{pane_id}" -t "$tmux_session_name"); do
+		tmux send-keys -t "${tmux_session_name}:0.${pane_id}" activate C-m 2>&1
+	done
+
+	tmux select-pane -t "$tmux_session_name":0.0
 	tmux attach-session -t "$tmux_session_name"
 }
 

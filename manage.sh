@@ -98,6 +98,7 @@ push() {
 	cp "$SCRIPT_DIR/.functions" ~/.functions
 	cp "$SCRIPT_DIR/.aliases" ~/.aliases
 	cp "$SCRIPT_DIR/global.gitignore" ~/global.gitignore
+	cp "$SCRIPT_DIR/.tmux.conf" ~/.tmux.conf
 
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)

@@ -25,7 +25,15 @@ alias exif_full="exiftool -D -u -U"
 alias get_jpeg_quality="exiftool -JPEGDigest -JPEGQualityEstimate"
 
 # == Terminals, Shells ===
+# = tmux =
 alias tao="tmux_auto_open"
+alias tmuxao="tmux_auto_open"
+alias tmuxconf-rl="tmux source-file ~/.tmux.conf"
+alias tmuxhs="tmux split-window -h"
+alias tmuxvs="tmux split-window -v"
+alias tmuxkp="tmux kill-pane"
+alias tmuxks="tmux kill-session"
+alias tmuxrn="tmux rename-session"
 
 # == Security ===
 alias rand_pass="openssl rand -base64 32"
