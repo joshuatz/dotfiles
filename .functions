@@ -45,6 +45,11 @@ reload() {
 	fi
 }
 
+ding() {
+	# Hello? Is anyone home? It's me, your terminal.
+	echo -e "\a"
+}
+
 get_clipboard_contents() {
 	if (which pbpaste > /dev/null); then
 		pbpaste
@@ -55,6 +60,17 @@ get_clipboard_contents() {
 	else
 		echo "ERROR: Could not find a clipboard utility"
 	fi
+}
+
+get_clipboard_html() {
+	if [[ $IS_MAC -ne 1 ]]; then
+		# TODO
+		return 1
+	fi
+
+	# https://stackoverflow.com/a/24132171/11447682
+	# The Perl part of this is to convert the hex string to a readable string
+	osascript -e 'the clipboard as «class HTML»' | perl -ne 'print chr foreach unpack("C*",pack("H*",substr($_,11,-3)))'
 }
 
 copy_to_clipboard() {
@@ -69,9 +85,15 @@ copy_to_clipboard() {
 	fi
 }
 
-convert_clipboard_to_plaintext() {
-	# Takes the clipboard contents and converts it to plaintext, in-place
-	text=$(get_clipboard_contents)
+# This only overwrites clipboard content if the selection is NOT empty
+# It always return 0, so that it can be conveniently used with places
+# that expect a copy command to always work
+copy_to_clipboard_if_not_empty() {
+	text="$1"
+	if [[ -z "${text// }" ]]; then
+		ding
+		return 0
+	fi
 	echo "$text" | copy_to_clipboard
 }
 
@@ -119,6 +141,17 @@ markdown_to_html_clipboard() {
 	fi
 	copy_html_to_clipboard "$html" "$md"
 	echo "✅ HTML copied to clipboard"
+}
+
+convert_clipboard_to_plaintext() {
+	# Takes the clipboard contents and converts it to plaintext, in-place
+	text=$(get_clipboard_contents)
+	echo "$text" | copy_to_clipboard
+}
+
+convert_clipboard_html_to_md() {
+	html=$(get_clipboard_html)
+	echo "$html" | pandoc -f html -t markdown | copy_to_clipboard
 }
 
 date_iso() {
@@ -506,7 +539,10 @@ git_find_fixup_base() {
 
 # Use this with `--fixup` commits, to auto-target the last commit before fixup
 # with interactive rebase
+# Options:
+#	(flag) `--skip-editor`: Don't open interactive editor
 git_auto_rebase() {
+	skip_editor=$([[ $* == *--skip-editor ]] && echo "true" || echo "false")
 	new_target_base=$(git_find_fixup_base)
 
 	if [[ $? -ne 0 ]]; then
@@ -529,7 +565,21 @@ git_auto_rebase() {
 		esac
 	done
 
+	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
+
+	if [[ "$skip_editor" != "true" ]]; then
 	git rebase --autosquash --interactive "$new_target_base"
+		return
+	fi
+
+	# New in git 2.44 - auto-squash support in non-interactive mode
+	if [[ $(parse_version_string "$git_version") -ge $(parse_version_string "2.44") ]]; then
+		git rebase --autosquash "$new_target_base"
+	else
+		# Use `GIT_SEQUENCE_EDITOR=true` to skip editor
+		GIT_SEQUENCE_EDITOR=true git rebase --autosquash --interactive "$new_target_base"
+	fi
+
 }
 
 
@@ -945,6 +995,27 @@ npx_exec_global() {
 
 npm_ls_global() {
 	asdf_exec_with_global_version npm ls -g --depth=0 "$1"
+}
+
+find_proc_by_port() {
+	PORT=$1
+	lsof -i :"$PORT"
+}
+
+find_pid_by_port() {
+	PORT=$1
+	lsof -t -i :"$PORT"
+}
+
+get_proc_info_by_pid() {
+	PID=$1
+	ps -p "$PID" -o pid,ppid,pgid,command
+}
+
+get_proc_info_by_port() {
+	PORT=$1
+	PID=$(find_pid_by_port "$PORT")
+	get_proc_info_by_pid "$PID"
 }
 
 # This is a workaround to tell the task runner that a given task is up-to-date,

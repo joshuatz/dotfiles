@@ -3,6 +3,7 @@
 
 # === Docs / Help ===
 alias docs="open https://docs.joshuatz.com/"
+alias devdocs="open https://devdocs.io/"
 
 # === File management ===
 alias is_symlink="test -L"
@@ -49,6 +50,9 @@ alias gca="git commit --amend"
 alias gcan="git commit --amend --no-edit"
 alias gl="git log"
 alias git-commit-skip-hooks="git commit --no-verify"
+alias gdwd="git_do_while_dirty"
+# Pretty diff
+alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-words"
 # 3rd party aliases (provided by oh-my-zsh)
 #	https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/git/git.plugin.zsh
 #	gd = git diff
