@@ -9,6 +9,13 @@ get_shell_type() {
 	fi
 }
 SHELL_TYPE=$(get_shell_type)
+
+ARRAY_INDEX_START=0
+if [[ "$SHELL_TYPE" == "ZSH" ]]; then
+	# cmon y'all, can't we just agree on things for once?
+	ARRAY_INDEX_START=1
+fi
+
 IS_MAC=0
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	IS_MAC=1
@@ -90,7 +97,8 @@ copy_to_clipboard() {
 # that expect a copy command to always work
 copy_to_clipboard_if_not_empty() {
 	text="$1"
-	if [[ -z "${text// }" ]]; then
+	# make sure to remove both space AND trailing line breaks
+	if [[ -z "$(${text//})" ]]; then
 		ding
 		return 0
 	fi
@@ -354,6 +362,12 @@ tmux_generate_session_name() {
 	echo "$tmux_session_name"
 }
 
+tmux_session_select() {
+	active_sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
+	selected_session=$(printf "%s\n" "${active_sessions[@]}" | fzf)
+	tmux attach-session -t "$selected_session"
+}
+
 tmux_auto_open() {
 	tmux_session_name=$(tmux_generate_session_name "$1")
 	echo "Session name = $tmux_session_name"
@@ -392,6 +406,60 @@ tmux_auto_open() {
 
 	tmux select-pane -t "$tmux_session_name":0.0
 	tmux attach-session -t "$tmux_session_name"
+}
+
+# This function scans for active tmux sessions where at least one pane
+# has a working directory scoped to the current one - which is useful if you
+# forgot what you named the session, but remember where you were working in.
+# If there are more than one matching sessions, it will let you select
+# which one to attach to with `fzf`
+tmux_auto_attach() {
+	# Get the current working directory
+	current_dir=$(pwd)
+
+	# Get a list of all active tmux sessions
+	active_sessions=()
+	while IFS='' read -r line; do active_sessions+=("$line"); done < <(tmux list-sessions -F "#{session_name}" 2>/dev/null)
+
+	# Loop through all sessions, and check if any of the panes have a
+	# working directory that matches the current one
+	matching_sessions=()
+	for session in "${active_sessions[@]}"; do
+		# Get list of pane paths
+		pane_paths=()
+		while IFS='' read -r line; do pane_paths+=("$line"); done  < <(tmux list-panes -t "$session" -F "#{pane_current_path}" 2>/dev/null)
+		for pane_path in "${pane_paths[@]}"; do
+			if [[ "$pane_path" == "$current_dir" ]]; then
+				matching_sessions+=("$session")
+				break
+			fi
+		done
+	done
+
+	declare -p matching_sessions
+
+	# If there is only one matching session, attach to it
+	if [[ ${#matching_sessions[@]} -eq 1 ]]; then
+		matching_session_name=${matching_sessions[0+$ARRAY_INDEX_START]}
+		echo "Found only 1 matching session ($matching_session_name). Auto-attaching now..."
+		sleep 2
+		tmux attach-session -t "$matching_session_name"
+		return
+	fi
+
+	# If there are multiple matching sessions, let the user select which one to attach to
+	if [[ ${#matching_sessions[@]} -gt 1 ]]; then
+		echo "More than one matching tmux session was found. Which would you like to attach to?"
+		selected_session=$(printf "%s\n" "${matching_sessions[@]}" | fzf)
+		if [[ -n "$selected_session" ]]; then
+			tmux attach-session -t "$selected_session"
+			return
+		fi
+	fi
+
+	# If no matching sessions, just open a new one
+	echo "Could not find matching session"
+	tmux_auto_open ""
 }
 
 tmux_auto_close() {
@@ -450,6 +518,17 @@ git_behind_ahead() {
 	echo "      $(git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD)"
 }
 
+git_stat_live() {
+	if [[ $* == *--summary ]]; then
+		watch -n 2 -c "git diff --staged --stat  ':(exclude)package-lock.json' | tail -n 1"
+	fi
+	watch -n 2 -c "git diff --staged --stat  ':(exclude)package-lock.json'"
+}
+
+git_diff_live() {
+	watch -n 2 -c "git diff --staged ':(exclude)package-lock.json'"
+}
+
 git_select_commit() {
 	MAX_PAST_COMMITS_TO_LIST=40
 	commits=$(git log --pretty=format:"%H %s" -n $MAX_PAST_COMMITS_TO_LIST)
@@ -478,11 +557,6 @@ git_fixup() {
 # TODO: This works, but really should be re-written in JS or Python
 # (too many ZSH and bash workarounds, hard to read)
 git_find_fixup_base() {
-	array_index_start=0
-	if [[ "$SHELL_TYPE" == "ZSH" ]]; then
-		# cmon y'all, can't we just agree on things for once?
-		array_index_start=1
-	fi
 	MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP=40
 	LOG_DIVIDER=$(echo $'\x1F')
 	seeking_commit_msgs=()
@@ -515,8 +589,8 @@ git_find_fixup_base() {
 			# Remove all fixups that fix this commit
 			holes_count=0
 			for ((i=0; i<${#seeking_commit_msgs[@]}; i++)); do
-				if [[ ${seeking_commit_msgs[$i+$array_index_start]} == "$commit_msg" ]]; then
-					unset -v 'seeking_commit_msgs[$i+$array_index_start]'
+				if [[ ${seeking_commit_msgs[$i+$ARRAY_INDEX_START]} == "$commit_msg" ]]; then
+					unset -v 'seeking_commit_msgs[$i+$ARRAY_INDEX_START]'
 					holes_count=$((holes_count+1))
 				fi
 			done
@@ -568,7 +642,7 @@ git_auto_rebase() {
 	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
 
 	if [[ "$skip_editor" != "true" ]]; then
-	git rebase --autosquash --interactive "$new_target_base"
+		git rebase --autosquash --interactive "$new_target_base"
 		return
 	fi
 
@@ -585,6 +659,11 @@ git_auto_rebase() {
 
 git_branch_name() {
 	git rev-parse --abbrev-ref HEAD
+}
+
+# WARNING: This errors if no corresponding tag can be found
+git_tag_name() {
+	git describe --tags --abbrev=0
 }
 
 # NOTE: This returns the remote branch name, prefixed with the name of the remote itself
@@ -894,12 +973,29 @@ docker_inspect_volume() {
 	docker run --rm -it -v "$VOLUME_NAME":/tmp/volume "$IMAGE_NAME" "$IMAGE_SHELL" -c "cd /tmp/volume; exec $IMAGE_SHELL"
 }
 
-docker_inspect_image() {
-	: "${DOCKER_SHELL:="bash"}"
+docker_pick_image() {
 	all_images=$(docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}")
 	selected_image=$(echo "$all_images" | fzf --height 40% --reverse --header-lines=1)
 	image_id=$(echo "$selected_image" | awk '{print $2}')
+	echo "$image_id"
+}
+
+docker_image_exec() {
+	: "${DOCKER_SHELL:="bash"}"
+	image_id=$(docker_pick_image)
 	docker run --rm -it "$image_id" "/bin/$DOCKER_SHELL"
+}
+alias docker_exec_image="docker_image_exec"
+alias docker_run_image_interactive="docker_exec_image"
+
+docker_inspect_image() {
+	image_id=$(docker_pick_image)
+	docker inspect "$image_id"
+}
+
+docker_log_follow() {
+	CONTAINER_REF=$(docker_pick_container)
+	docker logs -f "$CONTAINER_REF"
 }
 
 # Find the true global package dir / bin for a brew installed package
@@ -1015,6 +1111,12 @@ get_proc_info_by_pid() {
 get_proc_info_by_port() {
 	PORT=$1
 	PID=$(find_pid_by_port "$PORT")
+
+	if [[ -z "$PID" ]]; then
+		echo "No process found on port $PORT"
+		return 1
+	fi
+
 	get_proc_info_by_pid "$PID"
 }
 
