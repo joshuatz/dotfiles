@@ -127,12 +127,19 @@ copy_html_to_clipboard() {
 			EOF
 			return
 		fi
+		# TODO: The `string:"${plaintext}"` part of this is problematic if the string contains special chars (and maybe even
+		# if it just contains any `"`?)
+		# E.g.: 6216:6226: syntax error: Expected “,” or “}” but found identifier. (-2741)
 		osascript <<- EOF
 			set the clipboard to {«class HTML»:«data HTML${html_hex}», string:"${plaintext}"}
 		EOF
 	else
 		echo "$html" | xclip -selection clipboard -t text/html
 	fi
+}
+
+copy_tab_to_clipboard() {
+	printf "\t" | copy_to_clipboard
 }
 
 markdown_to_html_clipboard() {
@@ -143,7 +150,7 @@ markdown_to_html_clipboard() {
 	fi
 	html=""
 	if (which pandoc > /dev/null); then
-		html=$(echo "$md" | pandoc -f markdown -t html)
+		html=$(echo "$md" | pandoc -f gfm -t html)
 	else
 		html=$(npx marked --gfm -s "$md")
 	fi
@@ -487,6 +494,14 @@ git_trunk_branch() {
 	git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'
 }
 
+git_root_dir() {
+	git rev-parse --show-toplevel
+}
+
+git_cd_root_dir() {
+	cd "$(git_root_dir)" || exit
+}
+
 git_trunk_ahead_files() {
 	TRUNK_BRANCH=$(git_trunk_branch)
 	git fetch
@@ -542,9 +557,15 @@ git_select_commit() {
 	echo "$commit_hash"
 }
 
-git_copy_commit() {
+git_copy_commit_sha() {
 	commit_hash=$(git_select_commit)
 	echo "$commit_hash" | copy_to_clipboard
+}
+
+git_copy_commit_msg() {
+	commit_hash=$(git_select_commit)
+	commit_msg=$(git log --pretty=format:"%B" -n 1 "$commit_hash")
+	echo "$commit_msg" | copy_to_clipboard
 }
 
 # Use this to interactively select a past commit to target for `git commit --fixup=`
@@ -876,7 +897,7 @@ git_stats() {
 		remote_diff_stats=$(git diff --stat "$REMOTE_BRANCH" | tail -n 1)
 		remote_diff_str=$(cat <<- EOF
 
-			Remote Diff Stats = $remote_diff_stats
+			  Remote Diff Stats = $remote_diff_stats
 		EOF
 		)
 	else
@@ -888,7 +909,7 @@ git_stats() {
 	cat <<- EOF
 		Branch = $CURRENT_BRANCH
 		Trunk Branch = $TRUNK_BRANCH
-		Trunk Diff Stats = $trunk_diff_stats
+		  Trunk Diff Stats = $trunk_diff_stats
 		Remote Branch = ${REMOTE_BRANCH}${remote_diff_str}
 		Behind / Ahead = $behind_ahead
 	EOF
@@ -1136,6 +1157,7 @@ task_mark_up_to_date() {
 		return 1
 	fi
 	TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/scripts/task_mark_up_to_date.mjs"
+	unset TASKFILE_PATH
 }
 
 # This might seem like a lot of code just to wrap ffmpeg's `scale`, but this:
@@ -1208,6 +1230,96 @@ ffmpeg_resize() {
 	echo "✅ Done"
 }
 
+px_from_rem() {
+	REM=$1
+	echo "$((16 * REM))"
+}
+
+rem_from_px() {
+	PX=$1
+	echo "$((PX / 16))"
+}
+
+# Connect to an AWS EC2 Instance, via instance-connect
+# Remember: You can use`AWS_PROFILE=${name}` to set the AWS credential profile
+# to use for all the AWS commands
+aws_ec2_instance_connect() {
+	PORT_BINDINGS=()
+	EC2_USERNAME="ec2-user"
+	PRIVATE_KEY="$HOME/.ssh/id_rsa"
+	PUBLIC_KEY="$HOME/.ssh/id_rsa.pub"
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-i|--instance-id)
+				INSTANCE_ID=$2
+				shift
+				;;
+			-u|--username)
+				EC2_USERNAME=$2
+				shift
+				;;
+			-p|--port)
+				PORT_BINDINGS+=("$2")
+				shift
+				;;
+			-pk|--private-key)
+				PRIVATE_KEY=$2
+				shift
+				;;
+			-pub|--public-key)
+				PUBLIC_KEY=$2
+				shift
+				;;
+			*)
+				echo "Invalid option ${1}"
+				;;
+		esac
+		shift
+	done
+
+	if ! (which aws > /dev/null); then
+		echo "ERROR: AWS CLI not found"
+		return 1
+	fi
+
+	# Check format
+	if ! [[ $INSTANCE_ID =~ ^i-[a-z0-9]+$ ]]; then
+		echo "Invalid instance ID format. Should be I-123abc455"
+		exit 1
+	fi
+
+	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
+		echo "ERROR: Could not find public and/or private key"
+		return 1
+	fi
+
+	# Send public key
+	aws ec2-instance-connect \
+		send-ssh-public-key \
+			--no-paginate \
+			--instance-id "$INSTANCE_ID" \
+			--instance-os-user "$EC2_USERNAME" \
+			--ssh-public-key "file://${PUBLIC_KEY}" | cat > /dev/null
+
+	if [[ $? -ne 0 ]]; then
+		echo "ERROR: Could not send public key"
+		return 1
+	fi
+
+	SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
+	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
+		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
+			SSH_ARGS+=(-L "\*:$PORT_BINDING:localhost:$PORT_BINDING")
+		done
+	fi
+
+	# Establish SSH connection
+	DNS_ADDR=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservations[*].Instances[*].[PublicDnsName]' --output text)
+	SSH_ARGS+=("${EC2_USERNAME}@${DNS_ADDR}")
+	declare -p SSH_ARGS
+	ssh "${SSH_ARGS[@]}"
+}
 
 # This is currently pretty macoS specific
 # Also, runs code that triggers OS permission checks, so will fail if denied
