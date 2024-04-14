@@ -2,6 +2,7 @@ alefragnani.bookmarks
 angular.ng-template
 ardenivanov.svelte-intellisense
 bierner.markdown-mermaid
+bradlc.vscode-tailwindcss
 brittanychiang.halcyon-vscode
 charliermarsh.ruff
 dbaeumer.vscode-eslint
@@ -39,7 +40,10 @@ ms-vscode-remote.remote-ssh
 ms-vscode-remote.remote-ssh-edit
 ms-vscode-remote.remote-wsl
 ms-vscode-remote.vscode-remote-extensionpack
+ms-vscode.cmake-tools
 ms-vscode.cpptools
+ms-vscode.cpptools-extension-pack
+ms-vscode.cpptools-themes
 ms-vscode.remote-explorer
 ms-vscode.remote-server
 ms-vscode.vscode-typescript-tslint-plugin
@@ -56,6 +60,7 @@ streetsidesoftware.code-spell-checker
 svelte.svelte-vscode
 timonwong.shellcheck
 tobias-faller.vt100-syntax-highlighting
+twxs.cmake
 vscode-icons-team.vscode-icons
 vscodevim.vim
 vsls-contrib.codetour

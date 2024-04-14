@@ -49,11 +49,13 @@ alias node_repl="node --experimental-repl-await"
 
 # === git ===
 alias git-search="git log -p -G"
+alias git_find_deleted="git log --full-history -- "
 alias gca="git commit --amend"
 alias gcan="git commit --amend --no-edit"
 alias gl="git log"
 alias git-commit-skip-hooks="git commit --no-verify"
 alias gdwd="git_do_while_dirty"
+alias gss="git stash push --staged -m"
 # Pretty diff
 alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-words"
 # 3rd party aliases (provided by oh-my-zsh)

@@ -557,6 +557,26 @@ git_select_commit() {
 	echo "$commit_hash"
 }
 
+# Given a stash string like `stash@{0}: On main: do x and y`,
+# extract out just the stash index
+git_extract_stash_index() {
+	stash_string="$1"
+	echo "$stash_string" | grep -o -E "\{[0-9]+\}" | tr -d "{}"
+}
+
+git_stash_select() {
+	stash_list=$(git stash list)
+	# shellcheck disable=SC2016
+	selected_stash=$(echo "$stash_list" | fzf \
+		--height 70% \
+		--reverse \
+		--ansi \
+		--preview "source ~/.zshrc && git stash show -p "'"$(git_extract_stash_index {})"'""
+	)
+	echo "$selected_stash"
+}
+alias git_select_stash="git_stash_select"
+
 git_copy_commit_sha() {
 	commit_hash=$(git_select_commit)
 	echo "$commit_hash" | copy_to_clipboard
@@ -630,6 +650,11 @@ git_find_fixup_base() {
 			seeking_commit_msgs=($seeking_commit_msgs)
 		fi
 	done
+}
+
+git_find_github_pr() {
+	SHA=$1
+	gh pr list --search "$SHA"
 }
 
 # Use this with `--fixup` commits, to auto-target the last commit before fixup
@@ -950,6 +975,7 @@ docker_pick_container() {
 docker_exec_it() {
 	CONTAINER_REF=$(docker_pick_container)
 	docker exec -it "$CONTAINER_REF" bash
+	# TODO retry with `sh` if bash not found
 }
 
 docker_get_working_dir() {

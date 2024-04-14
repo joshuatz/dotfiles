@@ -30,7 +30,9 @@
 	"Safe Link New Tab": {
 		"scope": "html, markdown, svelte",
 		"prefix": "Safe Link New Tab",
-		"body": ["<a href=\"${1:#}\" rel=\"noopener\" target=\"_blank\">${TM_SELECTED_TEXT:$2}</a>"],
+		"body": [
+			"<a href=\"${1:#}\" rel=\"noopener\" target=\"_blank\">${TM_SELECTED_TEXT:$2}</a>"
+		],
 		"description": "Wrap in <a> tag with noopener"
 	},
 	"Convert to Safe Link New Tab": {
@@ -76,13 +78,17 @@
 	"Github MD Checkbox": {
 		"scope": "markdown",
 		"prefix": "checkbox",
-		"body": [" - [ ] ${TM_SELECTED_TEXT:$2}"],
+		"body": [
+			" - [ ] ${TM_SELECTED_TEXT:$2}"
+		],
 		"description": "Insert Github styled markdown checkbox"
 	},
 	"MD List to GH Checkbox": {
 		"scope": "markdown",
 		"prefix": "list-to-checkbox",
-		"body": ["${TM_SELECTED_TEXT/^([\t ]*-) ?(.*)$/$1 [ ] $2/gm}"],
+		"body": [
+			"${TM_SELECTED_TEXT/^([\t ]*-) ?(.*)$/$1 [ ] $2/gm}"
+		],
 		"description": "Transform MD list to MD checkbox list"
 	},
 	"POSIX slash path formatter": {
@@ -203,8 +209,7 @@
 		"scope": "svelte, markdown",
 		"body": [
 			"<!--",
-			"@component COMPONENT_DESCRIPTION"
-			"-->",
+			"@component COMPONENT_DESCRIPTION""-->",
 			"",
 			"<script lang=\"ts\">",
 			"\t//",
@@ -250,7 +255,9 @@
 	},
 	"Convert kwargs to dict": {
 		"scope": "python, markdown",
-		"body": ["${TM_SELECTED_TEXT/^([ \t]*)([^\r\n=]+)=([^\r\n\\(]+)$/$1\"$2\": $3/gm}"]
+		"body": [
+			"${TM_SELECTED_TEXT/^([ \t]*)([^\r\n=]+)=([^\r\n\\(]+)$/$1\"$2\": $3/gm}"
+		]
 	},
 	"Insert debugpy (:5678)": {
 		"scope": "python",
@@ -262,15 +269,25 @@
 	},
 	"Join Multiline String with Plus Operator": {
 		"scope": "javascript",
-		"body": ["${TM_SELECTED_TEXT/^( *)(.+)$/$1'$2' + /gm}"],
+		"body": [
+			"${TM_SELECTED_TEXT/^( *)(.+)$/$1'$2' + /gm}"
+		],
 		"description": "Wraps each line of a multiline block of code in string delimiters, and adds a `+` at the end to join"
 	},
 	"Quoted Prop to JSX Braces": {
 		"scope": "javascripreact, typescriptreact",
-		"body": ["${TM_SELECTED_TEXT/^[\"'](.*)[\"']$/{`$1`}/g}"],
+		"body": [
+			"${TM_SELECTED_TEXT/^[\"'](.*)[\"']$/{`$1`}/g}"
+		],
 	},
 	"Quoted String to JS Braces": {
 		"scope": "javascript, javascriptreact, typescript, typescriptreact",
-		"body": ["${TM_SELECTED_TEXT/^[\"'](.*)[\"']$/`$1`/g}"],
+		"body": [
+			"${TM_SELECTED_TEXT/^[\"'](.*)[\"']$/`$1`/g}"
+		],
+	},
+	"Swap Outer Quotes": {
+		"description": "Swaps outer quote type (e.g. double to single, or single to double)",
+		"body": "TODO"
 	}
 }
