@@ -102,6 +102,8 @@ source $ZSH/oh-my-zsh.sh
 
 # ==== Customizations =====
 
+export EDITOR="code"
+
 # Autocomplete - ORDER MATTERS
 unsetopt complete_aliases
 autoload -Uz compinit

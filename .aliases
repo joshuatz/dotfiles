@@ -2,13 +2,13 @@
 # Don't use `set -e`
 
 # === Docs / Help ===
-alias docs="open https://docs.joshuatz.com/"
 alias devdocs="open https://devdocs.io/"
 
 # === File management ===
 alias is_symlink="test -L"
+alias symlink_resolve="greadlink -f"
 alias list="ls -halt"
-alias folders-by-size="du -h --max-depth=1 | sort -h"
+alias folders_by_size="du -h --max-depth=1 | sort -h"
 # -c = created
 # -z = compress
 # -v = verbose
@@ -48,13 +48,14 @@ alias npxg="npx_exec_global"
 alias node_repl="node --experimental-repl-await"
 
 # === git ===
-alias git-search="git log -p -G"
+alias git_search="git log -p -G"
 alias git_find_deleted="git log --full-history -- "
 alias gca="git commit --amend"
 alias gcan="git commit --amend --no-edit"
 alias gl="git log"
-alias git-commit-skip-hooks="git commit --no-verify"
+alias git_commit_skip_hooks="git commit --no-verify"
 alias gdwd="git_do_while_dirty"
+# Pass message / stash name as last arg
 alias gss="git stash push --staged -m"
 # Pretty diff
 alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-words"
