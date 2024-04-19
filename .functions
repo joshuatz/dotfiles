@@ -1323,7 +1323,7 @@ aws_ec2_instance_connect() {
 	# Check format
 	if ! [[ $INSTANCE_ID =~ ^i-[a-z0-9]+$ ]]; then
 		echo "Invalid instance ID format. Should be I-123abc455"
-		exit 1
+		return 1
 	fi
 
 	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
@@ -1382,7 +1382,7 @@ large_llm_query() {
 	RIPGREP_ARGS=()
 	GLOB=""
 	QUESTION=""
-	PROMPT=""
+	LLM_PROMPT=""
 	while [[ ! $# -eq 0 ]]; do
 		case "$1" in
 			-rg|--ripgrep-args)
@@ -1400,7 +1400,7 @@ large_llm_query() {
 				shift
 				;;
 			-p|--prompt)
-				PROMPT=$2
+				LLM_PROMPT=$2
 				shift
 				;;
 			-m|--model)
@@ -1428,7 +1428,7 @@ large_llm_query() {
 	fi
 
 	# If neither `--prompt` nor `--question` was not passed, ask user / read from stdin
-	if [[ -z "$PROMPT" ]] && [[ -z "$QUESTION" ]]; then
+	if [[ -z "$LLM_PROMPT" ]] && [[ -z "$QUESTION" ]]; then
 		echo "Enter question:"
 		read -r QUESTION
 		if [[ -z "$QUESTION" ]]; then
@@ -1444,7 +1444,7 @@ large_llm_query() {
 	# fi
 
 	# Prepare base prompt / prefix
-	if [[ -z "$PROMPT" ]]; then
+	if [[ -z "$LLM_PROMPT" ]]; then
 		cat > "$TEMP_PROMPT_FILE" <<- EOF
 		You are an expert programmer, and someone has asked you to answer the following
 
@@ -1464,7 +1464,7 @@ large_llm_query() {
 		---
 		EOF
 	else
-		echo "$PROMPT" > "$TEMP_PROMPT_FILE"
+		echo "$LLM_PROMPT" > "$TEMP_PROMPT_FILE"
 	fi
 
 	dump_file_to_prompt() {
@@ -1518,6 +1518,12 @@ large_llm_query() {
 		done
 	fi
 
+	cat <<- EOF
+	Prompt Stats:
+		Line Count = $(wc -l < "$TEMP_PROMPT_FILE")
+		Word Count = $(wc -w < "$TEMP_PROMPT_FILE")
+	EOF
+
 	# Warning: Technically, this could be done in pure bash, but there are a lot of oddities around
 	# escaping, line breaks, and space expansion across shells, that makes this really error-prone
 	# Leaving this partial attempt commented out for now
@@ -1563,7 +1569,7 @@ large_llm_query() {
 
 	# Actually make request
 	# Make sure to use `-d @file` to avoid "argument list too long"
-	response=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GOOGLE_GEMINI_API_KEY" \
+	response=$(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=$GOOGLE_GEMINI_API_KEY" \
 		-H 'Content-Type: application/json' \
 		-X POST \
 		-d @"$TEMP_DIR_PATH/.prompt_req.json"
@@ -1581,7 +1587,7 @@ large_llm_query() {
 			return;
 		}
 		can.content.parts.forEach(p => {
-			combined += p.text.replace(/\n/g, '\\\\n');
+			combined += p.text;
 		})
 	});
 	if (combined) {
