@@ -1376,6 +1376,14 @@ large_llm_query() {
 	touch "$TEMP_PROMPT_FILE"
 	DEBUG=0
 
+	if [[ -z "$GOOGLE_GEMINI_API_KEY" ]]; then
+		GOOGLE_GEMINI_API_KEY=$(op item get 'Google_Gemini_API_Key' --vault Private --fields 'credential')
+	fi
+	if [[ -z "$GOOGLE_GEMINI_API_KEY" ]]; then
+		echo "ERROR: Could not find Google_Gemini_API_Key"
+		return 1
+	fi
+
 	# Hardcode for now
 	MODEL="gemini"
 
@@ -1420,6 +1428,25 @@ large_llm_query() {
 	if [[ $MODEL != "gemini" ]]; then
 		echo "Not yet implemented support for $MODEL"
 		return 1
+	fi
+
+	if [[ -z "$GLOB" ]] && [[ ${#RIPGREP_ARGS[@]} -eq 0 ]]; then
+		echo "What different search terms should be used to search?"
+		echo "Press enter to add another, type EOF to end query"
+		AT_LEAST_ONE_SEARCH_DONE=0
+		RIPGREP_ARGS+=("-l" "-i")
+		while true; do
+			read -r SEARCH_TERM
+			if [[ -z "$SEARCH_TERM" ]] || [[ "$SEARCH_TERM" == "EOF" ]]; then
+				break
+			fi
+			AT_LEAST_ONE_SEARCH_DONE=1
+			RIPGREP_ARGS+=("-e" "$SEARCH_TERM")
+		done
+		if [[ $AT_LEAST_ONE_SEARCH_DONE -eq 0 ]]; then
+			echo "ERROR: Must provide at least one search term"
+			return 1
+		fi
 	fi
 
 	if [[ -z "$GLOB" ]] && [[ ${#RIPGREP_ARGS[@]} -eq 0 ]]; then

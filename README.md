@@ -22,6 +22,25 @@ Run `./manage.sh push` to copy files _out_ of this repo.
 
 Run `./manage.sh pull` to pull local settings _into_ this repo.
 
+## Credentials / Secrets
+
+Secret values should not be stored anywhere other than a secure password manager.
+
+You can read values out of 1Password in the following ways:
+
+```bash
+op read "op://Private/${ITEM_NAME_OR_ID}/${FIELD_NAME}"
+# ^ If the item name contains special characters (like `(`)
+# then 1Password will autogenerate a unique ID for it instead
+# of using the name
+
+# Or, you can query by the item name, regardless if it was
+# auto-replaced with a unique ID
+op item get ${ITEM_NAME} --vault Private --fields label=${FIELD_NAME}
+# ^ Both `--vault` and `--fields` are optional, but wise to
+# include for scoping
+```
+
 ## Notes to Self
 
 - [My dotfiles cheatsheet](https://docs.joshuatz.com/cheatsheets/dotfiles/)

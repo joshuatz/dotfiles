@@ -1,5 +1,7 @@
 scratch*
 .env
+.env.*
+!.env.*.example
 *.pem
 
 # Settings that are not git-tracked / committed
