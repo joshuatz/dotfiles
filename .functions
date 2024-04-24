@@ -370,9 +370,38 @@ tmux_generate_session_name() {
 }
 
 tmux_session_select() {
+	if [[ -n "$TMUX_SESSION" ]]; then
+		echo "$TMUX_SESSION"
+		return
+	fi
 	active_sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
 	selected_session=$(printf "%s\n" "${active_sessions[@]}" | fzf)
-	tmux attach-session -t "$selected_session"
+	echo "$selected_session"
+}
+
+tmux_session_select_and_attach() {
+	tmux attach-session -t "$(tmux_session_select)"
+}
+
+tmux_window_select() {
+	selected_session=$(tmux_session_select)
+	if [[ -z "$selected_session" ]]; then
+		return
+	fi
+	all_windows_in_session=$(tmux list-windows -t "$selected_session" -F "#{window_index} #{window_name}")
+	selected_window_index="0"
+	# Only prompt for selection if > 1 window
+	if [[ $(($(echo "$all_windows_in_session" | wc -l))) -gt 1 ]]; then
+		selected_window_index=$(echo "$all_windows_in_session" | fzf | awk '{print $1}')
+	fi
+	echo "$selected_session:$selected_window_index"
+}
+
+tmux_pane_select() {
+	selected_window=$(tmux_window_select)
+	all_panes_in_window=$(tmux list-panes -t "$selected_window" -F "#{pane_index}")
+	selected_pane=$(echo "$all_panes_in_window" | fzf --preview "tmux capture-pane -t $selected_window.{} -pJS -10")
+	echo "$selected_window.$selected_pane"
 }
 
 tmux_auto_open() {
@@ -730,6 +759,7 @@ git_branch_backup() {
 	git branch "$backup_branch_name"
 	echo "✅ Backed up branch to $backup_branch_name"
 }
+alias git_backup_branch="git_branch_backup"
 
 git_checkout_dirty() {
 	target_branch_name=$1
@@ -1387,6 +1417,7 @@ large_llm_query() {
 	# Hardcode for now
 	MODEL="gemini"
 
+	FILENAMES_PASSED_VIA_ARG=()
 	RIPGREP_ARGS=()
 	GLOB=""
 	QUESTION=""
@@ -1419,7 +1450,11 @@ large_llm_query() {
 				DEBUG=1
 				;;
 			*)
-				echo "Invalid option ${1}"
+				if [[ -f "$1" ]]; then
+					FILENAMES_PASSED_VIA_ARG+=("$1")
+				else
+					echo "Invalid option ${1}"
+				fi
 				;;
 		esac
 		shift
@@ -1430,7 +1465,7 @@ large_llm_query() {
 		return 1
 	fi
 
-	if [[ -z "$GLOB" ]] && [[ ${#RIPGREP_ARGS[@]} -eq 0 ]]; then
+	if [[ ${#FILENAMES_PASSED_VIA_ARG[@]} -eq 0  ]] && [[ -z "$GLOB" ]] && [[ ${#RIPGREP_ARGS[@]} -eq 0 ]]; then
 		echo "What different search terms should be used to search?"
 		echo "Press enter to add another, type EOF to end query"
 		AT_LEAST_ONE_SEARCH_DONE=0
@@ -1449,8 +1484,8 @@ large_llm_query() {
 		fi
 	fi
 
-	if [[ -z "$GLOB" ]] && [[ ${#RIPGREP_ARGS[@]} -eq 0 ]]; then
-		echo "ERROR: Must provide ripgrep arguments (-rg / --ripgrep-args) or glob (-g / --glob)"
+	if [[ ${#FILENAMES_PASSED_VIA_ARG[@]} -eq 0  ]] && [[ -z "$GLOB" ]] && [[ ${#RIPGREP_ARGS[@]} -eq 0 ]]; then
+		echo "ERROR: Must provide ripgrep arguments (-rg / --ripgrep-args), glob (-g / --glob), or filenames."
 		return 1
 	fi
 
@@ -1522,6 +1557,9 @@ large_llm_query() {
 	}
 
 	# Iterate  over files
+	for FILE_PATH in "${FILENAMES_PASSED_VIA_ARG[@]}"; do
+		dump_file_to_prompt "$FILE_PATH"
+	done
 	if [[ -n $GLOB ]]; then
 		if [[ $SHELL_TYPE != "ZSH" ]]; then
 			echo "TODO verify glob behavior in other shells"
