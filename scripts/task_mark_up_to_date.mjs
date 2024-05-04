@@ -15,7 +15,7 @@
 // @ts-check
 // Requires the `yaml` package for parsing and writing the taskfile
 import { parse, stringify } from 'yaml';
-import { readFileSync, writeFileSync, copyFileSync, rmSync } from 'fs';
+import { readFileSync, writeFileSync, copyFileSync, rmSync, existsSync } from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
@@ -77,7 +77,9 @@ execSync(`task -t ${tempTaskfilePath} ${NOOP_TASK_NAME}`, { stdio: 'inherit' });
 // Copy over checksum file
 const checksumDir = path.join(taskfileDir, '.task', 'checksum');
 const originalCheckSumPath = path.join(checksumDir, taskName).replace(/:/g, '-');
-const originalCheckSumVal = readFileSync(originalCheckSumPath).toString().trim();
+const originalCheckSumVal = existsSync(originalCheckSumPath)
+	? readFileSync(originalCheckSumPath).toString().trim()
+	: 'undefined';
 const updatedCheckSumTempPath = path.join(checksumDir, NOOP_TASK_NAME);
 const updatedCheckSumVal = readFileSync(path.join(checksumDir, NOOP_TASK_NAME)).toString().trim();
 copyFileSync(updatedCheckSumTempPath, originalCheckSumPath);

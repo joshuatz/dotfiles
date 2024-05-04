@@ -112,9 +112,9 @@
 		"editor.defaultFormatter": "vscode.markdown-language-features",
 		"editor.formatOnSave": false,
 		"editor.quickSuggestions": {
-			"comments": "off",
-			"strings": "off",
-			"other": "off"
+			"comments": false,
+			"strings": false,
+			"other": false
 		},
 		// This changes the appearance of Markdown *source* styling, not the live preview
 		// "editor.fontFamily": "\"Lato\", sans-serif",

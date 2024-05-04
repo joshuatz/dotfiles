@@ -62,6 +62,8 @@ alias git_commit_skip_hooks="git commit --no-verify"
 alias gdwd="git_do_while_dirty"
 # Pass message / stash name as last arg
 alias gss="git stash push --staged -m"
+# Ignore large changes
+alias gdsi="git diff --staged -- . ':(exclude)package-lock.json' ':(exclude)**/package-lock.json' ':(exclude)yarn.lock' ':(exclude)**/yarn.lock'"
 # Pretty diff
 alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-words"
 # 3rd party aliases (provided by oh-my-zsh)

@@ -142,6 +142,11 @@ copy_tab_to_clipboard() {
 	printf "\t" | copy_to_clipboard
 }
 
+copy_last_command_to_clipboard() {
+	last_command=$(fc -ln -1)
+	echo "$last_command" | copy_to_clipboard
+}
+
 markdown_to_html_clipboard() {
 	md="$1"
 	# If no arg, grab from clipboard
@@ -167,6 +172,30 @@ convert_clipboard_to_plaintext() {
 convert_clipboard_html_to_md() {
 	html=$(get_clipboard_html)
 	echo "$html" | pandoc -f html -t markdown | copy_to_clipboard
+}
+
+firefox() {
+	if [[ "IS_MAC" -eq 1 ]]; then
+		/Applications/Firefox.app/Contents/MacOS/firefox "$@"
+		return 0
+	fi
+	return 1
+}
+
+# Opens firefox, with each URL passed at the end, as a new tab
+# Currently, with tree style tabs, the first URL becomes the root tab
+# and any subsequent new tabs are loaded as children
+# (TODO: Make this more flexible)
+firefox_with_tabs() {
+	args=(
+		"-new-window"
+		"$1"
+	)
+	shift
+	for arg in "$@"; do
+		args+=("-new-tab" "$arg")
+	done
+	firefox "${args[@]}"
 }
 
 date_iso() {
@@ -402,6 +431,15 @@ tmux_pane_select() {
 	all_panes_in_window=$(tmux list-panes -t "$selected_window" -F "#{pane_index}")
 	selected_pane=$(echo "$all_panes_in_window" | fzf --preview "tmux capture-pane -t $selected_window.{} -pJS -10")
 	echo "$selected_window.$selected_pane"
+}
+
+tmux_scrollback_dump() {
+	: "${NUM_LINES:="500"}"
+	pane=$(tmux_pane_select)
+	if [[ -z "$pane" ]]; then
+		return
+	fi
+	tmux capture-pane -t "$pane" -pJS "-$NUM_LINES"
 }
 
 tmux_auto_open() {
@@ -1007,6 +1045,7 @@ docs() {
 }
 
 docker_pick_container() {
+	# TODO support picking non-active containers
 	container_list=$(docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}")
 	container=$(echo "$container_list" | fzf --height 40% --reverse --header-lines=1)
 	container_id=$(echo "$container" | awk '{print $1}')
@@ -1059,6 +1098,11 @@ docker_inspect_volume() {
 		Have fun inspecting!
 	EOF
 	docker run --rm -it -v "$VOLUME_NAME":/tmp/volume "$IMAGE_NAME" "$IMAGE_SHELL" -c "cd /tmp/volume; exec $IMAGE_SHELL"
+}
+
+docker_list_binds() {
+	CONTAINER_REF=$(docker_pick_container)
+	docker inspect --format='{{json .HostConfig.Binds}}' "$CONTAINER_REF" | jq
 }
 
 docker_pick_image() {
