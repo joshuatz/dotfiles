@@ -149,6 +149,7 @@
 		"c",
 		"cpp",
 		"css",
+		"dockercompose",
 		"git-commit",
 		"github-actions-workflow",
 		"go",
@@ -181,6 +182,7 @@
 		"cheatsheets",
 		"Cloudinary",
 		"CORB",
+		"DEBUGPY",
 		"devs",
 		"Dodds",
 		"dotfiles",
@@ -369,6 +371,8 @@
 	// If good type support, up to 'strict'
 	"python.analysis.typeCheckingMode": "basic",
 	"python.analysis.autoImportCompletions": true,
+	// Auto f-strings!
+	"python.analysis.autoFormatStrings": true,
 	// Aggressive python formatting!
 	"[python]": {
 		"editor.defaultFormatter": "ms-python.python",

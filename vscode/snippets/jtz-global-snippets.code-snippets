@@ -209,7 +209,8 @@
 		"scope": "svelte, markdown",
 		"body": [
 			"<!--",
-			"@component COMPONENT_DESCRIPTION""-->",
+			"@component COMPONENT_DESCRIPTION",
+			"-->",
 			"",
 			"<script lang=\"ts\">",
 			"\t//",
@@ -289,5 +290,15 @@
 	"Swap Outer Quotes": {
 		"description": "Swaps outer quote type (e.g. double to single, or single to double)",
 		"body": "TODO"
+	},
+	"Taskfile README blurb": {
+		"description": "Inserts a blurb about the use of Task / Taskfile within this project",
+		"scope": "markdown, plaintext",
+		"body": "This project uses [`task` (aka `go-task`)](https://github.com/go-task/task) for developer task management and execution. [The `Taskfile.yml` file](./Taskfile.yml) serves as a way to organize these commands, as well as a form of documentation and easy entrypoint into getting started with the project.\n\nYou can use `task --list-all` to see all available `task` commands."
+	},
+	"Taskfile header blurb": {
+		"description": "Inserts a blurb about the use of Task, for putting at the top of a Taskfile",
+		"scope": "yaml",
+		"body": "### @file ###\n#\n# This is a \"Taskfile\", for use with the `task` (aka `go-task`) runner.\n# It supports cross-platform scripting, task dependency / fingerprinting, and more.\n# See: https://github.com/go-task/task\n#\n# Many tasks are automatically run together, via dependency arrays, so you don't\n# have to remember to manually do things like install dependencies, re-build, etc.\n#\n# Tips:\n# - Use `task TASK_NAME` to run a specific task\n# - Use `task --list-all` in the project root to list all tasks.\n# - For a given task:\n#     - Use `--summary` to show the description / help.\n#     - Use `--force` to force the task to re-run, even if computed deps haven't changed.\n#############"
 	}
 }

@@ -34,6 +34,11 @@ pretty_path() {
 	echo "$PATH" | tr ':' '\n'
 }
 
+debug_separator_ifs() {
+	IFS_CHARS=$(printf '%s' "$IFS" | cat -e | head -n 1)
+	echo "$IFS_CHARS"
+}
+
 # You can use this to parse version strings and then use the resulting number for comparison
 # Example:
 #     if [[ $(parse_version_string $(git --version | grep -E -o "\d+\.\d+.\d+$")) -ge $(parse_version_string "2.39.0") ]]
@@ -182,20 +187,81 @@ firefox() {
 	return 1
 }
 
+chrome() {
+	if [[ "IS_MAC" -eq 1 ]]; then
+		: "${CHROME_BIN:="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"}"
+		"$CHROME_BIN" "$@"
+		return 0
+	fi
+	return 1
+}
+
 # Opens firefox, with each URL passed at the end, as a new tab
 # Currently, with tree style tabs, the first URL becomes the root tab
 # and any subsequent new tabs are loaded as children
 # (TODO: Make this more flexible)
+# See: http://kb.mozillazine.org/Command_line_arguments
 firefox_with_tabs() {
-	args=(
-		"-new-window"
-		"$1"
-	)
-	shift
+	args=("-new-window")
 	for arg in "$@"; do
-		args+=("-new-tab" "$arg")
+		args+=("-new-tab" "-url" "$arg")
 	done
 	firefox "${args[@]}"
+}
+
+# Opens Chrome, with each URL passed at the end, as a new tab
+# See: https://peter.sh/experiments/chromium-command-line-switches/
+chrome_with_tabs() {
+	args=("--new-window")
+	for arg in "$@"; do
+		args+=("$arg")
+	done
+	chrome "${args[@]}"
+}
+
+# This opens a new browser with a preset group of tabs, based on a stored
+# configuration file (`~/.browser-groups.json`).
+# It defaults to Firefox - use `--chrome` to launch with Chrome instead.
+open_browser_group() {
+	local BROWSER="firefox"
+	if [[ $* == *--chrome* ]]; then
+		BROWSER="chrome"
+	fi
+	local GROUP_NAME=$1
+	local GROUP_FILE=~/.browser-groups.json
+	if ! [[ -f "$GROUP_FILE" ]]; then
+		echo "ERROR: Could not find browser group file at $GROUP_FILE"
+		return 1
+	fi
+	local GROUP_KEYS=()
+	local GROUP_KEYS_STR=$(jq -r 'del(."$schema") | keys[]' "$GROUP_FILE" 2>/dev/null)
+	while IFS='' read -r line; do GROUP_KEYS+=("$line"); done < <(echo "$GROUP_KEYS_STR")
+	# Check if GROUP_NAME is valid (in list of keys)
+	local FOUND_KEY=0
+	for key in "${GROUP_KEYS[@]}"; do
+		if [[ "$key" == "$GROUP_NAME" ]]; then
+			FOUND_KEY=1
+			break
+		fi
+	done
+
+	# If key was not found, offer a selector TUI (preview is group config)
+	if [[ $FOUND_KEY -eq 0 ]]; then
+		GROUP_NAME=$(echo "$GROUP_KEYS_STR" | fzf --preview "jq '.{}.tabs' $GROUP_FILE")
+	fi
+
+	# Pass the list of tabs (URLS) to the browser
+	local TAB_URLS=($(jq -r ".$GROUP_NAME.tabs[].url" "$GROUP_FILE"))
+	# Check for empty array
+	if [[ ${#TAB_URLS[@]} -eq 0 ]]; then
+		echo "ERROR: No tabs found in group $GROUP_NAME"
+		return 1
+	fi
+	if [[ "$BROWSER" == "firefox" ]]; then
+		firefox_with_tabs "${TAB_URLS[@]}"
+	elif [[ "$BROWSER" == "chrome" ]]; then
+		chrome_with_tabs "${TAB_URLS[@]}"
+	fi
 }
 
 date_iso() {
@@ -1257,8 +1323,7 @@ get_proc_info_by_port() {
 # Ideally, there would be a way to do this directly via the task cli (e.g. `task --mark-up-to-date`)
 # See `scripts/task_mark_up_to_date.mjs` for full details`
 task_mark_up_to_date() {
-	: "${TASKFILE_PATH:="$PWD/Taskfile.yml"}"
-	TASK_NAME=$1
+	local "${TASKFILE_PATH:="$PWD/Taskfile.yml"}" TASK_NAME=$1
 	if [[ ! -f "$TASKFILE_PATH" ]]; then
 		echo "ERROR: Could not find $TASKFILE_PATH"
 		return 1
@@ -1268,7 +1333,6 @@ task_mark_up_to_date() {
 		return 1
 	fi
 	TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/scripts/task_mark_up_to_date.mjs"
-	unset TASKFILE_PATH
 }
 
 # This might seem like a lot of code just to wrap ffmpeg's `scale`, but this:
