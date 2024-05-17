@@ -1,22 +1,19 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
 	"type": "object",
-	"additionalProperties": {
-		"type": "object",
-		"properties": {
-			"notes": { "type": "string" },
-			"tabs": {
-				"type": "array",
-				"items": {
-					"type": "object",
-					"properties": {
-						"url": { "type": "string" },
-						"notes": { "type": "string" }
-					},
-					"required": ["url"]
-				}
+	"properties": {
+		"notes": { "type": "string" },
+		"tabs": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"url": { "type": "string" },
+					"notes": { "type": "string" }
+				},
+				"required": ["url"]
 			}
-		},
-		"required": ["tabs"]
-	}
+		}
+	},
+	"required": ["tabs"]
 }
