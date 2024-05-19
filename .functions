@@ -187,6 +187,92 @@ firefox() {
 	return 1
 }
 
+# Copies the Firefox DB (`places.sqlite`) to a temp dir,
+# to avoid lock issues / concurrency / corruption
+firefox_get_temp_db_copy() {
+	local VERBOSE=0
+	if [[ $* == *--verbose* ]]; then
+		VERBOSE=1
+	fi
+	if [[ $IS_MAC -ne 1 ]]; then
+		# TODO: Linux support
+		return 1
+	fi
+	local firefox_db_location=$(rg \
+		--files \
+		--no-ignore \
+		--glob "**/Profiles/*.default-release/places.sqlite" \
+		~/Library/Application\ Support/Firefox 2>/dev/null)
+	[[ $VERBOSE -eq 1 ]] && echo "Firefox DB location(s) = $firefox_db_location"
+	# Error out on no matches, or greater than 1 match
+	if [[ -z "$firefox_db_location" ]]; then
+		echo "ERROR: Could not find Firefox DB location"
+		return 1
+	fi
+	if [[ $(echo "$firefox_db_location" | wc -l) -gt 1 ]]; then
+		# TODO: Support multiple profiles?
+		echo "ERROR: Found more than one Firefox DB location"
+		return 1
+	fi
+
+	# Copy database to a temp directory to avoid lock issues / concurrency / corruption
+	temp_dir=$(mktemp -d)
+	temp_db_copy="$temp_dir/places.sqlite"
+	[[ $VERBOSE -eq 1 ]] && echo "💾 Creating temporary copy of FF DB"
+	cp "$firefox_db_location" "$temp_db_copy"
+
+	echo "$temp_db_copy"
+
+}
+
+firefox_db_interact() {
+	local VERBOSE=0
+	if [[ $* == *--verbose* ]]; then
+		VERBOSE=1
+	fi
+	local callback=$1
+	if [[ -z "$callback" ]]; then
+		echo "ERROR: No callback provided"
+		return 1
+	fi
+	shift
+	local temp_db_copy=$(firefox_get_temp_db_copy "")
+
+	# Call our callback with the temporary db, to let it do whatever it wants
+	$callback "$temp_db_copy"
+
+	# Cleanup!
+	[[ $VERBOSE -eq 1 ]] && echo "🗑️ Cleaning up temp DB copy"
+	rm -f "$temp_db_copy"
+	[[ $VERBOSE -eq 1 ]] && echo "✅ Firefox DB interaction complete"
+
+}
+
+# Get members of a firefox bookmarks group by group ID or name
+# Returns joined rows as JSON
+firefox_get_bookmark_group_members() {
+	if ! (which sqlite3 > /dev/null); then
+		echo "ERROR: sqlite3 not found"
+		return 1
+	fi
+	local temp_db_copy=$(firefox_get_temp_db_copy)
+	bookmark_group_name_or_id=$1
+	GROUP_ID=$1
+	IS_ID=$(echo "$bookmark_group_name_or_id" | grep -E -q "^[0-9]+$" && echo "true" || echo "false")
+	if [[ "$IS_ID" == "false" ]]; then
+		GROUP_ID=$(sqlite3 "$temp_db_copy" "SELECT id FROM moz_bookmarks WHERE title = '$bookmark_group_name_or_id';")
+		if [[ -z "$GROUP_ID" ]]; then
+			echo "ERROR: Could not find bookmark group '$bookmark_group_name_or_id'"
+			return 1
+		fi
+	fi
+	sqlite3 \
+		"$temp_db_copy" \
+		".mode json" \
+		"SELECT * FROM moz_bookmarks JOIN moz_places ON moz_bookmarks.fk = moz_places.id WHERE moz_bookmarks.parent = '$GROUP_ID';"
+	rm -f "$temp_db_copy"
+}
+
 chrome() {
 	if [[ "IS_MAC" -eq 1 ]]; then
 		: "${CHROME_BIN:="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"}"
@@ -1323,7 +1409,9 @@ get_proc_info_by_port() {
 # Ideally, there would be a way to do this directly via the task cli (e.g. `task --mark-up-to-date`)
 # See `scripts/task_mark_up_to_date.mjs` for full details`
 task_mark_up_to_date() {
-	local "${TASKFILE_PATH:="$PWD/Taskfile.yml"}" TASK_NAME=$1
+	local TASKFILE_PATH
+	TASKFILE_PATH="${TASKFILE_PATH:="$PWD/Taskfile.yml"}"
+	local TASK_NAME=$1
 	if [[ ! -f "$TASKFILE_PATH" ]]; then
 		echo "ERROR: Could not find $TASKFILE_PATH"
 		return 1
