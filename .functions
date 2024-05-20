@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2155
+# set -x
 
 get_shell_type() {
 	if [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
@@ -20,6 +22,17 @@ IS_MAC=0
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	IS_MAC=1
 fi
+
+# Expand ~
+expand_path() {
+	local INPUT_PATH=$1
+	if [[ -z "$INPUT_PATH" ]]; then
+		echo "ERROR: No path provided"
+		return 1
+	fi
+	INPUT_PATH="${INPUT_PATH/#\~/$HOME}"
+	echo "$INPUT_PATH"
+}
 
 # Not perfect across all OSes, but a "good enough" approach for most
 get_computer_name() {
@@ -305,27 +318,49 @@ chrome_with_tabs() {
 	chrome "${args[@]}"
 }
 
-# This opens a new browser with a preset group of tabs, based on a stored
-# configuration file (`~/.browser-groups.json`).
+# This opens a new browser with a preset group of tabs, based on stdin JSON
+# that matches the `browser-group.json` schema.
 # It defaults to Firefox - use `--chrome` to launch with Chrome instead.
 open_browser_group() {
+	local JSON=$1
 	local BROWSER="firefox"
 	if [[ $* == *--chrome* ]]; then
 		BROWSER="chrome"
 	fi
-	local GROUP_NAME=$1
-	local GROUP_FILE=~/.browser-groups.json
-	if ! [[ -f "$GROUP_FILE" ]]; then
-		echo "ERROR: Could not find browser group file at $GROUP_FILE"
+
+	# Pass the list of tabs (URLS) to the browser
+	local TAB_URLS=($(echo "$JSON" | jq -r ".tabs[].url"))
+	# Check for empty array
+	if [[ ${#TAB_URLS[@]} -eq 0 ]]; then
+		echo "ERROR: No tabs found"
 		return 1
 	fi
-	local GROUP_KEYS=()
-	local GROUP_KEYS_STR=$(jq -r 'del(."$schema") | keys[]' "$GROUP_FILE" 2>/dev/null)
-	while IFS='' read -r line; do GROUP_KEYS+=("$line"); done < <(echo "$GROUP_KEYS_STR")
-	# Check if GROUP_NAME is valid (in list of keys)
+	if [[ "$BROWSER" == "firefox" ]]; then
+		firefox_with_tabs "${TAB_URLS[@]}"
+	elif [[ "$BROWSER" == "chrome" ]]; then
+		chrome_with_tabs "${TAB_URLS[@]}"
+	fi
+}
+
+open_workspace() {
+	local WORKSPACE_NAME=$1
+	local BROWSER="firefox"
+	if [[ $* == *--chrome* ]]; then
+		BROWSER="chrome"
+	fi
+	local workspaces_file=~/.workspaces.json
+	if ! [[ -f "$workspaces_file" ]]; then
+		echo "ERROR: Could not find workspaces file at $workspaces_file"
+		return 1
+	fi
+	local JSON=$(cat "$workspaces_file")
+	local NAME_KEYS=()
+	local NAME_KEYS_STR=$(echo "$JSON" | jq -r 'del(."$schema") | keys[]' 2>/dev/null)
+	while IFS='' read -r line; do NAME_KEYS+=("$line"); done < <(echo "$NAME_KEYS_STR")
+	# Check if WORKSPACE_NAME is valid (in list of keys)
 	local FOUND_KEY=0
-	for key in "${GROUP_KEYS[@]}"; do
-		if [[ "$key" == "$GROUP_NAME" ]]; then
+	for key in "${NAME_KEYS[@]}"; do
+		if [[ "$key" == "$WORKSPACE_NAME" ]]; then
 			FOUND_KEY=1
 			break
 		fi
@@ -333,20 +368,24 @@ open_browser_group() {
 
 	# If key was not found, offer a selector TUI (preview is group config)
 	if [[ $FOUND_KEY -eq 0 ]]; then
-		GROUP_NAME=$(echo "$GROUP_KEYS_STR" | fzf --preview "jq '.{}.tabs' $GROUP_FILE")
+		WORKSPACE_NAME=$(echo "$NAME_KEYS_STR" | fzf --preview "jq '.{}' $workspaces_file")
 	fi
 
-	# Pass the list of tabs (URLS) to the browser
-	local TAB_URLS=($(jq -r ".$GROUP_NAME.tabs[].url" "$GROUP_FILE"))
-	# Check for empty array
-	if [[ ${#TAB_URLS[@]} -eq 0 ]]; then
-		echo "ERROR: No tabs found in group $GROUP_NAME"
-		return 1
+	local first_slack_channel=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.slackChannels[0]")
+	if [[ "$first_slack_channel" != "null" ]]; then
+		local TEAM_ID=$(echo "$first_slack_channel" | jq -r '.teamId')
+		local CHANNEL_ID=$(echo "$first_slack_channel" | jq -r '.channelId')
+		open "slack://channel?team=${TEAM_ID}&id=${CHANNEL_ID}"
 	fi
-	if [[ "$BROWSER" == "firefox" ]]; then
-		firefox_with_tabs "${TAB_URLS[@]}"
-	elif [[ "$BROWSER" == "chrome" ]]; then
-		chrome_with_tabs "${TAB_URLS[@]}"
+
+	local first_ide_project_root=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.ideProjectRoots[0]")
+	if [[ "$first_ide_project_root" != "null" ]]; then
+		code "$(expand_path "$first_ide_project_root")"
+	fi
+
+	local first_browser_group_json=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.browserGroups[0]")
+	if [[ "$first_browser_group_json" != "null" ]]; then
+		open_browser_group "$first_browser_group_json" "--$BROWSER"
 	fi
 }
 

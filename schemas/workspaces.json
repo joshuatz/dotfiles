@@ -1,32 +1,9 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
 	"type": "object",
-	"properties": {
-		"scratchDir": {
-			"type": "string"
-		},
-		"ideProjectRoots": {
-			"type": "array",
-			"items": {
-				"type": "string"
-			}
-		},
-		"slackChannels": {
-			"type": "array",
-			"items": {
-				"teamId": { "type": "string" },
-				"channelId": { "type": "string" }
-			}
-		},
-		"preferredTmuxSessionName": {
-			"type": "string"
-		},
-		"browserGroups": {
-			"type": "array",
-			"items": {
-				"$ref": "./browser-groups.json"
-			}
-		}
+	"properties": {},
+	"additionalProperties": {
+		"$ref": "./workspace.json"
 	},
-	"required": ["scratchDir", "ideProjectRoots"]
+	"required": []
 }
