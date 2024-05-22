@@ -387,6 +387,12 @@ open_workspace() {
 	if [[ "$first_browser_group_json" != "null" ]]; then
 		open_browser_group "$first_browser_group_json" "--$BROWSER"
 	fi
+
+	local tmux_session_name=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.preferredTmuxSessionName")
+	if [[ "$tmux_session_name" != "null" ]]; then
+		# Note: tmux_auto_open already gracefully handles if session is already open
+		tmux_auto_open "$tmux_session_name"
+	fi
 }
 
 date_iso() {
@@ -575,6 +581,23 @@ project_name_normalized() {
 	normalize_name "$project_name_raw"
 }
 
+is_in_tmux() {
+	if ! (which tmux > /dev/null); then
+		return 1
+	fi
+	[[ -n "$TMUX" ]]
+}
+
+tmux_get_active_session_name() {
+	# Note: This is necessary because `tmux display-message -p "#S"` actually
+	# does not throw outside of a tmux session - it just returns the last alive
+	# session
+	if ! (is_in_tmux); then
+		return 1
+	fi
+	tmux display-message -p "#S"
+}
+
 tmux_generate_session_name() {
 	tmux_session_name=$1
 	if [[ -z "$tmux_session_name" ]]; then
@@ -636,6 +659,12 @@ tmux_scrollback_dump() {
 tmux_auto_open() {
 	tmux_session_name=$(tmux_generate_session_name "$1")
 	echo "Session name = $tmux_session_name"
+
+	# Check if we are already in the session
+	if [[ $(tmux_get_active_session_name) == "$tmux_session_name" ]]; then
+		echo "Already in session"
+		return
+	fi
 
 	# Search for active session first, and attach if exists
 	if (tmux has-session -t "$tmux_session_name" 2>/dev/null); then
