@@ -1,7 +1,19 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
 	"type": "object",
-	"properties": {},
+	"properties": {
+		"shared": {
+			"type": "object",
+			"properties": {
+				"browserGroups": {
+					"type": "array",
+					"items": {
+						"$ref": "./browser-group.json"
+					}
+				}
+			}
+		}
+	},
 	"additionalProperties": {
 		"$ref": "./workspace.json"
 	},

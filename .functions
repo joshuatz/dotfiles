@@ -18,6 +18,9 @@ if [[ "$SHELL_TYPE" == "ZSH" ]]; then
 	ARRAY_INDEX_START=1
 fi
 
+# Useful for splitting with non-printable char, etc.
+UNIT_SEPARATOR_CHAR=$'\x1F'
+
 IS_MAC=0
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	IS_MAC=1
@@ -320,12 +323,17 @@ chrome_with_tabs() {
 
 # This opens a new browser with a preset group of tabs, based on stdin JSON
 # that matches the `browser-group.json` schema.
+# See [browser-groups.json](./schemas/browser-groups.json).
 # It defaults to Firefox - use `--chrome` to launch with Chrome instead.
-open_browser_group() {
+open_browser_group_url() {
 	local JSON=$1
 	local BROWSER="firefox"
 	if [[ $* == *--chrome* ]]; then
 		BROWSER="chrome"
+	fi
+	local OPEN_ALL=0
+	if [[ $* == *--all* ]]; then
+		OPEN_ALL=1
 	fi
 
 	# Pass the list of tabs (URLS) to the browser
@@ -335,19 +343,32 @@ open_browser_group() {
 		echo "ERROR: No tabs found"
 		return 1
 	fi
-	if [[ "$BROWSER" == "firefox" ]]; then
-		firefox_with_tabs "${TAB_URLS[@]}"
-	elif [[ "$BROWSER" == "chrome" ]]; then
-		chrome_with_tabs "${TAB_URLS[@]}"
+
+	if [[ $OPEN_ALL -eq 1 ]]; then
+		if [[ "$BROWSER" == "firefox" ]]; then
+			firefox_with_tabs "${TAB_URLS[@]}"
+		elif [[ "$BROWSER" == "chrome" ]]; then
+			chrome_with_tabs "${TAB_URLS[@]}"
+		fi
+		return 0
 	fi
+
+	local SELECTED_TAB_URL=$(echo "$JSON" | jq -r '.tabs[] | "\(.notes) || \(.url)"' | fzf | awk -F '\\|\\|' '{print $2}')
+	if [[ -n "$SELECTED_TAB_URL" ]]; then
+		if [[ "$BROWSER" == "firefox" ]]; then
+			firefox "$SELECTED_TAB_URL"
+		elif [[ "$BROWSER" == "chrome" ]]; then
+			chrome "$SELECTED_TAB_URL"
+		fi
+		return 0
+	fi
+
+	return 1
 }
 
-open_workspace() {
+# Get nested workspace JSON by name, or with TUI selector
+get_workspace_json() {
 	local WORKSPACE_NAME=$1
-	local BROWSER="firefox"
-	if [[ $* == *--chrome* ]]; then
-		BROWSER="chrome"
-	fi
 	local workspaces_file=~/.workspaces.json
 	if ! [[ -f "$workspaces_file" ]]; then
 		echo "ERROR: Could not find workspaces file at $workspaces_file"
@@ -371,27 +392,43 @@ open_workspace() {
 		WORKSPACE_NAME=$(echo "$NAME_KEYS_STR" | fzf --preview "jq '.{}' $workspaces_file")
 	fi
 
-	local first_slack_channel=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.slackChannels[0]")
+	echo "$JSON" | jq -r ".$WORKSPACE_NAME"
+}
+
+open_workspace() {
+	local WORKSPACE_NAME=$1
+	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
+
+	local first_slack_channel=$(echo "$WORKSPACE_JSON" | jq -r ".slackChannels[0]")
 	if [[ "$first_slack_channel" != "null" ]]; then
 		local TEAM_ID=$(echo "$first_slack_channel" | jq -r '.teamId')
 		local CHANNEL_ID=$(echo "$first_slack_channel" | jq -r '.channelId')
 		open "slack://channel?team=${TEAM_ID}&id=${CHANNEL_ID}"
 	fi
 
-	local first_ide_project_root=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.ideProjectRoots[0]")
+	local first_ide_project_root=$(echo "$WORKSPACE_JSON" | jq -r ".ideProjectRoots[0]")
 	if [[ "$first_ide_project_root" != "null" ]]; then
 		code "$(expand_path "$first_ide_project_root")"
 	fi
 
-	local first_browser_group_json=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.browserGroups[0]")
+	local first_browser_group_json=$(echo "$WORKSPACE_JSON" | jq -r ".browserGroups[0]")
 	if [[ "$first_browser_group_json" != "null" ]]; then
-		open_browser_group "$first_browser_group_json" "--$BROWSER"
+		open_browser_group_url "$first_browser_group_json" "--$BROWSER" --all
 	fi
 
-	local tmux_session_name=$(echo "$JSON" | jq -r ".$WORKSPACE_NAME.preferredTmuxSessionName")
+	local tmux_session_name=$(echo "$WORKSPACE_JSON" | jq -r ".preferredTmuxSessionName")
 	if [[ "$tmux_session_name" != "null" ]]; then
 		# Note: tmux_auto_open already gracefully handles if session is already open
 		tmux_auto_open "$tmux_session_name"
+	fi
+}
+
+open_workspace_url() {
+	local WORKSPACE_NAME=$1
+	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
+	local first_browser_group_json=$(echo "$WORKSPACE_JSON" | jq -r ".browserGroups[0]")
+	if [[ "$first_browser_group_json" != "null" ]]; then
+		open_browser_group_url "$first_browser_group_json"
 	fi
 }
 
@@ -886,7 +923,7 @@ git_fixup() {
 # (too many ZSH and bash workarounds, hard to read)
 git_find_fixup_base() {
 	MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP=40
-	LOG_DIVIDER=$(echo $'\x1F')
+	LOG_DIVIDER="$UNIT_SEPARATOR_CHAR"
 	seeking_commit_msgs=()
 	commit_scan_counter=0
 	# Iterate over all git log entries

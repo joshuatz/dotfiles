@@ -14,8 +14,13 @@
 		"slackChannels": {
 			"type": "array",
 			"items": {
-				"teamId": { "type": "string" },
-				"channelId": { "type": "string" }
+				"type": "object",
+				"properties": {
+					"alias": { "type": "string" },
+					"teamId": { "type": "string" },
+					"channelId": { "type": "string" }
+				},
+				"required": ["alias", "teamId", "channelId"]
 			}
 		},
 		"preferredTmuxSessionName": {

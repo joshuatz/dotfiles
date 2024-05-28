@@ -25,6 +25,7 @@ alias exif="exiftool"
 alias exif_full="exiftool -D -u -U"
 # Also works: magick identify -verbose ./file.jpg | grep Quality
 alias get_jpeg_quality="exiftool -JPEGDigest -JPEGQualityEstimate"
+alias get_file_mime="file --mime-type"
 
 # == ASDF ==
 alias asdf_update_listings="asdf plugin update"
@@ -35,6 +36,7 @@ alias tao="tmux_auto_open"
 alias tmuxao="tmux_auto_open"
 alias tmuxls="tmux ls"
 alias tmuxss="tmux_session_select_and_attach"
+alias tmuxsn="tmux_get_active_session_name"
 alias tmuxws="tmux_window_select"
 alias tmuxps="tmux_pane_select"
 alias tmuxconf-rl="tmux source-file ~/.tmux.conf"
