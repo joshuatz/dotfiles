@@ -92,7 +92,7 @@ get_clipboard_contents() {
 
 get_clipboard_html() {
 	if [[ $IS_MAC -ne 1 ]]; then
-		# TODO
+		# TODO: Linux support
 		return 1
 	fi
 
@@ -389,7 +389,7 @@ get_workspace_json() {
 
 	# If key was not found, offer a selector TUI (preview is group config)
 	if [[ $FOUND_KEY -eq 0 ]]; then
-		WORKSPACE_NAME=$(echo "$NAME_KEYS_STR" | fzf --preview "jq '.{}' $workspaces_file")
+		WORKSPACE_NAME=$(echo "$NAME_KEYS_STR" | fzf --preview "jq '.\"{}\"' $workspaces_file")
 	fi
 
 	echo "$JSON" | jq -r ".$WORKSPACE_NAME"
@@ -425,10 +425,14 @@ open_workspace() {
 
 open_workspace_url() {
 	local WORKSPACE_NAME=$1
+	# If multiple args passed, name should be first and removed before passing rest
+	if [[ $# -gt 1 ]]; then
+		shift
+	fi
 	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
 	local first_browser_group_json=$(echo "$WORKSPACE_JSON" | jq -r ".browserGroups[0]")
 	if [[ "$first_browser_group_json" != "null" ]]; then
-		open_browser_group_url "$first_browser_group_json"
+		open_browser_group_url "$first_browser_group_json" "$@"
 	fi
 }
 

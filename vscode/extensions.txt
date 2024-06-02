@@ -23,6 +23,8 @@ jebbs.plantuml
 koalamer.labeled-bookmarks
 mads-hartmann.bash-ide-vscode
 mrmlnc.vscode-scss
+ms-azuretools.vscode-azurefunctions
+ms-azuretools.vscode-azureresourcegroups
 ms-azuretools.vscode-docker
 ms-python.black-formatter
 ms-python.debugpy

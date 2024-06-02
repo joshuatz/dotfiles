@@ -498,6 +498,7 @@
 		"**/node_modules": false,
 		"**/bower_components": true
 	},
+	"editor.minimap.renderCharacters": false,
 	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1

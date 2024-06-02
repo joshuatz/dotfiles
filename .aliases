@@ -78,4 +78,4 @@ alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-word
 alias aws_list_profiles="aws configure list-profiles"
 
 # === work ===
-alias work-time="npx --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"
+alias work-time="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"
