@@ -1313,10 +1313,26 @@ docker_pick_container() {
 	echo "$container_id"
 }
 
+# Note: For debugging usage, the new `docker debug` command looks promising,
+# but requires a paid plan to use
 docker_exec_it() {
-	CONTAINER_REF=$(docker_pick_container)
-	docker exec -it "$CONTAINER_REF" bash
-	# TODO retry with `sh` if bash not found
+	local CONTAINER_REF=$CONTAINER_REF
+	if [[ -z "$CONTAINER_REF" ]]; then
+		CONTAINER_REF=$(docker_pick_container)
+	fi
+	local TARGET_BIN=$1
+	if [[ -z "$TARGET_BIN" ]]; then
+		TARGET_BIN="bash"
+	fi
+	if [[ "$TARGET_BIN" == "bash" ]]; then
+		# Try first, to see if we should fall back to sh
+		docker exec "$CONTAINER_REF" bash --help > /dev/null
+		if [[ $? -ne 0 ]]; then
+			echo "Falling back to sh, bash not found"
+			TARGET_BIN="sh"
+		fi
+	fi
+	docker exec -it "$CONTAINER_REF" "$TARGET_BIN"
 }
 
 docker_get_working_dir() {
