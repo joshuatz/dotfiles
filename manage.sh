@@ -93,6 +93,15 @@ pull() {
 }
 
 push() {
+	# Make sure env files are scaffolded
+	for env_file in "$SCRIPT_DIR"/.env.*.example; do
+		non_tracked_env_file_name=$(basename "$env_file" | sed -e 's/\.example$//')
+		if [[ ! -f "$SCRIPT_DIR/$non_tracked_env_file_name" ]]; then
+			echo "Creating $non_tracked_env_file_name - please fill out"
+			cp "$env_file" "$SCRIPT_DIR/$non_tracked_env_file_name"
+		fi
+	done
+
 	# Single files
 	cp "$SCRIPT_DIR/Taskfile.global.yml" ~/Taskfile.global.yml
 	cp "$SCRIPT_DIR/.functions" ~/.functions

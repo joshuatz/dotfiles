@@ -191,8 +191,9 @@ terminal:
   bell: visual
   font: Menlo, NovaMono for Powerline
   altIsMeta: true
-  copyOnSelect: true
   ligatures: true
+  rightClick: 'off'
+  copyAsHTML: false
 ssh: {}
 configSync:
   parts: {}

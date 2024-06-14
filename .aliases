@@ -8,7 +8,9 @@ alias devdocs="open https://devdocs.io/"
 alias is_symlink="test -L"
 alias symlink_resolve="greadlink -f"
 alias list="ls -halt"
-alias folders_by_size="du -h --max-depth=1 | sort -h"
+alias folders_by_size="du -h -d 1 | sort -h"
+alias folder_size="du -hs"
+# tar flags:
 # -c = created
 # -z = compress
 # -v = verbose
@@ -17,6 +19,7 @@ alias folders_by_size="du -h --max-depth=1 | sort -h"
 # Example: `tar -czvf output.tar.gz /dir/sub_dir file_a file_b`
 alias tgz_create="tar -czvf"
 alias tgz_list="tar -tzvf"
+alias tgz_unpack="tar -xzvf"
 alias exif="exiftool"
 # -D = show with decimal
 # -u = include unknown
@@ -26,6 +29,9 @@ alias exif_full="exiftool -D -u -U"
 # Also works: magick identify -verbose ./file.jpg | grep Quality
 alias get_jpeg_quality="exiftool -JPEGDigest -JPEGQualityEstimate"
 alias get_file_mime="file --mime-type"
+
+# === Process Management ===
+alias check_last_command="[[ \$? -ne 0 ]] && echo 'Last command failed' || echo 'Last command succeeded'"
 
 # == ASDF ==
 alias asdf_update_listings="asdf plugin update"

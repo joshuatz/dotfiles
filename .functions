@@ -50,6 +50,16 @@ pretty_path() {
 	echo "$PATH" | tr ':' '\n'
 }
 
+augment_path() {
+	local extra_path=$1
+	shift
+	local cmd=$*
+	(
+		PATH="$extra_path:$PATH"
+		$SHELL -c "$cmd"
+	)
+}
+
 debug_separator_ifs() {
 	IFS_CHARS=$(printf '%s' "$IFS" | cat -e | head -n 1)
 	echo "$IFS_CHARS"
@@ -101,7 +111,7 @@ get_clipboard_html() {
 	osascript -e 'the clipboard as «class HTML»' | perl -ne 'print chr foreach unpack("C*",pack("H*",substr($_,11,-3)))'
 }
 
-copy_to_clipboard() {
+_copy_to_clipboard() {
 	if (which pbcopy > /dev/null); then
 		pbcopy
 	elif (which xclip > /dev/null); then
@@ -110,6 +120,16 @@ copy_to_clipboard() {
 		wl-copy
 	else
 		echo "ERROR: Could not find a clipboard utility"
+	fi
+}
+
+# shellcheck disable=SC2120
+copy_to_clipboard() {
+	if [[ -n "$1" ]]; then
+		# Suppress trailing line break while piping
+		echo -n "$1" | _copy_to_clipboard
+	else
+		_copy_to_clipboard
 	fi
 }
 
@@ -369,6 +389,9 @@ open_browser_group_url() {
 # Get nested workspace JSON by name, or with TUI selector
 get_workspace_json() {
 	local WORKSPACE_NAME=$1
+	local CONSIDER_ONLY_ACTIVE_WORKSPACES=$(
+		{ [[ -n "$ALL_WORKSPACES" ]] || [[ $* == *--all* ]]; } && echo "y" || echo "n"
+	)
 	local workspaces_file=~/.workspaces.json
 	if ! [[ -f "$workspaces_file" ]]; then
 		echo "ERROR: Could not find workspaces file at $workspaces_file"
@@ -389,8 +412,16 @@ get_workspace_json() {
 
 	# If key was not found, offer a selector TUI (preview is group config)
 	if [[ $FOUND_KEY -eq 0 ]]; then
+		if [[ "$CONSIDER_ONLY_ACTIVE_WORKSPACES" == "n" ]]; then
+			NAME_KEYS_STR=$(echo "$JSON" | jq -r 'del(."$schema") | with_entries(select(.value.active == true)) | keys[]' 2>/dev/null)
+		fi
 		WORKSPACE_NAME=$(echo "$NAME_KEYS_STR" | fzf --preview "jq '.\"{}\"' $workspaces_file")
 	fi
+
+	if [[ -z "$WORKSPACE_NAME" ]]; then
+		return 1
+	fi
+
 
 	echo "$JSON" | jq -r ".$WORKSPACE_NAME"
 }
@@ -398,6 +429,11 @@ get_workspace_json() {
 open_workspace() {
 	local WORKSPACE_NAME=$1
 	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
+
+	if [[ -z "$WORKSPACE_JSON" ]]; then
+		return 1
+	fi
+
 
 	local first_slack_channel=$(echo "$WORKSPACE_JSON" | jq -r ".slackChannels[0]")
 	if [[ "$first_slack_channel" != "null" ]]; then
@@ -424,11 +460,19 @@ open_workspace() {
 }
 
 open_workspace_url() {
-	local WORKSPACE_NAME=$1
-	# If multiple args passed, name should be first and removed before passing rest
-	if [[ $# -gt 1 ]]; then
+	local WORKSPACE_NAME=""
+	local BROWSER="firefox"
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-w|--workspace)
+				WORKSPACE_NAME=$2
+				shift
+				;;
+		esac
 		shift
-	fi
+	done
+	echo "Args = $*"
 	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
 	local first_browser_group_json=$(echo "$WORKSPACE_JSON" | jq -r ".browserGroups[0]")
 	if [[ "$first_browser_group_json" != "null" ]]; then
@@ -812,10 +856,20 @@ git_revert_last() {
 	git reset HEAD~1
 }
 
-git_sha() {
-	short=$(git rev-parse --short HEAD)
-	long=$(git rev-parse HEAD)
-	echo "${short}\t${long}"
+git_sha_short() {
+	git rev-parse --short HEAD
+}
+
+git_sha_full() {
+	git rev-parse HEAD
+}
+
+git_sha_both() {
+	echo "$(git_sha_full)\t$(git_sha_short)"
+}
+
+git_has_lfs_files() {
+	git lfs ls-files | grep -q .
 }
 
 git_trunk_branch() {
@@ -824,6 +878,15 @@ git_trunk_branch() {
 
 git_root_dir() {
 	git rev-parse --show-toplevel
+}
+
+git_repo_name() {
+	remote_url=$(git_remote_url)
+	basename "$remote_url"
+}
+
+git_repo_name_normalized() {
+	normalize_name "$(git_repo_name)"
 }
 
 git_cd_root_dir() {
@@ -904,6 +967,7 @@ git_stash_select() {
 	echo "$selected_stash"
 }
 alias git_select_stash="git_stash_select"
+alias git_stash_list="git_stash_select"
 
 git_copy_commit_sha() {
 	commit_hash=$(git_select_commit)
@@ -1294,6 +1358,93 @@ git_tree_view() {
 	fi
 }
 
+
+# Program to pack an entire repo, WITH TRACKING, into a single compressed tarball.
+# Supports git LFS!
+# To use, unpack and then git clone the unpacked dir
+git_pack_to_tarball_with_tracking() {
+	local ARCHIVE_PATH="$1"
+	local TRUNK_BRANCH=$(git_trunk_branch)
+
+	# Error out when command is NOT run from root of git repo, as this tends to complicate things
+	local git_root=$(git rev-parse --show-toplevel)
+	if [[ "$git_root" != "$PWD" ]]; then
+		echo "ERROR: You are not running this command from the root of a git repository"
+		echo "Current directory: $PWD"
+		echo "Git root: $git_root"
+		return 1
+	fi
+
+	# If ARCHIVE_PATH was not specified, default to repo / project name, plus hash, plus ext
+	if [[ -z "$ARCHIVE_PATH" ]]; then
+		ARCHIVE_PATH="$(project_name_normalized)___$(git_sha_full).tar.gz"
+		echo "Defaulting output filename to $ARCHIVE_PATH"
+	fi
+
+	local TMP_DIR=$(mktemp -d)
+	echo "🔗 Temp dir for bundling = $TMP_DIR"
+
+	echo "At a minimum, there are $(git ls-files | wc -l) files to clone and pack"
+	local HAS_LFS_FILES=0
+
+	if (git_has_lfs_files); then
+		echo "📎 Git LFS files detected"
+		HAS_LFS_FILES=1
+	fi
+
+	# For backing up source code PLUS actual git history (`.git`) our options are actually pretty limited,
+	# because
+	# - `git archive` only archives files based on `.gitignore`; does not include `.git` objects
+	# - `git bundle` does include git objects, but does not work well with git LFS (which we use for large files)
+	# So, instead use "bare" repo folders to clone
+	local BARE_REPO_DIR_NAME=$(git_repo_name_normalized)
+	mkdir -p "$TMP_DIR/$BARE_REPO_DIR_NAME"
+	local GIT_BARE_REMOTE_PATH="file://$TMP_DIR/$BARE_REPO_DIR_NAME"
+	pushd "$TMP_DIR/$BARE_REPO_DIR_NAME" || exit
+	echo "🏗️ Initializing temp bare repository"
+	git init --bare
+	popd || exit
+
+	git remote add git-bare-clone "$GIT_BARE_REMOTE_PATH"
+
+	if [[ $HAS_LFS_FILES -eq 1 ]]; then
+		echo "🔁 Making sure LFS is up-to-date"
+		git lfs fetch --all
+	fi
+
+	echo "💾 Cloning to temp bare repo..."
+	git push git-bare-clone "$TRUNK_BRANCH"
+
+	if [[ $HAS_LFS_FILES -eq 1 ]]; then
+		echo "  ↳ 💾 Pushing LFS objects to temp bare clone"
+		git lfs push --all git-bare-clone
+	fi
+
+	local UNPACKED_SIZE=$(du -hs "$TMP_DIR/$BARE_REPO_DIR_NAME")
+
+	# Detach
+	git remote remove git-bare-clone
+	# Pack
+	echo "🔎 Unpacked dirname will be $BARE_REPO_DIR_NAME"
+	echo "📦 Packing into tarball..."
+	echo "📦 ..."
+	echo "📦 ......"
+	echo "📦 ........."
+	tar --cd "$TMP_DIR" -czf "$TMP_DIR/git-repository.tar.gz" "$BARE_REPO_DIR_NAME"
+
+	# Move file, cleanup
+	echo "💾 Copying tarball to final location"
+	mv "$TMP_DIR/git-repository.tar.gz" "$ARCHIVE_PATH"
+	local PACKED_SIZE=$(du -hs "$ARCHIVE_PATH")
+	rm -rf "$TMP_DIR"
+
+	echo "✅ Done! Tarball exported and temp dir deleted."
+	echo "  ↳ Final Path = $ARCHIVE_PATH"
+	echo "     ↳ Packed Size = $PACKED_SIZE"
+	echo "  ↳ Unpacked name = $BARE_REPO_DIR_NAME"
+	echo "     ↳ Unpacked Size = $UNPACKED_SIZE"
+}
+
 docs() {
 	if [[ -d "$DOCS_DIR" ]]; then
 		(
@@ -1311,6 +1462,30 @@ docker_pick_container() {
 	container=$(echo "$container_list" | fzf --height 40% --reverse --header-lines=1)
 	container_id=$(echo "$container" | awk '{print $1}')
 	echo "$container_id"
+}
+
+docker_copy_to_container() {
+	local host_source="$1"
+	local container_destination="${2:="/tmp/"}"
+	if [[ -z "$host_source" ]]; then
+		echo "No source file specified"
+		return 1
+	fi
+	if [[ ! -e "$host_source" ]]; then
+		echo "Source file does not exist"
+		return 1
+	fi
+	[[ -z "$CONTAINER_REF" ]] && local CONTAINER_REF="$(docker_pick_container)"
+	echo "Copying $host_source to $CONTAINER_REF:$container_destination"
+	docker cp "$host_source" "$CONTAINER_REF:$container_destination"
+}
+alias docker_copy="docker_copy_to_container"
+
+
+docker_stop() {
+	local CONTAINER_REF="$(docker_pick_container)"
+	echo "Stopping $CONTAINER_REF"
+	docker stop "$CONTAINER_REF"
 }
 
 # Note: For debugging usage, the new `docker debug` command looks promising,
@@ -1390,8 +1565,14 @@ docker_pick_image() {
 }
 
 docker_image_exec() {
-	: "${DOCKER_SHELL:="bash"}"
-	image_id=$(docker_pick_image)
+	local image_id=$1
+	local DOCKER_SHELL="$DOCKER_SHELL"
+	if [[ -z $DOCKER_SHELL ]]; then
+		DOCKER_SHELL="bash"
+	fi
+	if [[ -z "$image_id" ]]; then
+		image_id=$(docker_pick_image)
+	fi
 	docker run --rm -it "$image_id" "/bin/$DOCKER_SHELL"
 }
 alias docker_exec_image="docker_image_exec"
@@ -1997,7 +2178,6 @@ large_llm_query() {
 		rm -r "$TEMP_DIR_PATH"
 		echo "Deleted temporary prompt files"
 	fi
-
 }
 
 # This is currently pretty macoS specific
