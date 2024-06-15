@@ -1135,6 +1135,64 @@ if [[ $SHELL_TYPE == "ZSH" ]]; then
 	# compdef _git git_checkout_dirty=git-checkout
 fi
 
+git_sparse_checkout() {
+	local OUT_DIR=""
+	local REMOTE=""
+	local BRANCH=""
+	local SUB_PATHS=()
+
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-o|--out-dir)
+				OUT_DIR=$2
+				shift
+				;;
+			-r|--remote)
+				REMOTE=$2
+				shift
+				;;
+			-b|--branch)
+				BRANCH=$2
+				shift
+				;;
+			*)
+				SUB_PATHS+=("$1")
+				shift
+				;;
+		esac
+		shift
+	done
+
+	local ERR=0
+	if [[ -z "$REMOTE" ]]; then
+		echo "You must specify the remote URL / source (-r / --remote)"
+		ERR=1
+	fi
+	if [[ -z "$OUT_DIR" ]]; then
+		echo "You must specify the destination directory (-o / --out-dir)"
+		ERR=1
+	fi
+	[[ $ERR -eq 1 ]] && return 1
+
+	local GIT_ARGS=(clone --filter=blob:none --no-checkout --depth 1)
+	if [[ -n "$BRANCH" ]]; then
+		GIT_ARGS+=(--branch "$BRANCH")
+	fi
+	GIT_ARGS+=(--sparse)
+
+	# Clone into out_dir and cd to it
+	git "${GIT_ARGS[@]}" "$REMOTE" "$OUT_DIR"
+	pushd "$OUT_DIR" || exit
+
+	# Selectively add the sub paths
+	for sub_path in "${SUB_PATHS[@]}"; do
+		git sparse-checkout add "$sub_path"
+	done
+	git checkout
+	popd || exit
+}
+
 git_do_while_dirty() {
 	git_operation="$*"
 	IFS=
@@ -1566,6 +1624,8 @@ docker_pick_image() {
 
 docker_image_exec() {
 	local image_id=$1
+	shift
+	local CONTAINER_NAME="$image_id-$(date_ms)"
 	local DOCKER_SHELL="$DOCKER_SHELL"
 	if [[ -z $DOCKER_SHELL ]]; then
 		DOCKER_SHELL="bash"
@@ -1573,14 +1633,44 @@ docker_image_exec() {
 	if [[ -z "$image_id" ]]; then
 		image_id=$(docker_pick_image)
 	fi
-	docker run --rm -it "$image_id" "/bin/$DOCKER_SHELL"
+	docker run --name "$CONTAINER_NAME" --rm -it "$@" "$image_id" "/bin/$DOCKER_SHELL"
 }
 alias docker_exec_image="docker_image_exec"
 alias docker_run_image_interactive="docker_exec_image"
 
+# Throwaway container for PostgreSQL
+docker_temp_pg() {
+	local IMAGE_NAME="postgres:latest"
+	local HOST_PORT="5432"
+	# Check for already bound
+	if (find_pid_by_port "$HOST_PORT"); then
+		echo "Port $HOST_PORT is already bound; using randomized port"
+		docker_image_exec "$IMAGE_NAME" -p 5432 "$@"
+		return 0
+	fi
+	docker_image_exec "$IMAGE_NAME" -p "$HOST_PORT:5432" "$@"
+}
+
 docker_inspect_image() {
 	image_id=$(docker_pick_image)
 	docker inspect "$image_id"
+}
+alias docker_inspect_image_interactive="docker_inspect_image | jless"
+
+docker_inspect_image_init() {
+	local image_json=$(docker_inspect_image)
+	echo "$image_json" | jq '.[0].Config | {Cmd, Entrypoint}'
+}
+
+docker_inspect_container() {
+	CONTAINER_REF=$(docker_pick_container)
+	docker inspect "$CONTAINER_REF"
+}
+alias docker_inspect_container_interactive="docker_inspect_container | jless"
+
+docker_inspect_container_init() {
+	local CONTAINER_REF=$(docker_pick_container)
+	docker inspect "$CONTAINER_REF" | jq '.[0].Config | {Cmd, Entrypoint}'
 }
 
 docker_log_follow() {

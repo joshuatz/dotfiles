@@ -30,6 +30,9 @@ alias exif_full="exiftool -D -u -U"
 alias get_jpeg_quality="exiftool -JPEGDigest -JPEGQualityEstimate"
 alias get_file_mime="file --mime-type"
 
+# === Data rendering / piping / inspecting / etc. ===
+alias json_inspect="jless"
+
 # === Process Management ===
 alias check_last_command="[[ \$? -ne 0 ]] && echo 'Last command failed' || echo 'Last command succeeded'"
 
