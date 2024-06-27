@@ -23,14 +23,24 @@ fi
 CODE_USER_DIR=$USER_CONFIG_DIR/Code/User
 TABBY_CONFIG_FILE=$USER_CONFIG_DIR/tabby/config.yaml
 
+inject_dynamic_values_into_profile() {
+	local profile_path="$1"
+	cat >> "$profile_path" <<- EOF
+	# Dynamic variables, injected by manage.sh (jtz dotfiles)
+	DOTFILES_DIR="$SCRIPT_DIR"
+	EOF
+}
+
 bootstrap() {
 	if [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
 		echo "Bootstrapping for ZSH"
 		cp "$SCRIPT_DIR/.zshrc" ~/.zshrc
+		inject_dynamic_values_into_profile ~/.zshrc
 		exec zsh
 	elif [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
 		echo "Bootstrapping for Bash"
 		cp "$SCRIPT_DIR/.bash_profile" ~/.bash_profile
+		inject_dynamic_values_into_profile ~/.bash_profile
 		source ~/.bash_profile
 	else
 		echo 'unknown shell'

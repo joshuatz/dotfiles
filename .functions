@@ -1,21 +1,45 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2155
+# shellcheck disable=SC2120
 # set -x
 
+# === Styling ===
+# For ANSI, this is a helpful guide - https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+# However, `tput` seems to be generally preferred over ANSI escape sequences now
+if (which tput >/dev/null) && [[ -n $TERM ]]; then
+	STYLE_RESET="$(tput sgr0)"
+fi
+# === /Styling ===
+
 get_shell_type() {
-	if [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
+	# Make sure bash check comes first, to reduce issues when using subshells
+	if [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
+		echo "BASH"
+	elif [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
 		echo "ZSH"
 		return
-	elif [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
-		echo "BASH"
 	fi
 }
 SHELL_TYPE=$(get_shell_type)
+
+# You can use this to parse version strings and then use the resulting number for comparison
+# Example:
+#     if [[ $(parse_version_string $(git --version | grep -E -o "\d+\.\d+.\d+$")) -ge $(parse_version_string "2.39.0") ]]
+# https://stackoverflow.com/a/37939589/11447682
+function parse_version_string { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
+
+parse_version_string_extra() {
+	parse_version_string "$(echo $1 | sed -E 's/^([0-9]+(\.[0-9]+)*)[^0-9]*.*/\1/')"
+}
+
 
 ARRAY_INDEX_START=0
 if [[ "$SHELL_TYPE" == "ZSH" ]]; then
 	# cmon y'all, can't we just agree on things for once?
 	ARRAY_INDEX_START=1
+	ZSH_VERSION_NUM=$ZSH_VERSION
+elif [[ "$SHELL_TYPE" == "BASH" ]]; then
+	BASH_VERSION_NUM=$(parse_version_string "$BASH_VERSION")
 fi
 
 # Useful for splitting with non-printable char, etc.
@@ -60,16 +84,66 @@ augment_path() {
 	)
 }
 
+# A way to get the value from a dynamic variable name
+# I.e., dereference from pointer to variable held as string name
+# https://mywiki.wooledge.org/BashFAQ/006#Indirection
+# https://stackoverflow.com/q/16553089/11447682
+get_var_value() {
+	local VAR_NAME="$1"
+	if [[ "$SHELL_TYPE" == "ZSH" ]]; then
+		# shellcheck disable=SC2296
+		echo "${(P)VAR_NAME}"
+	elif [[ "$SHELL_TYPE" == "BASH" ]]; then
+		echo "${!VAR_NAME}"
+	else
+		echo "Not sure how to handle $SHELL_TYPE"
+		exit 1
+	fi
+}
+
+# https://mywiki.wooledge.org/BashFAQ/006#Indirection
+# https://stackoverflow.com/q/16553089/11447682
+set_var_value() {
+	local VAR_NAME="$1"
+	local VAR_VALUE=$2
+	if [[ "$SHELL_TYPE" == "ZSH" ]]; then
+		# shellcheck disable=SC2296
+		# shellcheck disable=SC2086
+		: ${(P)VAR_NAME::=VAR_VALUE}
+	elif [[ "$SHELL_TYPE" == "BASH" ]]; then
+		if [[ $BASH_VERSION_NUM -gt $(parse_version_string "4.2") ]]; then
+			declare -g "${VAR_NAME}=$VAR_VALUE"
+		elif [[ $BASH_VERSION_NUM -gt $(parse_version_string "3.1") ]]; then
+			printf -v "$VAR_NAME" %s "$VAR_VALUE"
+		else
+			declare -- "${VAR_NAME}=$VAR_VALUE"
+		fi
+	else
+		echo "Not sure how to handle $SHELL_TYPE"
+		exit 1
+	fi
+}
+
 debug_separator_ifs() {
 	IFS_CHARS=$(printf '%s' "$IFS" | cat -e | head -n 1)
 	echo "$IFS_CHARS"
 }
 
-# You can use this to parse version strings and then use the resulting number for comparison
-# Example:
-#     if [[ $(parse_version_string $(git --version | grep -E -o "\d+\.\d+.\d+$")) -ge $(parse_version_string "2.39.0") ]]
-# https://stackoverflow.com/a/37939589/11447682
-function parse_version_string { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
+trim_whitespace() {
+	echo "$1" | awk 'NF{$1=$1;print}'
+}
+
+remove_first_line() {
+	echo "$1" | sed -r '1d;'
+}
+
+remove_last_line() {
+	echo "$1" | sed -r '$d'
+}
+
+remove_first_and_last_line() {
+	echo "$1" | sed -r '1d;$d'
+}
 
 reload() {
 	if [[ $SHELL_TYPE == "ZSH" ]]; then
@@ -83,9 +157,18 @@ reload() {
 	fi
 }
 
-ding() {
+alert() {
+	msg="$1"
 	# Hello? Is anyone home? It's me, your terminal.
 	echo -e "\a"
+	if [[ -n "$msg" ]]; then
+		if (is_in_tmux); then
+			tmux display-message "$1"
+			return 0
+		fi
+		# TODO: Add styling
+		echo "$1"
+	fi
 }
 
 get_clipboard_contents() {
@@ -139,9 +222,8 @@ copy_to_clipboard() {
 copy_to_clipboard_if_not_empty() {
 	text="$1"
 	# make sure to remove both space AND trailing line breaks
-	if [[ -z "$(${text//})" ]]; then
-		ding
-		return 0
+	if [[ -z $(trim_whitespace "$1") ]]; then
+		alert
 	fi
 	echo "$text" | copy_to_clipboard
 }
@@ -624,6 +706,87 @@ render_image() {
 	return 1
 }
 
+render_table() {
+	local horizontal_scroll="true"
+	if [[ $* == *--no-h-scroll* ]]; then
+		horizontal_scroll="false"
+	fi
+	if (run_raw_cmd_in_dotfiles_venv 'pip show rich' > /dev/null); then
+		# ellipsis (default) | fold | crop
+		local overflow="ellipsis"
+		if [[ $* == *--fold* ]] || [[ $horizontal_scroll == "true" ]]; then
+			overflow="fold"
+		fi
+		local table_string="$1"
+		local python_script=$(cat <<-EOF
+		import os
+		from rich.console import Console
+		from rich.table import Table
+
+		table_string = """$table_string"""
+		rows = table_string.splitlines()
+		header_row = rows[0]
+		header_row_cells = rows[0].split('\t')
+		rows = rows[1:]
+
+		console_args = {}
+
+		if "$horizontal_scroll" == "true":
+		    # If horizontal scroll is on, we need to manually set shell args,
+		    # since we lose them piping through less
+		    console_args["color_system"] = "256"
+
+		    # This is kind of hackish, but rich doesn't seem to have something
+		    # like width=max, so this is a workaround
+		    # Use actual total header char length, plus padding
+		    header_row_char_length = sum(len(h_cell) for h_cell in header_row_cells) + (len(header_row_cells) * 8)
+		    console_args["width"] = header_row_char_length
+
+
+		console = Console(**console_args)
+
+
+		table = Table(show_header=True, header_style="bold magenta")
+
+		for header_cell in header_row_cells:
+		    column_args = {"overflow": "$overflow"}
+		    if "$horizontal_scroll" == "true":
+		        # This is kind of hackish, but rich doesn't seem to have something
+		        # like width=max, so this is a workaround
+		        column_args["min_width"] = len(header_cell) + 2
+		    table.add_column(header_cell, **column_args)
+		for row in rows:
+		    table.add_row(*row.split('\t'))
+		console.print(table)
+		EOF
+		)
+		if [[ $horizontal_scroll == "true" ]]; then
+			run_raw_python_in_dotfiles_venv "$python_script" | less -R -S
+		else
+			run_raw_python_in_dotfiles_venv "$python_script"
+		fi
+		return 0
+	fi
+
+	if [[ $horizontal_scroll == "true" ]]; then
+		echo "$table_string" | column -ts $'\t' | less -R -S
+	else
+		echo "$table_string" | column -ts $'\t'
+	fi
+}
+
+render_json_as_table() {
+	local json_string_or_file="$1"
+	local json_string="$1"
+	shift
+	local ends_with_dot_json=$( (echo "$json_string_or_file" | grep -E '.*\.json$') && echo "true" || echo "false" )
+	if [[ $ends_with_dot_json == "true" ]] && [[ -f "$json_string_or_file" ]]; then
+		json_string=$(cat "$json_string_or_file")
+	fi
+	local json_as_table=$(echo "$json_string" | jq -r 'map( with_entries(  .value |= tostring  ) ) | (map(keys) | add | unique) as $cols | map(. as $row | $cols | map($row[.])) as $rows | $cols, $rows[] | @tsv')
+	render_table "$json_as_table" "$@"
+}
+
 # Note: This is ZSH specific; todo - make agnostic?
 reload_func() {
 	unfunction "_$1" && compinit
@@ -730,6 +893,14 @@ tmux_pane_select() {
 	all_panes_in_window=$(tmux list-panes -t "$selected_window" -F "#{pane_index}")
 	selected_pane=$(echo "$all_panes_in_window" | fzf --preview "tmux capture-pane -t $selected_window.{} -pJS -10")
 	echo "$selected_window.$selected_pane"
+}
+
+tmux_kill_pane() {
+	local pane=$(tmux_pane_select)
+	if [[ -z "$pane" ]]; then
+		return
+	fi
+	tmux kill-pane -t "$pane"
 }
 
 tmux_scrollback_dump() {
@@ -1514,12 +1685,74 @@ docs() {
 	fi
 }
 
-docker_pick_container() {
+docker_pick_container_full() {
+	local multi=$([[ -n "$multi" ]] && echo "true" || echo "false")
 	# TODO support picking non-active containers
-	container_list=$(docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}")
-	container=$(echo "$container_list" | fzf --height 40% --reverse --header-lines=1)
-	container_id=$(echo "$container" | awk '{print $1}')
+	# TODO add fzf preview (show more details?)
+	local container_list=$(docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}")
+	local fzf_args=("--header-lines=1" "--reverse")
+	if [[ "$multi" == "true" ]]; then
+		fzf_args+=("-m")
+	fi
+	local container=$(echo "$container_list" | fzf "${fzf_args[@]}")
+	if [[ -z "$container" ]]; then
+		return 1
+	fi
+	echo "$container" # ID | Image |  Name
+}
+
+docker_pick_container() {
+	local container=$(docker_pick_container_full)
+	if [[ -z "$container" ]]; then
+		return 1
+	fi
+	local container_id=$(echo "$container" | awk '{print $1}')
 	echo "$container_id"
+}
+
+docker_pick_image() {
+	all_images=$(docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}")
+	selected_image=$(echo "$all_images" | fzf --height 40% --reverse --header-lines=1)
+	if [[ -z "$selected_image" ]]; then
+		return 1
+	fi
+	image_id=$(echo "$selected_image" | awk '{print $2}')
+	echo "$image_id"
+}
+
+docker_stop() {
+	# TODO add `--all` flag
+	local container=$(multi=1 docker_pick_container_full)
+	if [[ -z "$container" ]]; then
+		return 1
+	fi
+	# TODO fix - add for loop (or just pipe to docker stop)
+	local container_id=$(echo "$container" | awk '{print $1}')
+	local container_name=$(echo "$container" | awk '{print $3}')
+	echo "Stopping $container_name ($container_id)"
+	docker stop "$container_id"
+}
+
+docker_restart() {
+	local HARD_RESTART=$([[ $* == *--hard* ]] && echo "true" || echo "false")
+	local EXTRA_ARGS=()
+	if [[ $* == *--detach* ]]; then
+		EXTRA_ARGS+=("-d")
+	fi
+	local container=$(docker_pick_container_full)
+	if [[ -z "$container" ]]; then
+		return 1
+	fi
+	local container_id=$(echo "$container" | awk '{print $1}')
+	local container_name=$(echo "$container" | awk '{print $3}')
+	echo "Restarting $container_name ($container_id)"
+
+	if [[ "$HARD_RESTART" == "true" ]]; then
+		docker stop "$container_id"
+		docker start --force-recreate "${EXTRA_ARGS[@]}" "$container_id"
+	else
+		docker restart "$container_id"
+	fi
 }
 
 docker_copy_to_container() {
@@ -1534,17 +1767,13 @@ docker_copy_to_container() {
 		return 1
 	fi
 	[[ -z "$CONTAINER_REF" ]] && local CONTAINER_REF="$(docker_pick_container)"
+	if [[ -z "$CONTAINER_REF" ]]; then
+		return 1
+	fi
 	echo "Copying $host_source to $CONTAINER_REF:$container_destination"
 	docker cp "$host_source" "$CONTAINER_REF:$container_destination"
 }
 alias docker_copy="docker_copy_to_container"
-
-
-docker_stop() {
-	local CONTAINER_REF="$(docker_pick_container)"
-	echo "Stopping $CONTAINER_REF"
-	docker stop "$CONTAINER_REF"
-}
 
 # Note: For debugging usage, the new `docker debug` command looks promising,
 # but requires a paid plan to use
@@ -1552,6 +1781,9 @@ docker_exec_it() {
 	local CONTAINER_REF=$CONTAINER_REF
 	if [[ -z "$CONTAINER_REF" ]]; then
 		CONTAINER_REF=$(docker_pick_container)
+	fi
+	if [[ -z "$CONTAINER_REF" ]]; then
+		return 1
 	fi
 	local TARGET_BIN=$1
 	if [[ -z "$TARGET_BIN" ]]; then
@@ -1615,23 +1847,25 @@ docker_list_binds() {
 	docker inspect --format='{{json .HostConfig.Binds}}' "$CONTAINER_REF" | jq
 }
 
-docker_pick_image() {
-	all_images=$(docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}")
-	selected_image=$(echo "$all_images" | fzf --height 40% --reverse --header-lines=1)
-	image_id=$(echo "$selected_image" | awk '{print $2}')
-	echo "$image_id"
+docker_is_image_available_locally() {
+	local IMAGE_REF="$1"
+	docker image inspect "$IMAGE_REF" > /dev/null
 }
 
 docker_image_exec() {
 	local image_id=$1
-	shift
+	if [[ -n "$image_id" ]] && ! (echo "$image_id" | grep -q -E "^-") && (docker_is_image_available_locally "$image_id"); then
+		shift
+	else
+		image_id=$(docker_pick_image)
+	fi
+	if [[ -z "$image_id" ]]; then
+		return 1
+	fi
 	local CONTAINER_NAME="$image_id-$(date_ms)"
 	local DOCKER_SHELL="$DOCKER_SHELL"
 	if [[ -z $DOCKER_SHELL ]]; then
 		DOCKER_SHELL="bash"
-	fi
-	if [[ -z "$image_id" ]]; then
-		image_id=$(docker_pick_image)
 	fi
 	docker run --name "$CONTAINER_NAME" --rm -it "$@" "$image_id" "/bin/$DOCKER_SHELL"
 }
@@ -1649,6 +1883,69 @@ docker_temp_pg() {
 		return 0
 	fi
 	docker_image_exec "$IMAGE_NAME" -p "$HOST_PORT:5432" "$@"
+}
+
+# Execs pg_dump inside a given Docker container, and then copies the backup out
+# of the container before deleting
+# TODO: Would be cool to rework this to handle a bunch of different DB formats
+pg_dump_container() {
+	local db_user
+	local db_pass
+	local db_name
+	local container_ref
+
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-c|--container)
+				INSTANCE_ID=$2
+				shift
+				;;
+			-u|--username)
+				db_user=$2
+				shift
+				;;
+			-p|--password)
+				db_pass=$2
+				shift
+				;;
+			-d|--database)
+				db_name=$2
+				shift
+				;;
+			*)
+				echo "Invalid option ${1}"
+				;;
+		esac
+		shift
+	done
+
+	if [[ -z $container_ref ]]; then
+		container_ref=$(docker_pick_container)
+		if [[ -z $container_ref ]]; then
+			return 1
+		fi
+	fi
+
+	DUMP_DB_DIR="/tmp/pg_dump_temp"
+	DUMP_DB_PATH="${DUMP_DB_DIR}/${db_name}__dump.sql"
+	PG_DUMP_SCRIPT=$(cat <<- EOF
+	mkdir -p "$DUMP_DB_DIR"
+	PGPASSWORD="$db_pass" pg_dump -U $db_user $db_name > "$DUMP_DB_PATH"
+	if ! [[ -s $DUMP_DB_PATH  ]]; then
+		exit 1
+	fi
+	EOF
+	)
+	echo "🚀 Running backup script"
+	if ! docker exec "$container_ref" /bin/bash -c "$PG_DUMP_SCRIPT"; then
+		echo "🚨 Backup failed"
+		return 1
+	fi
+	echo "💾 Copying backup out of container"
+	docker cp "$container_ref:$DUMP_DB_PATH" .
+	echo "🗑️ Cleaning up"
+	docker exec "$container_ref" /bin/bash -c "rm -f $DUMP_DB_PATH"
 }
 
 docker_inspect_image() {
@@ -1673,9 +1970,50 @@ docker_inspect_container_init() {
 	docker inspect "$CONTAINER_REF" | jq '.[0].Config | {Cmd, Entrypoint}'
 }
 
+docker_inspect_networks() {
+	local combined_network_json=""
+	# NOTE: We can't simply use `docker network ls --format json`, because
+	# this doesn't output as much info as `docker network inspect`
+	local combined_network_json=""
+	for docker_network_id in $(docker network ls | sed -r '1d;' | awk '{print $1}'); do
+		# Note: `sed` usage is to remove first and last lines, since Docker
+		# wraps output in array (`[]`) for some reason
+		local network_json=$(docker network inspect "$docker_network_id" | sed -r '1d;$d')
+		if [[ $combined_network_json != "" ]]; then
+			combined_network_json="${combined_network_json},"
+		fi
+		combined_network_json="${combined_network_json}${network_json}"
+	done
+	render_json_as_table "[${combined_network_json}]"
+}
+
 docker_log_follow() {
 	CONTAINER_REF=$(docker_pick_container)
 	docker logs -f "$CONTAINER_REF"
+}
+
+run_raw_cmd_in_dotfiles_venv() {
+	local RAW_CMD_TO_RUN=$1
+	if ! [[ -d "$DOTFILES_DIR" ]]; then
+		return 1
+	fi
+	(
+		cd "$DOTFILES_DIR" || exit
+		activate || exit
+		$SHELL -c "$RAW_CMD_TO_RUN"
+	)
+}
+
+run_raw_python_in_dotfiles_venv() {
+	local RAW_CODE_TO_RUN=$1
+	if ! [[ -d "$DOTFILES_DIR" ]]; then
+		return 1
+	fi
+	(
+		cd "$DOTFILES_DIR" || exit
+		activate || exit
+		python3 -c "$RAW_CODE_TO_RUN"
+	)
 }
 
 # Find the true global package dir / bin for a brew installed package
@@ -1897,6 +2235,17 @@ px_from_rem() {
 rem_from_px() {
 	PX=$1
 	echo "$((PX / 16))"
+}
+
+curl_post_json_file() {
+	URL=$1
+	JSON_FILE_PATH=$2
+	if ! [[ -f $JSON_FILE_PATH ]]; then
+		echo "ERROR: Could not find JSON file at $JSON_FILE_PATH"
+		return 1
+	fi
+	shift 2
+	curl -X POST -H "Content-Type: application/json" -d @"$JSON_FILE_PATH" "$@" "$URL"
 }
 
 # Connect to an AWS EC2 Instance, via instance-connect

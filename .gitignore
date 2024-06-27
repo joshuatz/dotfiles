@@ -1,8 +1,16 @@
 scratch*
+
+# Secrets
 .env
 .env.*
 !.env.*.example
 *.pem
+
+# Libraries
+.venv
+
+# Artifacts
+.mypy_cache
 
 # Settings that are not git-tracked / committed
 obs

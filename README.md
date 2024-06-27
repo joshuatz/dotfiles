@@ -2,6 +2,12 @@
 
 >  As per usual with dotfile repos, this should be used more for inspiration rather than ran as-is (unless you are me).
 
+## Compatible Shells
+
+Although I try to write cross-shell-compatible code, I tend to prioritize `zsh` over other shells, since that is my daily-driver.
+
+The most frequent places where I might have accidentally hard-coded a zsh-ism into my scripts are with array usage (since zsh uses a different starting index), parameter expansion (zsh has a bunch of unique options), and shell options (like word-splitting and glob expansion), since those by definition differ across shells.
+
 ## Dependencies
 
 I try to avoid implicit dependencies with shell scripting when possible, but sometimes it is unavoidable.
@@ -15,6 +21,11 @@ As of right now, the most frequently used dependencies would be:
 	- Linux, Wayland: `wl-copy` / `wl-paste`
 - [Node.js](https://nodejs.org/en)
 - [Python](https://www.python.org/)
+
+These dependencies are optional (there are either fallbacks coded, or only a few utils use them), but are recommended:
+
+- pandoc (for HTML and markdown conversion, etc.)
+-`asdf` (for various runtime / package management)
 
 ## Primary Commands
 
