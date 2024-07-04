@@ -47,7 +47,7 @@
 	// WOO! Keep layout (e.g. three column), even if you *close* all the tabs within the editors! NOTE: This won't stop the action "Close all editor ***groups***" from closing the layout - instead use "close all ***editors***"
 	"workbench.editor.closeEmptyGroups": false,
 	// Hide "open editors"
-	"explorer.openEditors.visible": 0,
+	// "explorer.openEditors.visible": 0,
 	// Emulate Notepad++ showing hidden chars
 	"editor.renderWhitespace": "all",
 	"editor.renderControlCharacters": true,
@@ -292,7 +292,7 @@
 		// Some themes override this... argh.
 		"terminal.ansiBlack": "#000000"
 	},
-	"terminal.integrated.gpuAcceleration": "canvas",
+	"terminal.integrated.gpuAcceleration": "auto",
 	"workbench.iconTheme": "vscode-icons",
 	"peacock.favoriteColors": [
 		{
@@ -392,7 +392,7 @@
 	"editor.guides.bracketPairs": "active",
 	// In some projects this is helpful (especially if dynamically typed WITHOUT annotations), but otherwise can add
 	// a bit too much noise
-	"editor.inlayHints.enabled": false,
+	"editor.inlayHints.enabled": "offUnlessPressed",
 	"javascript.inlayHints.parameterNames.enabled": "all",
 	// "typescript.inlayHints.parameterNames.enabled": "all"
 	"editor.wrappingStrategy": "simple",

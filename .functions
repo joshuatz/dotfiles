@@ -84,6 +84,17 @@ augment_path() {
 	)
 }
 
+check_args_for_value() {
+	local search_value=$1
+	shift
+	for arg in "$@"; do
+		if (echo "$arg" | grep -qx -- "$search_value"); then
+			return 0
+		fi
+	done
+	return 1
+}
+
 # A way to get the value from a dynamic variable name
 # I.e., dereference from pointer to variable held as string name
 # https://mywiki.wooledge.org/BashFAQ/006#Indirection
@@ -223,9 +234,11 @@ copy_to_clipboard_if_not_empty() {
 	text="$1"
 	# make sure to remove both space AND trailing line breaks
 	if [[ -z $(trim_whitespace "$1") ]]; then
-		alert
+		alert "Empty Selection"
+		return 0
 	fi
 	echo "$text" | copy_to_clipboard
+	alert "Copied to clipboard"
 }
 
 copy_html_to_clipboard() {
@@ -429,12 +442,13 @@ chrome_with_tabs() {
 # It defaults to Firefox - use `--chrome` to launch with Chrome instead.
 open_browser_group_url() {
 	local JSON=$1
+	shift
 	local BROWSER="firefox"
-	if [[ $* == *--chrome* ]]; then
+	if (check_args_for_value "--chrome" "$*"); then
 		BROWSER="chrome"
 	fi
 	local OPEN_ALL=0
-	if [[ $* == *--all* ]]; then
+	if (check_args_for_value "--all" "$*"); then
 		OPEN_ALL=1
 	fi
 
@@ -543,22 +557,25 @@ open_workspace() {
 
 open_workspace_url() {
 	local WORKSPACE_NAME=""
-	local BROWSER="firefox"
+	local PASS_THROUGH_ARGS=()
 	while [[ ! $# -eq 0 ]]
 	do
 		case "$1" in
 			-w|--workspace)
 				WORKSPACE_NAME=$2
 				shift
+				shift
+				;;
+			*)
+				PASS_THROUGH_ARGS+=("$1")
+		shift
 				;;
 		esac
-		shift
 	done
-	echo "Args = $*"
 	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
 	local first_browser_group_json=$(echo "$WORKSPACE_JSON" | jq -r ".browserGroups[0]")
 	if [[ "$first_browser_group_json" != "null" ]]; then
-		open_browser_group_url "$first_browser_group_json" "$@"
+		open_browser_group_url "$first_browser_group_json" "${PASS_THROUGH_ARGS[@]}"
 	fi
 }
 
@@ -1852,9 +1869,19 @@ docker_is_image_available_locally() {
 	docker image inspect "$IMAGE_REF" > /dev/null
 }
 
+# For docker container names, only "[a-zA-Z0-9][a-zA-Z0-9_.-]" are allowed.
+docker_normalize_name_container() {
+	local CONTAINER_NAME=$1
+	# Replace `:` with `-`
+	CONTAINER_NAME="$(echo "$CONTAINER_NAME" | sed -e 's/:/-/g')"
+	# For everything else, just remove char entirely
+	CONTAINER_NAME="$(echo "$CONTAINER_NAME" | sed -e 's/[^a-zA-Z0-9_.-]//g')"
+	echo "$CONTAINER_NAME"
+}
+
 docker_image_exec() {
 	local image_id=$1
-	if [[ -n "$image_id" ]] && ! (echo "$image_id" | grep -q -E "^-") && (docker_is_image_available_locally "$image_id"); then
+	if [[ -n "$image_id" ]] && ! (echo "$image_id" | grep -q -E "^-"); then
 		shift
 	else
 		image_id=$(docker_pick_image)
@@ -1862,7 +1889,7 @@ docker_image_exec() {
 	if [[ -z "$image_id" ]]; then
 		return 1
 	fi
-	local CONTAINER_NAME="$image_id-$(date_ms)"
+	local CONTAINER_NAME=$(docker_normalize_name_container "$image_id-$(date_ms)")
 	local DOCKER_SHELL="$DOCKER_SHELL"
 	if [[ -z $DOCKER_SHELL ]]; then
 		DOCKER_SHELL="bash"
