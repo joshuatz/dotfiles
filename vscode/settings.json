@@ -16,7 +16,8 @@
 	"editor.copyWithSyntaxHighlighting": false,
 	// ---- </Formatting Settings> -----
 	// Control word wrap default (still overridable with ALT + Z)
-	"editor.wordWrap": "off",
+	"editor.wordWrap": "on",
+	"editor.wordWrapColumn": 180,
 	// I don't like the instant search in global
 	"search.searchOnType": false,
 	// Speed up search with excludes
@@ -493,6 +494,8 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"svelte.enable-ts-plugin": true,
+	// Having the tree live-update on every cursor move incurrs way too much performance overhead at the moment
+	"typescriptExplorer.typeTree.selection.enable": false,
 	"explorer.autoRevealExclude": {
 		// This defaults to true, which is annoying; introspecting node_modules is useful!
 		"**/node_modules": false,

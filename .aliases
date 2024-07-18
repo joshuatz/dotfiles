@@ -53,6 +53,7 @@ alias tmuxhs="tmux split-window -h"
 alias tmuxvs="tmux split-window -v"
 alias tmuxkp="tmux kill-pane"
 alias tmuxks="tmux kill-session"
+alias tmuxds="tmux detach"
 alias tmuxrn="tmux rename-session"
 
 # == Security ===

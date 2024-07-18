@@ -3,6 +3,7 @@
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
+export OH_MY_ZSH_ACTIVE=true
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -38,8 +39,11 @@ ZSH_THEME="agnoster"
 # Uncomment the following line to disable colors in ls.
 # DISABLE_LS_COLORS="true"
 
-# Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
+# Disable auto-setting terminal title.
+# WARNING: If this is not set to true, oh-my-zsh will override the window
+# title, and you cannot override yourself (e.g., trying to set via ANSI
+# sequences will _NOT_ work)
+DISABLE_AUTO_TITLE="true"
 
 # Uncomment the following line to enable command auto-correction.
 # ENABLE_CORRECTION="true"
@@ -136,6 +140,12 @@ if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
 elif [[ -f ~/.asdf/asdf.sh ]]; then
 	# Manual install (e.g. git cloned)
 	source ~/.asdf/asdf.sh
+fi
+
+# Wezterm
+WEZTERM_PATH_MAC=/Applications/WezTerm.app/Contents/MacOS/
+if [[ -d $WEZTERM_PATH_MAC ]]; then
+	PATH="$PATH:$WEZTERM_PATH_MAC"
 fi
 
 # Make sure brew comes last, so its shims can override any path stuff filled in

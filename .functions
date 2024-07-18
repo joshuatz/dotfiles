@@ -568,7 +568,7 @@ open_workspace_url() {
 				;;
 			*)
 				PASS_THROUGH_ARGS+=("$1")
-		shift
+				shift
 				;;
 		esac
 	done
@@ -701,6 +701,12 @@ wipe() {
 
 render_image() {
 	IMAGE_PATH=$1
+
+	# Wezterm
+	if (which wezterm > /dev/null) && (is_in_wezterm); then
+		wezterm imgcat "$IMAGE_PATH"
+		return
+	fi
 
 	# ImageMagick
 	if (which display > /dev/null); then
@@ -846,11 +852,90 @@ project_name_normalized() {
 	normalize_name "$project_name_raw"
 }
 
+# @see https://www.nerdfonts.com/cheat-sheet for what is available
+nerd_font() {
+	case "$1" in
+		cod_terminal_tmux) echo "\Uebc8" && return ;;
+		*) echo "No mapping saved for $1" && return 1 ;;
+	esac
+}
+
+is_in_wezterm() {
+	if [[ -z "$WEZTERM_UNIX_SOCKET" ]]; then
+		return 1
+	fi
+	return 0
+}
+
+# Sets a user variable inside the WezTerm variable space
+# NOTE: This is _NOT_ setting a shell environment variable; rather,
+# this sets it within the WezTerm managed variable list, which can
+# be programmatically accessed (and also emits events when changed).
+# @SEE https://wezfurlong.org/wezterm/recipes/passing-data.html#user-vars
+wezterm_set_var() {
+	if ! (which base64 > /dev/null); then
+		echo "Must have base64 in path to encode variable value"
+		return 1
+	fi
+	local var_name=$1
+	local var_val_encoded=$(echo -n "$2" | base64)
+	local var_setter_str=$(printf "\033]1337;SetUserVar=%s=%s\007" "$var_name" "$var_val_encoded")
+	tmux_passthrough_escape "$var_setter_str"
+}
+
+wezterm_get_var() {
+	if ! (is_in_wezterm); then
+		return 1
+	fi
+	echo "@TODO"
+}
+
+set_title() {
+	local title=$1
+	if ($OH_MY_ZSH_ACTIVE) && [[ $DISABLE_AUTO_TITLE != true ]]; then
+		echo "You have Oh-My-ZSH active, and DISABLE_AUTO_TITLE is NOT set to true"
+		echo "  ^ Setting titles via ANSI sequences will have no effect, because ZSH will just override"
+		return 1
+	fi
+	tmux_passthrough_escape "$(printf "\x1B]0;%s\x07" "$title")"
+}
+
 is_in_tmux() {
 	if ! (which tmux > /dev/null); then
 		return 1
 	fi
 	[[ -n "$TMUX" ]]
+}
+
+tmux_reload_config() {
+	tmux source-file ~/.tmux.conf
+}
+
+tmux_inspect() {
+	local session_name=$1
+	if [[ -z "$session_name" ]]; then
+		session_name=$(tmux_session_select)
+	fi
+	cat <<- EOF
+	################################
+	# TMUX Session =               #
+	#    $session_name             #
+	################################
+	EOF
+	local spacer=""
+	echo "${spacer}Windows:"
+	local all_windows_in_session=$(tmux list-windows -t "$session_name" -F "#{window_index} #{window_name}")
+	spacer="  "
+	for window_info in $all_windows_in_session; do
+		local window_idx=$(echo "$window_info" | awk '{print $1}')
+		local window_name=$(echo "$window_info" | awk '{print $2}')
+		echo "${spacer}∟ $window_idx | $window_name"
+		local all_panes_in_window=$(tmux list-panes -t "$session_name:$window_idx" -F "#{pane_index}")
+		local pane_count=$(($(echo "$all_panes_in_window" | wc -l)))
+		spacer="       "
+		echo "${spacer}∟ # of Panes = $pane_count"
+	done
+
 }
 
 tmux_get_active_session_name() {
@@ -888,7 +973,7 @@ tmux_session_select() {
 }
 
 tmux_session_select_and_attach() {
-	tmux attach-session -t "$(tmux_session_select)"
+	tmux_attach_with_init "$(tmux_session_select)"
 }
 
 tmux_window_select() {
@@ -929,8 +1014,42 @@ tmux_scrollback_dump() {
 	tmux capture-pane -t "$pane" -pJS "-$NUM_LINES"
 }
 
+tmux_do_in_session_for_all_panes() {
+	# TODO: Add override env var to allow forcing send-keys, even if
+	# stdin is being clobbered / hijacked (e.g. by active logging)
+	local session_name=$1
+	shift
+	tmux set-window-option -t "$session_name" synchronize-panes on
+	tmux send-keys -t "$session_name" "$@" C-m || true
+	tmux set-window-option -t "$session_name" synchronize-panes off
+}
+
+tmux_refresh_env_vars_from_copy() {
+	:
+}
+
+# @See https://github.com/tmux/tmux/wiki/FAQ#what-is-the-passthrough-escape-sequence-and-how-do-i-use-it
+tmux_passthrough_escape() {
+	local string_to_wrap=$1
+	if (is_in_tmux); then
+		if ! (tmux show-options -g allow-passthrough | grep -q "on"); then
+			echo "allow-passthrough must be set for ANSI escaping passthrough to work with tmux"
+			return 1
+		fi
+		printf "\033Ptmux;\033%s\033\\" "$string_to_wrap"
+		return 0
+	fi
+	echo -ne "$string_to_wrap"
+}
+
+tmux_attach_with_init() {
+	local tmux_session_name=$1
+	set_title "$(printf "%s %s" "\Uebc8" "$tmux_session_name")"
+	tmux attach-session -t "$tmux_session_name"
+}
+
 tmux_auto_open() {
-	tmux_session_name=$(tmux_generate_session_name "$1")
+	local tmux_session_name=$(tmux_generate_session_name "$1")
 	echo "Session name = $tmux_session_name"
 
 	# Check if we are already in the session
@@ -942,7 +1061,7 @@ tmux_auto_open() {
 	# Search for active session first, and attach if exists
 	if (tmux has-session -t "$tmux_session_name" 2>/dev/null); then
 		echo "Attaching to existing session"
-		tmux attach-session -t "$tmux_session_name"
+		tmux_attach_with_init "$tmux_session_name"
 		return
 	fi
 
@@ -956,6 +1075,8 @@ tmux_auto_open() {
 	done
 	echo "Creating new session ($tmux_session_name)"
 	tmux new-session -s "$tmux_session_name" -d
+
+	tmux set-environment -t "$tmux_session_name" JTZ_SESSION_NAME "$tmux_session_name"
 
 	if [[ $PANE_NUM -gt 1 ]]; then
 		tmux split-window -h -t "$tmux_session_name:0"
@@ -972,7 +1093,7 @@ tmux_auto_open() {
 	done
 
 	tmux select-pane -t "$tmux_session_name":0.0
-	tmux attach-session -t "$tmux_session_name"
+	tmux_attach_with_init -t "$tmux_session_name"
 }
 
 # This function scans for active tmux sessions where at least one pane
@@ -1010,7 +1131,7 @@ tmux_auto_attach() {
 		matching_session_name=${matching_sessions[0+$ARRAY_INDEX_START]}
 		echo "Found only 1 matching session ($matching_session_name). Auto-attaching now..."
 		sleep 2
-		tmux attach-session -t "$matching_session_name"
+		tmux_attach_with_init "$matching_session_name"
 		return
 	fi
 
@@ -1019,7 +1140,7 @@ tmux_auto_attach() {
 		echo "More than one matching tmux session was found. Which would you like to attach to?"
 		selected_session=$(printf "%s\n" "${matching_sessions[@]}" | fzf)
 		if [[ -n "$selected_session" ]]; then
-			tmux attach-session -t "$selected_session"
+			tmux_attach_with_init "$selected_session"
 			return
 		fi
 	fi
@@ -1240,10 +1361,10 @@ git_find_github_pr() {
 # Use this with `--fixup` commits, to auto-target the last commit before fixup
 # with interactive rebase
 # Options:
-#	(flag) `--skip-editor`: Don't open interactive editor
+#	(flag) `--editor`: Don't skip the editor (_DO_ stop on editor)
 git_auto_rebase() {
-	skip_editor=$([[ $* == *--skip-editor ]] && echo "true" || echo "false")
-	new_target_base=$(git_find_fixup_base)
+	local skip_editor=$([[ $* == *--editor ]] && echo "false" || echo "true")
+	local new_target_base=$(git_find_fixup_base)
 
 	if [[ $? -ne 0 ]]; then
 		echo "$new_target_base"
@@ -1265,7 +1386,7 @@ git_auto_rebase() {
 		esac
 	done
 
-	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
+	local git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
 
 	if [[ "$skip_editor" != "true" ]]; then
 		git rebase --autosquash --interactive "$new_target_base"
@@ -1739,15 +1860,17 @@ docker_pick_image() {
 
 docker_stop() {
 	# TODO add `--all` flag
-	local container=$(multi=1 docker_pick_container_full)
-	if [[ -z "$container" ]]; then
+	local containers_str=$(multi=1 docker_pick_container_full)
+	if [[ -z "$containers_str" ]]; then
 		return 1
 	fi
-	# TODO fix - add for loop (or just pipe to docker stop)
-	local container_id=$(echo "$container" | awk '{print $1}')
-	local container_name=$(echo "$container" | awk '{print $3}')
-	echo "Stopping $container_name ($container_id)"
-	docker stop "$container_id"
+	while IFS='' read -r line; do containers+=("$line"); done < <(echo "$containers_str")
+	for container_line in "${containers[@]}"; do
+		local container_id=$(echo "$container_line" | awk '{print $1}')
+		local container_name=$(echo "$container_line" | awk '{print $3}')
+		echo "Stopping $container_name ($container_id)"
+		docker stop "$container_id"
+	done
 }
 
 docker_restart() {
@@ -2165,6 +2288,41 @@ get_proc_info_by_port() {
 	get_proc_info_by_pid "$PID"
 }
 
+kill_procs_by_pid_interactive() {
+	local SIG_OPTIONS=$(cat <<- EOF
+	9	KILL	(non-catchable, non-ignorable kill)
+	---	---	---
+	1	HUP	(hang up)
+	2	INT	(interrupt)
+	3	QUIT	(quit)
+	6	ABRT	(abort)
+	9	KILL	(non-catchable, non-ignorable kill)
+	14	ALRM	(alarm clock)
+	15	TERM	(software termination signal)
+	EOF
+	)
+	SELECTED_SIG=$(fzf --reverse <<< "$SIG_OPTIONS" | awk '{print $1}')
+	if [[ -z "$SELECTED_SIG" ]] || [[ "$SELECTED_SIG" == "---" ]]; then
+		return 1
+	fi
+	for PID in "$@"; do
+		kill -"$SELECTED_SIG" "$PID"
+	done
+}
+
+kill_procs_locking_file() {
+	local file_path=$1
+	if [[ -z "$file_path" ]]; then
+		echo "No file_path specified"
+		return 1
+	fi
+	local fuser_output=$(fuser "$file_path")
+	# /file/path/string 1234
+	# or, if no PID is locking
+	# /file/path/string
+	# TODO
+}
+
 # This is a workaround to tell the task runner that a given task is up-to-date,
 # without actually running the task to generate the new fingerprint / checksum.
 # Ideally, there would be a way to do this directly via the task cli (e.g. `task --mark-up-to-date`)
@@ -2273,6 +2431,10 @@ curl_post_json_file() {
 	fi
 	shift 2
 	curl -X POST -H "Content-Type: application/json" -d @"$JSON_FILE_PATH" "$@" "$URL"
+}
+
+aws_list_profiles() {
+	aws configure list-profiles
 }
 
 # Connect to an AWS EC2 Instance, via instance-connect
