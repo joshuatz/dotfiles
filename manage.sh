@@ -110,14 +110,16 @@ push() {
 			echo "Creating $non_tracked_env_file_name - please fill out"
 			cp "$env_file" "$SCRIPT_DIR/$non_tracked_env_file_name"
 		fi
+		cp "$SCRIPT_DIR/$non_tracked_env_file_name" ~
 	done
 
 	# Single files
-	cp "$SCRIPT_DIR/Taskfile.global.yml" ~/Taskfile.global.yml
-	cp "$SCRIPT_DIR/.functions" ~/.functions
-	cp "$SCRIPT_DIR/.aliases" ~/.aliases
-	cp "$SCRIPT_DIR/global.gitignore" ~/global.gitignore
-	cp "$SCRIPT_DIR/.tmux.conf" ~/.tmux.conf
+	cp "$SCRIPT_DIR/Taskfile.global.yml" ~
+	cp "$SCRIPT_DIR/.functions" ~
+	cp "$SCRIPT_DIR/.aliases" ~
+	cp "$SCRIPT_DIR/global.gitignore" ~
+	cp "$SCRIPT_DIR/.tmux.conf" ~
+	cp "$SCRIPT_DIR/.wezterm.lua" ~
 
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)

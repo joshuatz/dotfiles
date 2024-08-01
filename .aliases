@@ -55,6 +55,7 @@ alias tmuxkp="tmux kill-pane"
 alias tmuxks="tmux kill-session"
 alias tmuxds="tmux detach"
 alias tmuxrn="tmux rename-session"
+alias tmuxnw="tmux new-window"
 
 # == Security ===
 alias rand_pass="openssl rand -base64 32"
@@ -84,8 +85,6 @@ alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-word
 #	gds = git diff --staged
 #	... many more
 
-# === AWS ===
-alias aws_list_profiles="aws configure list-profiles"
-
 # === work ===
-alias work-time="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"
+alias work_time="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"
+alias work_time_last="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=last"

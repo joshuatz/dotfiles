@@ -117,6 +117,7 @@ compinit
 # Load main customization files
 [[ -f ~/.functions ]] && source ~/.functions
 [[ -f ~/.aliases ]] && source ~/.aliases
+[[ -f ~/.env.public ]] && source ~/.env.public
 
 computer_name=$(get_computer_name)
 

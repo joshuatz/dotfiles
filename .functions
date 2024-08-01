@@ -3,6 +3,76 @@
 # shellcheck disable=SC2120
 # set -x
 
+# === Docs / Reusable Selection Lists ===
+docs() {
+	if [[ -d "$DOCS_DIR" ]]; then
+		(
+			cd "$DOCS_DIR" || return
+			"$EDITOR" .
+		)
+	else
+		open  "https://docs.joshuatz.com/"
+	fi
+}
+
+fuzzy_preview() {
+	local search_dir="$1"
+	local search_pattern="$2"
+
+	if ! [[ -d "$search_dir" ]]; then
+		return 1
+	fi
+
+	local RG_ARGS=(
+		"--hidden"
+		"$search_dir"
+	)
+
+	results=$(rg --files-with-matches -e "$search_pattern" "${RG_ARGS[@]}")
+
+	if [[ -z "$ONLY_CONTENT" ]]; then
+		# Check filenames too
+		local filename_results=$(rg --files --glob "$search_pattern" "${RG_ARGS[@]}")
+		if [[ -z "$results" ]]; then
+			results="$filename_results"
+		elif [[ -n "$filename_results" ]]; then
+			results="$results\n$filename_results"
+		fi
+	fi
+
+	if [[ -z "$results" ]]; then
+		return 1
+	fi
+
+	# Display results with FZF, with a fancy preview pane
+	echo "$results" | fzf --reverse --preview-window=wrap --preview "rg --with-filename --line-number --context=10 --no-heading --column --color=always --smart-case -e $search_pattern {}"
+}
+
+docs_fuzzy() {
+	if ! [[ -d "$DOCS_DIR" ]]; then
+		echo "DOCS_DIR is unset!"
+		return 1
+	fi
+	fuzzy_preview "$DOCS_DIR" "$@"
+}
+
+SIGNALS_PICK_LIST=$(cat << "EOF"
+9	KILL	(non-catchable, non-ignorable kill)
+---	---	---
+1	HUP	(hang up)
+2	INT	(interrupt)
+3	QUIT	(quit)
+6	ABRT	(abort)
+9	KILL	(non-catchable, non-ignorable kill)
+14	ALRM	(alarm clock)
+15	TERM	(software termination signal)
+EOF
+)
+
+docs_signals() {
+	echo "$SIGNALS_PICK_LIST"
+}
+
 # === Styling ===
 # For ANSI, this is a helpful guide - https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
 # However, `tput` seems to be generally preferred over ANSI escape sequences now
@@ -594,7 +664,7 @@ date_ms() {
 }
 
 # Like `touch` + `mkdir -p`: creates intermediate directories if they don't exist yet
-make-file() {
+make_file() {
 	file_path=$1
 	if [[ -e $file_path ]]; then
 		echo "File already exists"
@@ -1812,17 +1882,6 @@ git_pack_to_tarball_with_tracking() {
 	echo "     ↳ Unpacked Size = $UNPACKED_SIZE"
 }
 
-docs() {
-	if [[ -d "$DOCS_DIR" ]]; then
-		(
-			cd "$DOCS_DIR" || return
-			"$EDITOR" .
-		)
-	else
-		open  "https://docs.joshuatz.com/"
-	fi
-}
-
 docker_pick_container_full() {
 	local multi=$([[ -n "$multi" ]] && echo "true" || echo "false")
 	# TODO support picking non-active containers
@@ -2289,19 +2348,7 @@ get_proc_info_by_port() {
 }
 
 kill_procs_by_pid_interactive() {
-	local SIG_OPTIONS=$(cat <<- EOF
-	9	KILL	(non-catchable, non-ignorable kill)
-	---	---	---
-	1	HUP	(hang up)
-	2	INT	(interrupt)
-	3	QUIT	(quit)
-	6	ABRT	(abort)
-	9	KILL	(non-catchable, non-ignorable kill)
-	14	ALRM	(alarm clock)
-	15	TERM	(software termination signal)
-	EOF
-	)
-	SELECTED_SIG=$(fzf --reverse <<< "$SIG_OPTIONS" | awk '{print $1}')
+	local SELECTED_SIG=$(fzf --reverse <<< "$SIGNALS_PICK_LIST" | awk '{print $1}')
 	if [[ -z "$SELECTED_SIG" ]] || [[ "$SELECTED_SIG" == "---" ]]; then
 		return 1
 	fi
@@ -2440,11 +2487,8 @@ aws_list_profiles() {
 # Connect to an AWS EC2 Instance, via instance-connect
 # Remember: You can use`AWS_PROFILE=${name}` to set the AWS credential profile
 # to use for all the AWS commands
-aws_ec2_instance_connect() {
-	PORT_BINDINGS=()
-	EC2_USERNAME="ec2-user"
-	PRIVATE_KEY="$HOME/.ssh/id_rsa"
-	PUBLIC_KEY="$HOME/.ssh/id_rsa.pub"
+aws_ec2_instance_connect_send_pub_key() {
+	local EC2_USERNAME="ec2-user"
 	while [[ ! $# -eq 0 ]]
 	do
 		case "$1" in
@@ -2454,14 +2498,6 @@ aws_ec2_instance_connect() {
 				;;
 			-u|--username)
 				EC2_USERNAME=$2
-				shift
-				;;
-			-p|--port)
-				PORT_BINDINGS+=("$2")
-				shift
-				;;
-			-pk|--private-key)
-				PRIVATE_KEY=$2
 				shift
 				;;
 			-pub|--public-key)
@@ -2486,7 +2522,7 @@ aws_ec2_instance_connect() {
 		return 1
 	fi
 
-	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
+	if ! [[ -f $PUBLIC_KEY ]]; then
 		echo "ERROR: Could not find public and/or private key"
 		return 1
 	fi
@@ -2503,6 +2539,73 @@ aws_ec2_instance_connect() {
 		echo "ERROR: Could not send public key"
 		return 1
 	fi
+}
+
+aws_ec2_instance_connect_ssh() {
+	local EC2_USERNAME="ec2-user"
+	local USE_TEMP_KEY_PAIR=0
+	local USE_DEFAULT_KEY_PAIR=0
+	local PORT_BINDINGS=()
+	local PRIVATE_KEY=""
+	local PUBLIC_KEY=""
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-i|--instance-id)
+				INSTANCE_ID=$2
+				shift
+				;;
+			-u|--username)
+				EC2_USERNAME=$2
+				shift
+				;;
+			-p|--port)
+				PORT_BINDINGS+=("$2")
+				shift
+				;;
+			-pk|--private-key)
+				PRIVATE_KEY=$2
+				shift
+				;;
+			-pub|--public-key)
+				PUBLIC_KEY=$2
+				shift
+				;;
+			-dkp|--default-key-pair)
+				USE_DEFAULT_KEY_PAIR=1
+				shift
+				;;
+			*)
+				echo "Invalid option ${1}"
+				;;
+		esac
+		shift
+	done
+
+	local tmp_dir
+	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
+		if [[ $USE_DEFAULT_KEY_PAIR -eq 1 ]]; then
+			PRIVATE_KEY="$HOME/.ssh/id_rsa"
+			PUBLIC_KEY="$HOME/.ssh/id_rsa.pub"
+		else
+			echo "🔐 Generating temporary key pair"
+			USE_TEMP_KEY_PAIR=1
+			tmp_dir=$(mktemp -d)
+			ssh-keygen -t rsa -b 4096 -C "TEMPORARY key for EC2 Instance Connect" -N "" -f "$tmp_dir/tmp_key"
+			PRIVATE_KEY="$tmp_dir/tmp_key"
+			PUBLIC_KEY="$tmp_dir/tmp_key.pub"
+		fi
+	fi
+
+	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
+		echo "Couldn't find public key and/or private key"
+		return 1
+	fi
+
+	# Push public key before establishing SSH
+	if ! (aws_ec2_instance_connect_send_pub_key --instance-id "$INSTANCE_ID" --username "$EC2_USERNAME" --public-key "$PUBLIC_KEY"); then
+		return 1
+	fi
 
 	SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
 	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
@@ -2516,6 +2619,35 @@ aws_ec2_instance_connect() {
 	SSH_ARGS+=("${EC2_USERNAME}@${DNS_ADDR}")
 	declare -p SSH_ARGS
 	ssh "${SSH_ARGS[@]}"
+
+	# Cleanup
+	if [[ $USE_TEMP_KEY_PAIR -eq 1 ]] && [[ -d "$tmp_dir" ]]; then
+		echo "🗑️ Deleting temporary key pair"
+		rm -r "$tmp_dir"
+	fi
+}
+
+tensorjs_keras_converter() {
+	local raw_model_path=$1
+	if ! [[ -f "$raw_model_path" ]]; then
+		echo "Could not find model at $raw_model_path"
+		return 1
+	fi
+	local raw_model_name=$(basename $raw_model_path)
+	out_dir_name=tfjs_generated
+	out_dir="./${out_dir_name}"
+	mkdir "$out_dir" || true
+	local converter_args=(
+		"tensorflowjs_converter"
+		"--input_format=keras"
+		"/tmp/${raw_model_name}"
+		"/tmp/${out_dir_name}"
+	)
+	docker run --rm -t \
+		-v "${raw_model_path}:/tmp/${raw_model_name}" \
+		-v "${out_dir}:/tmp/${out_dir_name}" \
+		"jtz-reg/jtz/tensorflowjs" \
+		"${converter_args[@]}"
 }
 
 large_llm_query() {
@@ -2806,6 +2938,25 @@ large_llm_query() {
 		rm -r "$TEMP_DIR_PATH"
 		echo "Deleted temporary prompt files"
 	fi
+}
+
+get_cert_fingerprint() {
+	local CERT_FILE=$1
+	if ! [[ -f "$CERT_FILE" ]]; then
+		echo "Could not find $CERT_FILE"
+		return 1
+	fi
+	openssl x509 -pubkey -noout -in "$CERT_FILE" | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
+}
+
+get_registered_custom_uri_hyperlink_schemes() {
+	if [[ $IS_MAC -ne 1 ]]; then
+		# TODO: Linux support
+		return 1
+	fi
+
+	# https://apple.stackexchange.com/a/397188/428959
+	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister  -dump URLSchemeBinding
 }
 
 # This is currently pretty macoS specific

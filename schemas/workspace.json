@@ -5,6 +5,30 @@
 		"active": {
 			"type:": "boolean"
 		},
+		"harvest": {
+			"type": "object",
+			"properties": {
+				"clientId": {
+					"type": "integer"
+				},
+				"projects": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "integer"
+							},
+							"title": {
+								"type": "string"
+							}
+						},
+						"required": ["id", "title"]
+					}
+				}
+			},
+			"required": ["clientId"]
+		},
 		"scratchDir": {
 			"type": "string"
 		},

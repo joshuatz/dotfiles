@@ -88,6 +88,9 @@
 		"editor.tabSize": 2,
 		"editor.autoIndent": "full"
 	},
+	"yaml.schemas": {
+		"https://taskfile.dev/schema.json": ["Taskfile.*.yml"]
+	},
 	"[toml]": {
 		"editor.formatOnSave": false
 	},
