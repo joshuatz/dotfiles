@@ -134,13 +134,33 @@ fi
 # Note that this is coming before brew, so that asdf plugins will be preferred
 # over global brew installs (e.g., if accidentally installed some bin through
 # both tools)
-export ASDF_GOLANG_MOD_VERSION_ENABLED=true
+has_asdf=0
 if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
 	# Homebrew
 	source /usr/local/opt/asdf/libexec/asdf.sh
+	has_asdf=1
 elif [[ -f ~/.asdf/asdf.sh ]]; then
 	# Manual install (e.g. git cloned)
 	source ~/.asdf/asdf.sh
+	has_asdf=1
+fi
+
+# asdf mods
+if [[ $has_asdf -eq 1 ]]; then
+	# golang
+	export ASDF_GOLANG_MOD_VERSION_ENABLED=true
+	asdf_golang_path=$(asdf where golang)
+	if [[ $? -eq 0 ]]; then
+		# https://github.com/asdf-community/asdf-golang/issues/28
+		export GOPATH="${asdf_golang_path}/packages"
+		export GOROOT="${asdf_golang_path}/go"
+		# You shouldn't usually have to explicitly set these, but some VS Code
+		# tooling breaks without (you might also have to edit `settings.json`
+		# and set env vars there)
+		export GOMODCACHE="${GOPATH}/pkg/mod"
+		export GOCACHE="${GOPATH}/pkg/mod"
+		export PATH="${PATH}:$(go env GOPATH)/bin"
+	fi
 fi
 
 # Wezterm

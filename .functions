@@ -1088,7 +1088,12 @@ tmux_do_in_session_for_all_panes() {
 	# TODO: Add override env var to allow forcing send-keys, even if
 	# stdin is being clobbered / hijacked (e.g. by active logging)
 	local session_name=$1
-	shift
+	if (is_in_tmux); then
+		session_name=$(tmux_get_active_session_name)
+	else
+		# Don't pass $1 (session_name) along to send-keys
+		shift
+	fi
 	tmux set-window-option -t "$session_name" synchronize-panes on
 	tmux send-keys -t "$session_name" "$@" C-m || true
 	tmux set-window-option -t "$session_name" synchronize-panes off
@@ -1163,7 +1168,7 @@ tmux_auto_open() {
 	done
 
 	tmux select-pane -t "$tmux_session_name":0.0
-	tmux_attach_with_init -t "$tmux_session_name"
+	tmux_attach_with_init "$tmux_session_name"
 }
 
 # This function scans for active tmux sessions where at least one pane
@@ -2311,6 +2316,11 @@ asdf_exec_with_global_version() {
 	# Note: Above should pass through exit code, so no need to check and re-throw
 }
 
+# E.g. `asdf_get_true_path golang``
+asdf_get_true_path() {
+	asdf where "$1"
+}
+
 # Note to self: you can use `--package` to avoid ambiguity around package name vs bin / entrypoint
 npx_exec_global() {
 	asdf_exec_with_global_version npx --no-install "$@"
@@ -2496,7 +2506,7 @@ aws_ec2_instance_connect_send_pub_key() {
 				INSTANCE_ID=$2
 				shift
 				;;
-			-u|--username)
+			-u|--user|--username)
 				EC2_USERNAME=$2
 				shift
 				;;
@@ -2541,7 +2551,15 @@ aws_ec2_instance_connect_send_pub_key() {
 	fi
 }
 
+aws_ec2_instance_get_public_dns_addr() {
+	aws ec2 describe-instances --instance-ids "$1" --query 'Reservations[*].Instances[*].[PublicDnsName]' --output text
+}
+
 aws_ec2_instance_connect_ssh() {
+	local HELP=$(cat <<- "EOF"
+	TODO
+	EOF
+	)
 	local EC2_USERNAME="ec2-user"
 	local USE_TEMP_KEY_PAIR=0
 	local USE_DEFAULT_KEY_PAIR=0
@@ -2555,7 +2573,7 @@ aws_ec2_instance_connect_ssh() {
 				INSTANCE_ID=$2
 				shift
 				;;
-			-u|--username)
+			-u|--user|--username)
 				EC2_USERNAME=$2
 				shift
 				;;
@@ -2574,6 +2592,10 @@ aws_ec2_instance_connect_ssh() {
 			-dkp|--default-key-pair)
 				USE_DEFAULT_KEY_PAIR=1
 				shift
+				;;
+			-h|--help)
+				echo "$HELP"
+				return
 				;;
 			*)
 				echo "Invalid option ${1}"
@@ -2607,7 +2629,7 @@ aws_ec2_instance_connect_ssh() {
 		return 1
 	fi
 
-	SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
+	local SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
 	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
 		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
 			SSH_ARGS+=(-L "\*:$PORT_BINDING:localhost:$PORT_BINDING")
@@ -2615,7 +2637,7 @@ aws_ec2_instance_connect_ssh() {
 	fi
 
 	# Establish SSH connection
-	DNS_ADDR=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservations[*].Instances[*].[PublicDnsName]' --output text)
+	local DNS_ADDR=$(aws_ec2_instance_get_public_dns_addr "$INSTANCE_ID")
 	SSH_ARGS+=("${EC2_USERNAME}@${DNS_ADDR}")
 	declare -p SSH_ARGS
 	ssh "${SSH_ARGS[@]}"
@@ -2940,6 +2962,22 @@ large_llm_query() {
 	fi
 }
 
+llm_toolkit() {
+	local start_dir=$PWD
+	local repo_dir=/Users/joshua/jtzdev/llm-toolkit
+	(
+		cd "$repo_dir" || exit
+		activate
+		cd "$start_dir" || exit
+		python3 $repo_dir/backend/cli.py "$@"
+	)
+}
+
+llm_toolkit_question_from_plaintext() {
+	local plaintext_file=$1
+	llm_toolkit question "$(cat "$plaintext_file")"
+}
+
 get_cert_fingerprint() {
 	local CERT_FILE=$1
 	if ! [[ -f "$CERT_FILE" ]]; then
@@ -2947,6 +2985,17 @@ get_cert_fingerprint() {
 		return 1
 	fi
 	openssl x509 -pubkey -noout -in "$CERT_FILE" | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
+}
+
+get_cert_info() {
+	local CERT_FILE_OR_DOMAIN_URL=$1
+	local CERT_FILE=$1
+	if ! [[ -f "$CERT_FILE_OR_DOMAIN_URL" ]]; then
+		local CERT_FILE=$(mktemp)
+		# Remap 'https://example.com' -> 'example.com:443'
+		openssl s_client -connect "$CERT_FILE_OR_DOMAIN_URL" </dev/null 2>/dev/null > "$CERT_FILE"
+	fi
+	openssl x509 -text -pubkey -in "$CERT_FILE"
 }
 
 get_registered_custom_uri_hyperlink_schemes() {
@@ -2957,6 +3006,18 @@ get_registered_custom_uri_hyperlink_schemes() {
 
 	# https://apple.stackexchange.com/a/397188/428959
 	/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister  -dump URLSchemeBinding
+}
+
+get_local_ip() {
+	for interface in en0 en1
+	do
+		local local_ip_addr=$(ipconfig getifaddr "$interface")
+		if [[ $? -eq 0 ]]; then
+			echo "$local_ip_addr"
+			return 0
+		fi
+	done
+	return 1
 }
 
 # This is currently pretty macoS specific
