@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2155
+# shellcheck disable=SC2001
 # shellcheck disable=SC2120
+# shellcheck disable=SC2155
 # set -x
 
 # === Docs / Reusable Selection Lists ===
@@ -337,12 +338,17 @@ copy_html_to_clipboard() {
 			EOF
 			return
 		fi
-		# TODO: The `string:"${plaintext}"` part of this is problematic if the string contains special chars (and maybe even
-		# if it just contains any `"`?)
+		# Need to escape any inner double-quotes inside `plaintext` string, since
+		# we are using`string:"${plaintext}"` as wrapper, or else this will error out.
 		# E.g.: 6216:6226: syntax error: Expected “,” or “}” but found identifier. (-2741)
-		osascript <<- EOF
-			set the clipboard to {«class HTML»:«data HTML${html_hex}», string:"${plaintext}"}
+		local plaintext_escaped=$(echo "$plaintext" | sed 's/"/\\"/g')
+		if ! (osascript <<- EOF
+			set the clipboard to {«class HTML»:«data HTML${html_hex}», string:"${plaintext_escaped}"}
 		EOF
+		); then
+			echo "AppleScript failed to set HTML"
+			return 1
+		fi
 	else
 		echo "$html" | xclip -selection clipboard -t text/html
 	fi
@@ -361,7 +367,7 @@ markdown_to_html_clipboard() {
 	md="$1"
 	# If no arg, grab from clipboard
 	if [[ -z "$md" ]]; then
-		md=$(get_clipboard_contents)
+		md="$(get_clipboard_contents)"
 	fi
 	html=""
 	if (which pandoc > /dev/null); then
@@ -371,6 +377,10 @@ markdown_to_html_clipboard() {
 	fi
 	copy_html_to_clipboard "$html" "$md"
 	echo "✅ HTML copied to clipboard"
+}
+
+convert_clipboard_md_to_html() {
+	markdown_to_html_clipboard "$(get_clipboard_contents)"
 }
 
 convert_clipboard_to_plaintext() {
@@ -2234,6 +2244,26 @@ run_raw_python_in_dotfiles_venv() {
 	)
 }
 
+# In a sub-shell, run a command in different directory, and then switch back
+exec_in() {
+	if ! [[ -d $1 ]]; then
+		echo "Invalid directory ($1)"
+		return 1
+	fi
+	if [[ $# -le 1 ]]; then
+		echo "Not enough arguments"
+		return 1
+	fi
+	if ! (
+		pushd "$1" > /dev/null || exit
+		shift
+		$SHELL -c "$*"
+		popd > /dev/null || exit
+	); then
+		return 1
+	fi
+}
+
 # Find the true global package dir / bin for a brew installed package
 # e.g. `brew_find_global_pkd_dir fzf` -> `/usr/local/Cellar/fzf/0.45.0`
 brew_find_global_pkd_dir() {
@@ -2323,6 +2353,26 @@ asdf_exec_with_global_version() {
 # E.g. `asdf_get_true_path golang``
 asdf_get_true_path() {
 	asdf where "$1"
+}
+
+lint_versions() {
+	if ! [[ -f ".tool-versions" ]]; then
+		return 1
+	fi
+	#TODO
+}
+
+local_web_server_dir() {
+	local serve_dir="$PWD"
+	if [[ -d $1 ]]; then
+		serve_dir=$1
+		shift
+	fi
+	if [[ "$serve_dir" == "." ]]; then
+		echo "Do not use '.' as serving directory; it will serve full drive"
+		return 1
+	fi
+	asdf_exec_with_global_version npx local-web-server --directory "$serve_dir" "$@"
 }
 
 # Note to self: you can use `--package` to avoid ambiguity around package name vs bin / entrypoint
