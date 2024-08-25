@@ -1,6 +1,8 @@
 local wezterm = require 'wezterm'
 local config = wezterm.config_builder()
 
+config.automatically_reload_config = true
+
 -- ===== Mouse Handling =====
 
 --- Note: This just applies to WezTerm's own pane handling; not Tmux
@@ -17,6 +19,13 @@ config.mouse_bindings = {
 }
 
 -- ===== /Mouse Handling =====
+
+-- ===== Keyboard Mappings =====
+config.keys = {
+	-- Enable CTRL+V
+	{ key="v", mods="CTRL", action=wezterm.action{PasteFrom="Clipboard"} },
+}
+-- ===== /Keyboard Mappings =====
 
 -- ===== Hyperlink Handling =====
 --- Default hyperlink rules (note that setting `config.hyperlink_rules` auto-clears

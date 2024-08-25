@@ -119,6 +119,10 @@ IS_MAC=0
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	IS_MAC=1
 fi
+IS_WAYLAND=0
+if [[ $IS_MAC -ne 1 ]] && (loginctl show-session "$(loginctl | grep $(whoami) | awk '{print $1}')" -p Type | grep -q wayland); then
+	IS_WAYLAND=1
+fi
 
 # Expand ~
 expand_path() {

@@ -73,7 +73,7 @@ pull() {
 	# VS Code
 	if (which code > /dev/null); then
 		# Export extensions
-		code --list-extensions > "$SCRIPT_DIR/vscode/extensions.txt"
+		code --list-extensions | sort | cat > "$SCRIPT_DIR/vscode/extensions.txt"
 
 		# Export config files
 		cp "$CODE_USER_DIR/settings.json" "$SCRIPT_DIR/vscode/settings.json"
@@ -134,7 +134,7 @@ push() {
 		# Install extensions
 		# `code --install-extension` will skip already installed, but the check is slow, so compare first
 		TEMP_PATH=$(mktemp)
-		code --list-extensions > "$TEMP_PATH"
+		code --list-extensions | sort | cat > "$TEMP_PATH"
 		uninstalled_extensions=$(comm -23 vscode/extensions.txt "$TEMP_PATH")
 		if [[ -n "$uninstalled_extensions" ]]; then
 			echo "There are $(echo "$uninstalled_extensions" | wc -l) uninstalled extensions to install"

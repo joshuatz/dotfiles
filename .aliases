@@ -88,3 +88,14 @@ alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-word
 # === work ===
 alias work_time="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"
 alias work_time_last="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=last"
+
+
+# VS Code: Wayland rendering issues workaround:
+# Using an alias for this is slightly easier than hard-coding a solution, since
+# configuring requires touching a mostly undocumented set of files (e.g. `~/.vscode/arvg.json`)
+# WARNING: I'm still running into issues having VSCode rendering correctly with Wayland; these flags are working, but
+# require running "Developer: Reload Window" after first launch for some reason
+if [[ $IS_WAYLAND ]]; then
+	# Note: 2>/dev/null used to suppress things like: `Warning: 'ozone-platform' is not in the list of known options, but still passed to Electron/Chromium.`
+	alias code="code --ozone-platform=wayland --enable-features=UseOzonePlatform --ozone-platform-hint=wayland --enable-features=WaylandWindowDecorations 2>/dev/null"
+fi
