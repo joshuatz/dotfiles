@@ -505,6 +505,8 @@
 		"**/bower_components": true
 	},
 	"editor.minimap.renderCharacters": false,
+	// Helps with wayland stuff
+	"window.titleBarStyle": "custom",
 	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1

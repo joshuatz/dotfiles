@@ -96,6 +96,11 @@ alias work_time_last="npx_exec_global --package jtz-time-tracker-utils jttu harv
 # WARNING: I'm still running into issues having VSCode rendering correctly with Wayland; these flags are working, but
 # require running "Developer: Reload Window" after first launch for some reason
 if [[ $IS_WAYLAND ]]; then
-	# Note: 2>/dev/null used to suppress things like: `Warning: 'ozone-platform' is not in the list of known options, but still passed to Electron/Chromium.`
-	alias code="code --ozone-platform=wayland --enable-features=UseOzonePlatform --ozone-platform-hint=wayland --enable-features=WaylandWindowDecorations 2>/dev/null"
+	if (whereis code | grep -q '/snap/code'); then
+		# https://github.com/microsoft/vscode/issues/202072
+		alias code="echo 'Warning: Wayland flags cannot be set for snap-installed VS Code. Use .deb distribution instead.' && code"
+	else
+		# Note: 2>/dev/null used to suppress things like: `Warning: 'ozone-platform' is not in the list of known options, but still passed to Electron/Chromium.`
+		alias code="code --ozone-platform=wayland --enable-features=UseOzonePlatform --ozone-platform-hint=wayland --enable-features=WaylandWindowDecorations 2>/dev/null"
+	fi
 fi
