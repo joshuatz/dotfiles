@@ -25,8 +25,9 @@ fuzzy_preview() {
 	fi
 
 	local RG_ARGS=(
-		"--hidden"
 		"$search_dir"
+		"--glob"
+		'!**/node_modules/'
 	)
 
 	results=$(rg --files-with-matches -e "$search_pattern" "${RG_ARGS[@]}")
@@ -219,6 +220,11 @@ trim_whitespace() {
 	echo "$1" | awk 'NF{$1=$1;print}'
 }
 
+regex_to_sed() {
+	# TODO
+	:
+}
+
 remove_first_line() {
 	echo "$1" | sed -r '1d;'
 }
@@ -391,7 +397,7 @@ convert_clipboard_to_plaintext() {
 
 convert_clipboard_html_to_md() {
 	html=$(get_clipboard_html)
-	echo "$html" | pandoc -f html -t markdown | copy_to_clipboard
+	echo "$html" | pandoc --from html --to gfm | copy_to_clipboard
 }
 
 firefox() {
@@ -1113,10 +1119,6 @@ tmux_do_in_session_for_all_panes() {
 	tmux set-window-option -t "$session_name" synchronize-panes off
 }
 
-tmux_refresh_env_vars_from_copy() {
-	:
-}
-
 # @See https://github.com/tmux/tmux/wiki/FAQ#what-is-the-passthrough-escape-sequence-and-how-do-i-use-it
 tmux_passthrough_escape() {
 	local string_to_wrap=$1
@@ -1311,6 +1313,7 @@ git_update_local_trunk() {
 		git pull
 		return
 	fi
+	git fetch
 	git fetch . origin/"$TRUNK_BRANCH":"$TRUNK_BRANCH"
 }
 
@@ -3041,15 +3044,38 @@ get_cert_fingerprint() {
 	openssl x509 -pubkey -noout -in "$CERT_FILE" | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
 }
 
-get_cert_info() {
+# Open a browser, pre-configured to temporarily trust a local SSL cert file
+trust_cert_fingerprint() {
+	local CERT_FILE=$1
+	local CERT_FINGERPRINT=$(get_cert_fingerprint "$CERT_FILE")
+
+	if (check_args_for_value "--chrome" "$*"); then
+		chrome --ignore-certificate-errors-spki-list="$CERT_FINGERPRINT" --user-data-dir=/tmp
+		return 0
+	fi
+
+	echo "TODO: Add Firefox support. This might not even be possible - need to comb through https://wiki.mozilla.org/Firefox/CommandLineOptions"
+	return 1
+}
+
+compose_cert_query() {
 	local CERT_FILE_OR_DOMAIN_URL=$1
 	local CERT_FILE=$1
+	shift
 	if ! [[ -f "$CERT_FILE_OR_DOMAIN_URL" ]]; then
 		local CERT_FILE=$(mktemp)
 		# Remap 'https://example.com' -> 'example.com:443'
 		openssl s_client -connect "$CERT_FILE_OR_DOMAIN_URL" </dev/null 2>/dev/null > "$CERT_FILE"
 	fi
-	openssl x509 -text -pubkey -in "$CERT_FILE"
+	openssl x509 -pubkey -in "$CERT_FILE" "$@"
+}
+
+get_cert_info() {
+	compose_cert_query "$1" -text -pubkey
+}
+
+is_cert_not_expired() {
+	compose_cert_query "$1" -noout -checkend 0
 }
 
 get_registered_custom_uri_hyperlink_schemes() {

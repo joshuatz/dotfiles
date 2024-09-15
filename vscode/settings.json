@@ -297,6 +297,9 @@
 		"terminal.ansiBlack": "#000000"
 	},
 	"terminal.integrated.gpuAcceleration": "auto",
+	"terminal.integrated.environmentChangesIndicator": "on",
+	// Inheriting can mess up a bunch of things, like $TMUX
+	"terminal.integrated.inheritEnv": false,
 	"workbench.iconTheme": "vscode-icons",
 	"peacock.favoriteColors": [
 		{
@@ -507,6 +510,11 @@
 	"editor.minimap.renderCharacters": false,
 	// Helps with wayland stuff
 	"window.titleBarStyle": "custom",
+	"terminal.integrated.enableVisualBell": true,
+	"[shellscript]": {
+		"editor.defaultFormatter": "foxundermoon.shell-format"
+	},
+	"diffEditor.ignoreTrimWhitespace": false,
 	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
