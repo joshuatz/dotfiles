@@ -408,13 +408,7 @@ firefox() {
 	return 1
 }
 
-# Copies the Firefox DB (`places.sqlite`) to a temp dir,
-# to avoid lock issues / concurrency / corruption
-firefox_get_temp_db_copy() {
-	local VERBOSE=0
-	if [[ $* == *--verbose* ]]; then
-		VERBOSE=1
-	fi
+firefox_get_profile_dir() {
 	if [[ $IS_MAC -ne 1 ]]; then
 		# TODO: Linux support
 		return 1
@@ -424,7 +418,6 @@ firefox_get_temp_db_copy() {
 		--no-ignore \
 		--glob "**/Profiles/*.default-release/places.sqlite" \
 		~/Library/Application\ Support/Firefox 2>/dev/null)
-	[[ $VERBOSE -eq 1 ]] && echo "Firefox DB location(s) = $firefox_db_location"
 	# Error out on no matches, or greater than 1 match
 	if [[ -z "$firefox_db_location" ]]; then
 		echo "ERROR: Could not find Firefox DB location"
@@ -435,6 +428,27 @@ firefox_get_temp_db_copy() {
 		echo "ERROR: Found more than one Firefox DB location"
 		return 1
 	fi
+	dirname "$firefox_db_location"
+}
+
+firefox_dump_restore_file() {
+	# TODO
+	:
+}
+
+# Copies the Firefox DB (`places.sqlite`) to a temp dir,
+# to avoid lock issues / concurrency / corruption
+firefox_get_temp_db_copy() {
+	local VERBOSE=0
+	if [[ $* == *--verbose* ]]; then
+		VERBOSE=1
+	fi
+	local firefox_profile_dir=$(firefox_get_profile_dir)
+	if ! [[ $? -eq 0 ]]; then
+		return 1
+	fi
+	local firefox_db_location="$firefox_profile_dir/places.sqlite"
+	[[ $VERBOSE -eq 1 ]] && echo "Firefox DB location(s) = $firefox_db_location"
 
 	# Copy database to a temp directory to avoid lock issues / concurrency / corruption
 	temp_dir=$(mktemp -d)
@@ -443,7 +457,6 @@ firefox_get_temp_db_copy() {
 	cp "$firefox_db_location" "$temp_db_copy"
 
 	echo "$temp_db_copy"
-
 }
 
 firefox_db_interact() {
@@ -1062,22 +1075,36 @@ tmux_session_select() {
 	echo "$selected_session"
 }
 
+tmux_session_select_or_current() {
+	local current_tmux_session_name=$(tmux_get_active_session_name)
+	if [[ $? -eq 0 ]] && [[ -n "$current_tmux_session_name" ]]; then
+		echo "$current_tmux_session_name"
+		return
+	fi
+	tmux_session_select
+}
+
 tmux_session_select_and_attach() {
 	tmux_attach_with_init "$(tmux_session_select)"
 }
 
 tmux_window_select() {
-	selected_session=$(tmux_session_select)
+	local selected_session=$(tmux_session_select)
 	if [[ -z "$selected_session" ]]; then
 		return
 	fi
-	all_windows_in_session=$(tmux list-windows -t "$selected_session" -F "#{window_index} #{window_name}")
-	selected_window_index="0"
+	local all_windows_in_session=$(tmux list-windows -t "$selected_session" -F "#{window_index} #{window_name}")
+	local selected_window_index="0"
 	# Only prompt for selection if > 1 window
 	if [[ $(($(echo "$all_windows_in_session" | wc -l))) -gt 1 ]]; then
 		selected_window_index=$(echo "$all_windows_in_session" | fzf | awk '{print $1}')
 	fi
 	echo "$selected_session:$selected_window_index"
+}
+
+tmux_new_window() {
+	local selected_session=$(tmux_session_select_or_current)
+	tmux new-window -t "$selected_session"
 }
 
 tmux_pane_select() {
@@ -1086,6 +1113,16 @@ tmux_pane_select() {
 	selected_pane=$(echo "$all_panes_in_window" | fzf --preview "tmux capture-pane -t $selected_window.{} -pJS -10")
 	echo "$selected_window.$selected_pane"
 }
+
+tmux_pane_zoom_toggle() {
+	if (is_in_tmux); then
+		tmux resize-pane -Z
+		return
+	fi
+	local selected_pane=$(tmux_pane_select)
+	tmux resize-pane -Z -t "$selected_pane"
+}
+alias tmux_zoom="tmux_pane_zoom_toggle"
 
 tmux_kill_pane() {
 	local pane=$(tmux_pane_select)
@@ -1317,13 +1354,21 @@ git_update_local_trunk() {
 	git fetch . origin/"$TRUNK_BRANCH":"$TRUNK_BRANCH"
 }
 
+git_behind_ahead_plain() {
+	git fetch
+	local TRUNK_BRANCH=$(git_trunk_branch)
+	git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD
+}
+
 git_behind_ahead() {
 	# Get the trunk / main branch in the repo (e.g. `main`)
-	TRUNK_BRANCH=$(git_trunk_branch)
+	local TRUNK_BRANCH=$(git_trunk_branch)
 	git fetch
 	echo "Behind | Ahead"
-	echo "      $(git rev-list --left-right --count origin/"$TRUNK_BRANCH"...HEAD)"
+	echo "      $(git_behind_ahead_plain)"
 }
+
+
 
 git_stat_live() {
 	if [[ $* == *--summary ]]; then
@@ -1763,32 +1808,28 @@ git_branch_delete_pattern() {
 
 git_stats() {
 	git fetch
-	CURRENT_BRANCH=$(git_branch_name)
-	REMOTE_BRANCH=$(git_remote_branch)
-	TRUNK_BRANCH=$(git_trunk_branch)
-	trunk_diff_stats=$(git diff --staged --stat "origin/$TRUNK_BRANCH" | tail -n 1)
-	behind_ahead=$(git_behind_ahead)
+	local CURRENT_BRANCH=$(git_branch_name)
+	local REMOTE_BRANCH=$(git_remote_branch)
+	local TRUNK_BRANCH=$(git_trunk_branch)
+	local trunk_diff_stats=$(git diff --staged --stat "origin/$TRUNK_BRANCH" | tail -n 1)
 
-	remote_diff_str=""
+	local remote_diff_stats=""
 	if [[ -n "$REMOTE_BRANCH" ]]; then
 		remote_diff_stats=$(git diff --stat "$REMOTE_BRANCH" | tail -n 1)
-		remote_diff_str=$(cat <<- EOF
-
-			  Remote Diff Stats = $remote_diff_stats
-		EOF
-		)
 	else
 		REMOTE_BRANCH="(UNSET)"
+		remote_diff_stats="NA"
 	fi
 
-
-
 	cat <<- EOF
-		Branch = $CURRENT_BRANCH
-		Trunk Branch = $TRUNK_BRANCH
-		  Trunk Diff Stats = $trunk_diff_stats
-		Remote Branch = ${REMOTE_BRANCH}${remote_diff_str}
-		Behind / Ahead = $behind_ahead
+		 .oooooo.     ooooo  ooooooooooooo  |  Branch = $CURRENT_BRANCH
+		d8P'   Y8b     888   8    888    8  |  Trunk Branch = $TRUNK_BRANCH
+		888            888        888       |    Trunk Diff Stats = $trunk_diff_stats
+		888            888        888       |  Remote Branch = ${REMOTE_BRANCH}
+		888     ooooo  888        888       |    Remote Diff Stats = ${remote_diff_stats}
+		.88.    .88'   888        888       |    Behind / Ahead =
+		.Y8bood8P.    o888o      o888o      |      Behind | Ahead
+		                                              $(git_behind_ahead_plain)
 	EOF
 }
 
@@ -2390,6 +2431,11 @@ npm_ls_global() {
 find_proc_by_port() {
 	PORT=$1
 	lsof -i :"$PORT"
+}
+
+find_proc_by_name() {
+	local PROC_NAME=$1
+	ps aux | grep "$PROC_NAME"
 }
 
 find_pid_by_port() {

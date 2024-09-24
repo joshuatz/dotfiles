@@ -150,7 +150,7 @@ if [[ $has_asdf -eq 1 ]]; then
 	# golang
 	export ASDF_GOLANG_MOD_VERSION_ENABLED=true
 	asdf_golang_path=$(asdf where golang 2>&1 > /dev/null)
-	if [[ $? -eq 0 ]]; then
+	if [[ $? -eq 0 ]] && [[ -n "$asdf_golang_path" ]]; then
 		# https://github.com/asdf-community/asdf-golang/issues/28
 		export GOPATH="${asdf_golang_path}/packages"
 		export GOROOT="${asdf_golang_path}/go"
@@ -198,3 +198,5 @@ if type brew &>/dev/null; then
 fi
 
 # =========================
+# Dynamic variables, injected by manage.sh (jtz dotfiles)
+DOTFILES_DIR="/Users/joshua/jtzdev/dotfiles"
