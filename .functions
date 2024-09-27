@@ -3104,7 +3104,7 @@ trust_cert_fingerprint() {
 	return 1
 }
 
-compose_cert_query() {
+compose_ssl_cert_query() {
 	local CERT_FILE_OR_DOMAIN_URL=$1
 	local CERT_FILE=$1
 	shift
@@ -3116,12 +3116,71 @@ compose_cert_query() {
 	openssl x509 -pubkey -in "$CERT_FILE" "$@"
 }
 
+SSH_PUBLIC_KEY_START_PATTERN="^ssh-[a-zA-Z]{2,}[a-zA-Z0-9-]*"
+
+get_cert_type() {
+	local cert_file_or_url="$1"
+	if [[ $1 =~ ^https://.* ]]; then
+		echo "URL"
+		return
+	elif [[ -f "$cert_file_or_url" ]]; then
+		if (file "$cert_file_or_url" | grep --silent "SSH"); then
+			if (grep --silent -E "^-----BEGIN OPENSSH PRIVATE KEY-----" "$cert_file_or_url"); then
+				echo "SSH:PRIVATE"
+				return
+			elif (grep --silent -E "$SSH_PUBLIC_KEY_START_PATTERN" "$cert_file_or_url"); then
+				echo "SSH:PUBLIC"
+				return
+			fi
+			# Unknown format
+			return 1
+		elif (file "$cert_file_or_url" | grep --silent "PEM"); then
+			echo "SSL:PUBLIC"
+			return
+		# This makes some assumptions
+		elif (file "$cert_file_or_url" | grep --silent "ASCII text") && (grep --silent -E "^-----BEGIN PRIVATE KEY-----" "$cert_file_or_url"); then
+			echo "SSL:PRIVATE"
+			return
+		fi
+	fi
+
+	# Unknown format
+	return 1
+}
+
 get_cert_info() {
-	compose_cert_query "$1" -text -pubkey
+	local cert_file_or_url="$1"
+	echo "🧠 Determining type of $cert_file_or_url ..."
+	local cert_type=$(get_cert_type "$cert_file_or_url")
+
+
+	if ! [[ $? -eq 0 ]]; then
+		echo "Could not determine the type of certificate. Is $cert_file_or_url a valid input"
+	fi
+
+	echo "ℹ️ Type mapped as $cert_type"
+	echo "🔨 Extracting information for $cert_type"
+
+	# SSL
+	if [[ $cert_type == "SSL:PUBLIC" ]] || [[ $cert_type == "SSL:PRIVATE" ]]; then
+		echo "🔨 Extracting SSL cert info"
+		compose_ssl_cert_query "$cert_file_or_url" -text -pubkey
+		return
+	fi
+
+	# SSH
+	if [[ $cert_type == "SSH:PUBLIC" ]] || [[ $cert_type == "SSH:PRIVATE" ]]; then
+		ssh-keygen -lf "$cert_file_or_url"
+		return
+	fi
+
+	# Unknown type / unmapped type
+	echo "Could not determine how to extract info from $cert_type, $cert_file_or_url"
+	return 1
 }
 
 is_cert_not_expired() {
-	compose_cert_query "$1" -noout -checkend 0
+	compose_ssl_cert_query "$1" -noout -checkend 0
 }
 
 get_registered_custom_uri_hyperlink_schemes() {
