@@ -197,6 +197,5 @@ if type brew &>/dev/null; then
 	fi
 fi
 
-# =========================
-# Dynamic variables, injected by manage.sh (jtz dotfiles)
-DOTFILES_DIR="/Users/joshua/jtzdev/dotfiles"
+# === Dynamic Injection Section ===
+

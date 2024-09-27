@@ -25,7 +25,7 @@ As of right now, the most frequently used dependencies would be:
 These dependencies are optional (there are either fallbacks coded, or only a few utils use them), but are recommended:
 
 - pandoc (for HTML and markdown conversion, etc.)
--`asdf` (for various runtime / package management)
+- `asdf` (for various runtime / package management)
 
 ## Primary Commands
 
