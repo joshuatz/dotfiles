@@ -169,6 +169,12 @@ if [[ -d $WEZTERM_PATH_MAC ]]; then
 	PATH="$PATH:$WEZTERM_PATH_MAC"
 fi
 
+# Shell completions for task (go-task)
+TASK_COMPLETIONS_PATH=/usr/local/share/zsh/site-functions/_task
+if (which task > /dev/null) && [[ -f "$TASK_COMPLETIONS_PATH" ]]; then
+	source "$TASK_COMPLETIONS_PATH"
+fi
+
 # Make sure brew comes last, so its shims can override any path stuff filled in
 # previous steps
 if type brew &>/dev/null; then

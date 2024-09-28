@@ -6,7 +6,6 @@ alias devdocs="open https://devdocs.io/"
 
 # === File management ===
 alias is_symlink="test -L"
-alias symlink_resolve="greadlink -f"
 alias list="ls -halt"
 alias folders_by_size="du -h -d 1 | sort -h"
 alias folder_size="du -hs"

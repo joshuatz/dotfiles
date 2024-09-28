@@ -133,14 +133,14 @@ push() {
 	if (which code > /dev/null); then
 		# Install extensions
 		# `code --install-extension` will skip already installed, but the check is slow, so compare first
-		TEMP_PATH=$(mktemp)
-		code --list-extensions | sort | cat > "$TEMP_PATH"
-		uninstalled_extensions=$(comm -23 vscode/extensions.txt "$TEMP_PATH")
+		local VSCODE_TEMP_DIR=$(mktemp -d)
+		code --list-extensions | sort > "$VSCODE_TEMP_DIR/installed_extensions.txt"
+		sort > "$VSCODE_TEMP_DIR/dotfiles_extensions.txt" < vscode/extensions.txt
+		uninstalled_extensions=$(comm -23 "$VSCODE_TEMP_DIR/dotfiles_extensions.txt" "$VSCODE_TEMP_DIR/installed_extensions.txt")
 		if [[ -n "$uninstalled_extensions" ]]; then
 			echo "There are $(echo "$uninstalled_extensions" | wc -l) uninstalled extensions to install"
 			echo "$uninstalled_extensions" | tr '\n' '\0' | xargs -0 -L 1 code --install-extension
 		fi
-		rm "$TEMP_PATH"
 
 		# Sync config files
 		cp "$SCRIPT_DIR/vscode/settings.json" "$CODE_USER_DIR/settings.json"
@@ -160,6 +160,33 @@ push() {
 	if [[ "$OS_NAME" == "linux" ]]; then
 		if ! [[ -f "$LIBINPUT_QUIRKS_FILE" ]] || ! (diff /etc/libinput/local-overrides.quirks "$LIBINPUT_QUIRKS_FILE" > /dev/null); then
 			sudo cp "$LIBINPUT_QUIRKS_FILE" /etc/libinput/local-overrides.quirks
+		fi
+	fi
+
+	# task / go-task - bootstrap shell completions
+	if (which task > /dev/null) && (task --completion zsh > /dev/null); then
+		local UPDATE_TASK_COMPLETIONS=0
+
+		local CURRENT_TASK_COMPLETIONS=/usr/local/share/zsh/site-functions/_task
+		local TEMP_UPDATED_TASK_COMPLETIONS=$(mktemp)
+		task --completion zsh > "$TEMP_UPDATED_TASK_COMPLETIONS"
+
+		if ! [[ -f "$CURRENT_TASK_COMPLETIONS" ]] || ! (sudo diff "$CURRENT_TASK_COMPLETIONS" "$TEMP_UPDATED_TASK_COMPLETIONS" > /dev/null); then
+			while true; do
+				printf "Looks like Task has updated its shell completions for ZSH."
+				printf "  Update completions? [Yy]es, [Nn]o / [Cc]ancel\n"
+				read -r answer
+				case $answer in
+					[Yy]*) UPDATE_TASK_COMPLETIONS=1 && break ;;
+					[Nn]*) break ;;
+					[Cc]*) break ;;
+				esac
+			done
+		fi
+
+		if [[ $UPDATE_TASK_COMPLETIONS -eq 1 ]]; then
+			sudo cp "$TEMP_UPDATED_TASK_COMPLETIONS" "$CURRENT_TASK_COMPLETIONS"
+			sudo chmod 644 "$CURRENT_TASK_COMPLETIONS"
 		fi
 	fi
 

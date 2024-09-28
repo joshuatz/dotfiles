@@ -137,6 +137,14 @@ expand_path() {
 	echo "$INPUT_PATH"
 }
 
+symlink_resolve() {
+	if [[ $IS_MAC -eq 1 ]]; then
+		greadlink -f "$1"
+		return
+	fi
+	readlink -f "$1"
+}
+
 # Not perfect across all OSes, but a "good enough" approach for most
 get_computer_name() {
 	if (which scutil > /dev/null); then
