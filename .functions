@@ -439,6 +439,42 @@ firefox_get_profile_dir() {
 	dirname "$firefox_db_location"
 }
 
+# Convert Mozilla's non-standard LZ4 files (jsonlz4 or mozlz4) to JSON
+# The special things about moz's lz4 implementation are:
+# - Non-standard header - first 8 bytes, magic `mozLz40\0`
+# - Uses blocks instead of frame (making it incompatible, as-is, with the
+#   lz4 CLI)
+moz_lz4json_to_json() {
+	local mozlz4_file="$1"
+	if ! [[ -f $mozlz4_file ]]; then
+		echo "File $mozlz4_file does not exist"
+		return 1
+	fi
+	# Check for magic header bytes
+	if ! [[ $(head -c 7 "$mozlz4_file") == "mozLz40" ]]; then
+		echo "Not a Mozilla LZ4 JSON file"
+		return 1
+	fi
+	# Make sure mozlz4_file is full path
+	mozlz4_file=$(realpath "$mozlz4_file")
+	# Check for required python package
+	ensure_pkg_in_dotfiles_venv "lz4"
+
+	python_script=$(cat <<- EOF
+	import lz4.block
+	import json
+	with open("$mozlz4_file", "rb") as f:
+	    f.seek(8)
+	    decompressed = lz4.block.decompress(f.read())
+	    decoded = decompressed.decode("utf-8")
+	    parsed_json = json.loads(decoded)
+	    print(json.dumps(parsed_json, indent=2))
+	EOF
+	)
+
+	mozlz4_file="$mozlz4_file" run_raw_python_in_dotfiles_venv "$python_script"
+}
+
 firefox_dump_restore_file() {
 	# TODO
 	:
@@ -641,12 +677,14 @@ open_workspace() {
 		return 1
 	fi
 
-
-	local first_slack_channel=$(echo "$WORKSPACE_JSON" | jq -r ".slackChannels[0]")
-	if [[ "$first_slack_channel" != "null" ]]; then
-		local TEAM_ID=$(echo "$first_slack_channel" | jq -r '.teamId')
-		local CHANNEL_ID=$(echo "$first_slack_channel" | jq -r '.channelId')
-		open "slack://channel?team=${TEAM_ID}&id=${CHANNEL_ID}"
+	# Don't open slack by default - require `--with-slack`
+	if (check_args_for_value "--with-slack"); then
+		local first_slack_channel=$(echo "$WORKSPACE_JSON" | jq -r ".slackChannels[0]")
+		if [[ "$first_slack_channel" != "null" ]]; then
+			local TEAM_ID=$(echo "$first_slack_channel" | jq -r '.teamId')
+			local CHANNEL_ID=$(echo "$first_slack_channel" | jq -r '.channelId')
+			open "slack://channel?team=${TEAM_ID}&id=${CHANNEL_ID}"
+		fi
 	fi
 
 	local first_ide_project_root=$(echo "$WORKSPACE_JSON" | jq -r ".ideProjectRoots[0]")
@@ -797,6 +835,7 @@ activate() {
 	done
 	return $fail
 }
+# TODO set up auto-activate on every shell start
 
 pip_upgrade() {
 	python3 -m pip install --upgrade pip
@@ -961,6 +1000,92 @@ project_name() {
 project_name_normalized() {
 	project_name_raw=$(project_name "$1")
 	normalize_name "$project_name_raw"
+}
+
+get_project_version() {
+	local target_dir=.
+	local used_cd=0
+	if [[ -d $1 ]]; then
+		target_dir=$1
+		pushd $target_dir > /dev/null || return 1
+		used_cd=1
+	fi
+	local found_versions=()
+
+	if [[ -f "pyproject.toml" ]]; then
+		found_version=$(poetry version | awk '{print $2}')
+	elif [[ -f "package.json" ]]; then
+		found_version=$(jq -r '.version' "package.json")
+	fi
+	if [[ -n "$found_version" ]]; then
+		found_versions+=("$found_version")
+	fi
+
+	if [[ $used_cd -eq 1 ]]; then
+		popd > /dev/null || return 1
+	fi
+
+	# Echo out array, joined with `\n`
+	echo "${found_versions[@]}"
+}
+
+set_project_version() {
+	:
+	# npm version --no-git-tag-version $version_string ("v1.0.0" turns into "1.0.0")
+	# poetry version $version_string  ("v1.0.0" turns into "v1.0.0", so you want to omit `v` prefix unless you actually want it to be in the string)
+}
+
+bump_project_version() {
+	local target_dirs=()
+	local new_version=-1
+	while [[ ! $# -eq 0 ]]
+	do
+		if [[ -d "$1" ]]; then
+			target_dirs+=("$1")
+		else
+			# If we are on the last variable, check if it matches semver
+			if [[ $# -eq 1 ]] && [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+				new_version=$1
+			else
+				echo "Last argument was neither a directory or version string"
+				return 1
+			fi
+		fi
+	done
+	if [[ ${#target_dirs[@]} -eq 0 ]]; then
+		target_dirs+=(".")
+	fi
+	if [[ $new_version -eq -1 ]]; then
+		# Try to extract current version
+		local current_version=-1
+		echo "⚠️ Current version not specified. Trying to auto-extract..."
+		local last_dir_with_version=""
+		for target_dir in "${target_dirs[@]}"; do
+			local extracted_version=$(get_project_version $target_dir)
+			if [[ $? -eq 0 ]]; then
+				# If we have already extracted a version, and this other directory doesn't match, we have a problem
+				if ! [[ $current_version -ne -1 ]] && [[ $extracted_version != "$current_version" ]]; then
+					echo "❌ Version $current_version was already found in $last_dir_with_version, but got conflicting version of $extracted_version in $target_dir"
+					return 1
+				elif [[ $current_version -eq -1 ]]; then
+					current_version=$extracted_version
+				fi
+			fi
+		done
+		if [[ $current_version -eq -1 ]]; then
+			echo "❌ Could not auto-extract current version"
+		else
+			echo "Detected / extracted version of $current_version. Is this correct? [Yy]es / [Nn]o?"
+			read -r INPUT
+			if [[ $INPUT =~ ^[Nn]$ ]]; then
+				return 1
+			fi
+		fi
+
+		# Determine new version from current version
+		# ...
+		# WIP / TODO
+	fi
 }
 
 # @see https://www.nerdfonts.com/cheat-sheet for what is available
@@ -1422,6 +1547,7 @@ git_stash_select() {
 }
 alias git_select_stash="git_stash_select"
 alias git_stash_list="git_stash_select"
+alias git_stash_preview="git_stash_select"
 
 git_copy_commit_sha() {
 	commit_hash=$(git_select_commit)
@@ -1571,10 +1697,20 @@ git_remote_url() {
 }
 
 git_branch_backup() {
-	current_branch_name=$(git rev-parse --abbrev-ref HEAD)
-	backup_branch_name="backup/$current_branch_name--$(date '+%Y-%m-%d--%I-%M-%p')"
-	git branch "$backup_branch_name"
-	echo "✅ Backed up branch to $backup_branch_name"
+	# Default to current branch
+	local branch_to_backup=$(git rev-parse --abbrev-ref HEAD)
+	# Check if a different branch, other than the current, was specified to backup
+	if [[ -n "$1" ]]; then
+		if (git branch | grep --silent "$1"); then
+			branch_to_backup="$1"
+		else
+			echo "Branch $1 does not exist"
+			return 1
+		fi
+	fi
+	backup_branch_name="backup/$branch_to_backup--$(date '+%Y-%m-%d--%I-%M-%p')"
+	git branch "$branch_to_backup" "$backup_branch_name"
+	echo "✅ Backed up branch $branch_to_backup to $backup_branch_name"
 }
 alias git_backup_branch="git_branch_backup"
 
@@ -1647,6 +1783,7 @@ git_sparse_checkout() {
 	popd || exit
 }
 
+# TODO: would be nice if this could separately stash dropped changes (even if just in a patch file)
 git_do_while_dirty() {
 	git_operation="$*"
 	IFS=
@@ -1698,7 +1835,7 @@ git_do_while_dirty() {
 
 	echo "$error_string_test"
 	if [[ "$error_string_test" == "" ]]; then
-		echo "Operation was clean"
+		echo "✅🚀 Operation was clean"
 		return 0
 	fi
 
@@ -1713,14 +1850,14 @@ EOF
 	# Use stash to temporarily stash changes
 	# Newer versions of git can support stashing just staged changes
 	use_staged_stash=false
-	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
+	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+")
 	if [[ $(parse_version_string "$git_version") -ge $(parse_version_string "2.35") ]]; then
 		echo "Found git version >= 2.3"
-		echo "Your git version supports staged stashes."
+		echo "💡 Your git version supports staged stashes."
 		use_staged_stash=true
 	else
 		while true; do
-			printf "Your git version does NOT support staged stashes. Continue? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
+			printf "⚠️ Your git version does NOT support staged stashes. Continue? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
 			read -r answer
 			case $answer in
 				[Yy]*) break ;;
@@ -1740,7 +1877,7 @@ EOF
 		if [[ $preserve == "unsure" ]]; then
 			while true; do
 				# Ask user what to do about this (and rest) of files
-				printf "Keep changes to %s?\n" "$dirty_file"
+				printf "❔ Keep changes to %s?\n" "$dirty_file"
 				printf "[Aa]ll files, [Yy]es / ENTER, [Nn]o, / [Dd]rop+rest, [Pp]review, [Cc]ancel\n"
 				read -r answer
 				case $answer in
@@ -1766,6 +1903,12 @@ EOF
 				ITEMS_PRESERVED=$((ITEMS_PRESERVED+1))
 			else
 				git checkout "$dirty_file"
+				# There is an edge-case where this can fail; if the file that is conflicting
+				# is a previously / currently untracked file, but the upstream is now tracking
+				# it / has added it, then `git checkout file` will not work, because it isn't
+				# in git to begin with, but at the same time, you can't git pull if it now
+				# exists in the upstream.
+				# In this scenario, [...] TODO
 			fi
 			# Reset for next go-around
 			preserve="unsure"
@@ -1775,6 +1918,8 @@ EOF
 	if [[ $ITEMS_PRESERVED -gt 0 ]]; then
 		if [[ $use_staged_stash == "true" ]]; then
 			git stash --staged
+			# TODO
+			# git stash --staged -m "TODO gen message"
 		else
 			git stash
 		fi
@@ -1830,15 +1975,24 @@ git_stats() {
 	fi
 
 	cat <<- EOF
-		 .oooooo.     ooooo  ooooooooooooo  |  Branch = $CURRENT_BRANCH
-		d8P'   Y8b     888   8    888    8  |  Trunk Branch = $TRUNK_BRANCH
-		888            888        888       |    Trunk Diff Stats = $trunk_diff_stats
-		888            888        888       |  Remote Branch = ${REMOTE_BRANCH}
-		888     ooooo  888        888       |    Remote Diff Stats = ${remote_diff_stats}
-		.88.    .88'   888        888       |    Behind / Ahead =
-		.Y8bood8P.    o888o      o888o      |      Behind | Ahead
-		                                              $(git_behind_ahead_plain)
+		+=====================================================================================
+		|                                      |
+		|   .oooooo.     ooooo  ooooooooooooo  |  Branch = $CURRENT_BRANCH
+		|  d8P'   Y8b     888   8    888    8  |  Trunk Branch = $TRUNK_BRANCH
+		|  888            888        888       |    Trunk Diff Stats = $trunk_diff_stats
+		|  888            888        888       |  Remote Branch = ${REMOTE_BRANCH}
+		|  888     ooooo  888        888       |    Remote Diff Stats = ${remote_diff_stats}
+		|  .88.    .88'   888        888       |    Behind / Ahead =
+		|  .Y8bood8P.    o888o      o888o      |      Behind | Ahead
+		|                                      |         $(git_behind_ahead_plain)
+		|                                      |
+		+=====================================================================================
 	EOF
+}
+
+# Display most touched and/or most recently touched
+git_heatmap() {
+	echo "TODO"
 }
 
 # Get information about the state of things while stopped during a rebase
@@ -2295,6 +2449,26 @@ run_raw_python_in_dotfiles_venv() {
 		python3 -c "$RAW_CODE_TO_RUN"
 	)
 }
+
+ensure_pkg_in_dotfiles_venv() {
+	pkg_name="$1"
+	if ! (run_raw_cmd_in_dotfiles_venv "pip show $pkg_name" > /dev/null); then
+		echo "$pkg_name is not installed. Would you like to install it in the dotfiles venv? [Yy]es / [Nn]o"
+		read -r answer
+		case $answer in
+			[Yy]*)
+				run_raw_cmd_in_dotfiles_venv "pip install $pkg_name"
+				return 0
+				;;
+			*)
+				return 1
+				;;
+		esac
+	fi
+
+	return 0
+}
+
 
 # In a sub-shell, run a command in different directory, and then switch back
 exec_in() {

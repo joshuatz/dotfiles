@@ -164,29 +164,33 @@ push() {
 	fi
 
 	# task / go-task - bootstrap shell completions
-	if (which task > /dev/null) && (task --completion zsh > /dev/null); then
-		local UPDATE_TASK_COMPLETIONS=0
+	if (which task > /dev/null); then
+		if ! (task --completions zsh 2>/dev/null > /dev/null); then
+			echo "Warning: Could not generate completions for task. Is your version up-to-date?"
+		else
+			local UPDATE_TASK_COMPLETIONS=0
 
-		local CURRENT_TASK_COMPLETIONS=/usr/local/share/zsh/site-functions/_task
-		local TEMP_UPDATED_TASK_COMPLETIONS=$(mktemp)
-		task --completion zsh > "$TEMP_UPDATED_TASK_COMPLETIONS"
+			local CURRENT_TASK_COMPLETIONS=/usr/local/share/zsh/site-functions/_task
+			local TEMP_UPDATED_TASK_COMPLETIONS=$(mktemp)
+			task --completion zsh 2>/dev/null > "$TEMP_UPDATED_TASK_COMPLETIONS"
 
-		if ! [[ -f "$CURRENT_TASK_COMPLETIONS" ]] || ! (sudo diff "$CURRENT_TASK_COMPLETIONS" "$TEMP_UPDATED_TASK_COMPLETIONS" > /dev/null); then
-			while true; do
-				printf "Looks like Task has updated its shell completions for ZSH."
-				printf "  Update completions? [Yy]es, [Nn]o / [Cc]ancel\n"
-				read -r answer
-				case $answer in
-					[Yy]*) UPDATE_TASK_COMPLETIONS=1 && break ;;
-					[Nn]*) break ;;
-					[Cc]*) break ;;
-				esac
-			done
-		fi
+			if ! [[ -f "$CURRENT_TASK_COMPLETIONS" ]] || ! (sudo diff "$CURRENT_TASK_COMPLETIONS" "$TEMP_UPDATED_TASK_COMPLETIONS" > /dev/null); then
+				while true; do
+					printf "Looks like Task has updated its shell completions for ZSH."
+					printf "  Update completions? [Yy]es, [Nn]o / [Cc]ancel\n"
+					read -r answer
+					case $answer in
+						[Yy]*) UPDATE_TASK_COMPLETIONS=1 && break ;;
+						[Nn]*) break ;;
+						[Cc]*) break ;;
+					esac
+				done
+			fi
 
-		if [[ $UPDATE_TASK_COMPLETIONS -eq 1 ]]; then
-			sudo cp "$TEMP_UPDATED_TASK_COMPLETIONS" "$CURRENT_TASK_COMPLETIONS"
-			sudo chmod 644 "$CURRENT_TASK_COMPLETIONS"
+			if [[ $UPDATE_TASK_COMPLETIONS -eq 1 ]]; then
+				sudo cp "$TEMP_UPDATED_TASK_COMPLETIONS" "$CURRENT_TASK_COMPLETIONS"
+				sudo chmod 644 "$CURRENT_TASK_COMPLETIONS"
+			fi
 		fi
 	fi
 
