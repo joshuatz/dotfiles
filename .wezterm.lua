@@ -1,6 +1,14 @@
 local wezterm = require 'wezterm'
 local config = wezterm.config_builder()
 
+--- BLERGH: WezTerm is currently barfing with:
+--     ERROR: interface 'wl_surface' has no event 2
+--  Likely due to a fractional scaling bug. Disabling Wayland is a quick fix
+--- See: https://github.com/wez/wezterm/issues/4483
+--       https://github.com/wez/wezterm/issues/5604
+--- TODO: Check back on this getting patched in a new release
+config.enable_wayland = false
+
 config.automatically_reload_config = true
 
 -- ===== Mouse Handling =====
