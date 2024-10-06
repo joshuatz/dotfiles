@@ -120,6 +120,7 @@ push() {
 	cp "$SCRIPT_DIR/global.gitignore" ~
 	cp "$SCRIPT_DIR/.tmux.conf" ~
 	cp "$SCRIPT_DIR/.wezterm.lua" ~
+	cp "$SCRIPT_DIR/.asdfrc" ~
 
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)

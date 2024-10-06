@@ -16,5 +16,6 @@
 - [Install `zsh`](https://github.com/ohmyzsh/ohmyzsh/wiki/Installing-ZSH#install-and-set-up-zsh-as-default)
 - Install _Oh My Zsh_
 - Install [asdf](https://asdf-vm.com/)
+- Install [emote](https://github.com/tom-james-watson/Emote) for a better Emoji picking experience
 
 > See list of my [Favorite Programs](https://docs.joshuatz.com/settings/favorite-programs/)
