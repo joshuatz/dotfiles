@@ -10,6 +10,7 @@ echo "$SCRIPT_DIR"
 # Another workaround would be to use a 3-char org name - @see https://github.com/docker/hub-feedback/issues/280
 # Also https://stackoverflow.com/q/66597858/11447682
 LOCAL_DOCKER_PREFIX="jtz-reg/jtz"
+# TODO - I wonder if you could use the `docker.io/library/` auto-gen for ^ ?
 
 # A Temurin-based image, with pre-built decompilers that run on startup
 # You can use to just get a bash shell with JDK access:
@@ -24,7 +25,11 @@ build_tensorflowjs () {
 	docker build -t "${LOCAL_DOCKER_PREFIX}/tensorflowjs" -f "$SCRIPT_DIR/tensorflowjs/Dockerfile" "$SCRIPT_DIR"
 }
 
+build_ubuntu_sandbox() {
+	docker build -t "${LOCAL_DOCKER_PREFIX}/ubuntu_sandbox" -f "$SCRIPT_DIR/ubuntu_sandbox/Dockerfile" "$SCRIPT_DIR"
+}
+
 build_all () {
-	build_java & build_tensorflowjs
+	build_java & build_tensorflowjs && build_ubuntu_sandbox
 }
 

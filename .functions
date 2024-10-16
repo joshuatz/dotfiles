@@ -172,6 +172,7 @@ check_args_for_value() {
 	local search_value=$1
 	shift
 	for arg in "$@"; do
+		# Note: -x is to force exact whole-line match
 		if (echo "$arg" | grep -qx -- "$search_value"); then
 			return 0
 		fi
@@ -228,9 +229,30 @@ trim_whitespace() {
 	echo "$1" | awk 'NF{$1=$1;print}'
 }
 
-regex_to_sed() {
-	# TODO
-	:
+# RegEx replacer, using Node's RegExp implementation
+# Example:
+# regex_replace $'Item A\nItem B 2\nItem C' "/Item A\n.*\d/gim" "Items A & B"
+# > Items A & B
+#   Item C
+regex_replace() {
+	ORIGINAL_STRING="$1" PATTERN="$2" REPLACEMENT="$3" node <<-"EOF"
+		function strToRegExp(strPattern){
+			// Test for "/{pattern}/{flags}" input
+			const regLikePatt = /^\/(.*)\/([igmuy]{0,5})$/;
+			if (regLikePatt.test(strPattern)){
+				const pattern = regLikePatt.exec(strPattern)[1];
+				const flags = regLikePatt.exec(strPattern)[2];
+				return new RegExp(pattern,flags);
+			}
+			else {
+				return new RegExp(strPattern);
+			}
+		}
+		const originalStr = process.env.ORIGINAL_STRING;
+		const pattern = process.env.PATTERN;
+		const replacement = process.env.REPLACEMENT || '';
+		console.log(originalStr.replace(strToRegExp(pattern), replacement));
+	EOF
 }
 
 remove_first_line() {
@@ -377,18 +399,24 @@ copy_last_command_to_clipboard() {
 	echo "$last_command" | copy_to_clipboard
 }
 
+markdown_to_html() {
+	local md="$1"
+	if (which pandoc > /dev/null); then
+		echo "$md" | pandoc -f gfm -t html
+		return
+	else
+		npx marked --gfm -s "$md"
+		return
+	fi
+}
+
 markdown_to_html_clipboard() {
-	md="$1"
+	local md="$1"
 	# If no arg, grab from clipboard
 	if [[ -z "$md" ]]; then
 		md="$(get_clipboard_contents)"
 	fi
-	html=""
-	if (which pandoc > /dev/null); then
-		html=$(echo "$md" | pandoc -f gfm -t html)
-	else
-		html=$(npx marked --gfm -s "$md")
-	fi
+	html=$(markdown_to_html "$md")
 	copy_html_to_clipboard "$html" "$md"
 	echo "✅ HTML copied to clipboard"
 }
@@ -406,6 +434,44 @@ convert_clipboard_to_plaintext() {
 convert_clipboard_html_to_md() {
 	html=$(get_clipboard_html)
 	echo "$html" | pandoc --from html --to gfm | copy_to_clipboard
+}
+
+spreadsheet_to_markdown() {
+	local filepath="$1"
+	filepath=$filepath python << "EOF"
+import os
+import sys
+import csv
+
+filepath = os.environ.get("filepath")
+if not filepath:
+	print("❌ No filepath provided")
+	sys.exit(1)
+
+delimiter = '\t' if filepath.endswith('.tsv') else ','
+
+try:
+	with open(filepath, 'r') as file:
+		reader = csv.reader(file, delimiter=delimiter)
+		rows = list(reader)
+except Exception as e:
+	print(f"❌ Error reading file: {e}")
+	sys.exit(1)
+
+if not rows:
+	print("❌ No content to convert")
+	sys.exit(1)
+
+headers = rows[0]
+markdown_table = [
+	f"| {' | '.join(headers)} |",
+	f"| {' | '.join(['---'] * len(headers))} |",
+	*[f"| {' | '.join(row)} |" for row in rows[1:]]
+]
+markdown_table_str = '\n'.join(markdown_table)
+
+print(markdown_table_str)
+EOF
 }
 
 firefox() {
@@ -2231,7 +2297,7 @@ docker_get_working_dir() {
 
 # Pick a small(ish) docker image; useful for various ephemeral purposes
 docker_pick_minimal_image_name() {
-	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)"; do
+	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)" "jtz_sandbox (Ubuntu, bash, git, utils, etc.)"; do
 		case $image in
 			# https://hub.docker.com/_/busybox
 			busybox*) echo "busybox" && break ;;
@@ -2241,20 +2307,41 @@ docker_pick_minimal_image_name() {
 			debian*) echo "debian" && break ;;
 			# https://hub.docker.com/_/ubuntu
 			ubuntu*) echo "ubuntu" && break ;;
+			# ./adockerfiles/ubuntu_sandbox
+			jtz_sandbox*) echo "jtz-reg/jtz/ubuntu_sandbox" && break ;;
 			*) echo "Invalid selection" ;;
 		esac
 	done
 }
 
+docker_sandbox() {
+	local shared_dir="$1"
+	local used_temp_dir=0
+	if ! [[ -d "$shared_dir" ]]; then
+		used_temp_dir=1
+		shared_dir=$(mktemp -d)
+	fi
+	docker_inspect_volume "$shared_dir"
+	if [[ $used_temp_dir -eq 1 ]]; then
+		echo "Deleting temp dir $shared_dir"
+		rm -r "$shared_dir"
+	fi
+}
+
+
 # Uses a temporary (small) docker container to mount a volume for inspection
 docker_inspect_volume() {
-	VOLUME_NAME=$1
-	if ! (docker volume ls | grep "$VOLUME_NAME$" > /dev/null); then
+	local VOLUME_NAME=$1
+	local VOLUME_IS_DIR=0
+	if [[ -d "$VOLUME_NAME" ]]; then
+		VOLUME_IS_DIR=1
+	fi
+	if [[ $VOLUME_IS_DIR -eq 0 ]] && ! (docker volume ls | grep "$VOLUME_NAME$" > /dev/null); then
 		echo "Volume not found"
 		return 1
 	fi
-	IMAGE_NAME=$(docker_pick_minimal_image_name)
-	IMAGE_SHELL=$(echo "$IMAGE_NAME" | grep -q -E "busybox|alpine" && echo "sh" || echo "bash")
+	local IMAGE_NAME=$(docker_pick_minimal_image_name)
+	local IMAGE_SHELL=$(echo "$IMAGE_NAME" | grep -q -E "busybox|alpine" && echo "sh" || echo "bash")
 	cat <<- EOF
 		Temp Image = $IMAGE_NAME
 		Shell = $IMAGE_SHELL
@@ -2779,6 +2866,10 @@ aws_list_profiles() {
 	aws configure list-profiles
 }
 
+aws_ec2_instance_get_public_dns_addr() {
+	aws ec2 describe-instances --instance-ids "$1" --query 'Reservations[*].Instances[*].[PublicDnsName]' --output text
+}
+
 # Connect to an AWS EC2 Instance, via instance-connect
 # Remember: You can use`AWS_PROFILE=${name}` to set the AWS credential profile
 # to use for all the AWS commands
@@ -2836,8 +2927,60 @@ aws_ec2_instance_connect_send_pub_key() {
 	fi
 }
 
-aws_ec2_instance_get_public_dns_addr() {
-	aws ec2 describe-instances --instance-ids "$1" --query 'Reservations[*].Instances[*].[PublicDnsName]' --output text
+aws_ec2_instance_connect_send_pub_key_temp() {
+	local INSTANCE_ID=""
+	local EC2_USERNAME=""
+	local DELETE_LOCAL_KEY_DELAY_SEC=10
+
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-i|--instance-id)
+				INSTANCE_ID=$2
+				shift
+				;;
+			-u|--user|--username)
+				EC2_USERNAME=$2
+				shift
+				;;
+			-d|--delay|--delete-delay)
+				DELETE_LOCAL_KEY_DELAY_SEC=$2
+				shift
+				;;
+			*)
+				echo "Invalid option ${1}"
+				;;
+		esac
+	done
+
+	if [[ -z "$INSTANCE_ID" ]]; then
+		echo "You must pass instance ID with '--instance-id' or '-i'"
+		return 1
+	fi
+
+	if [[ -z "$EC2_USERNAME" ]]; then
+		echo "Warning: You didn't specify EC2 username. Defaulting to 'ubuntu'"
+		EC2_USERNAME="ubuntu"
+	fi
+
+	echo "🔐 Generating temporary key pair"
+	local tmp_dir=$(mktemp -d)
+	ssh-keygen -t rsa -b 4096 -C "TEMPORARY key for EC2 Instance Connect" -N "" -f "$tmp_dir/tmp_key"
+	PRIVATE_KEY="$tmp_dir/tmp_key"
+	PUBLIC_KEY="$tmp_dir/tmp_key.pub"
+
+	if ! (aws_ec2_instance_connect_send_pub_key --instance-id "$INSTANCE_ID" --username "$EC2_USERNAME" --public-key "$PUBLIC_KEY"); then
+		return 1
+	fi
+
+	# Return private key path, and then delete after very short delay
+	# We are assuming that caller is going to use private key very shortly after
+	# generating
+	echo "$PRIVATE_KEY"
+	{
+		sleep "$DELETE_LOCAL_KEY_DELAY_SEC"
+		echo "🗑️ Deleting temporary key pair" 1>&2
+	} > /dev/null &
 }
 
 aws_ec2_instance_connect_ssh() {

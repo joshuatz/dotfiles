@@ -514,6 +514,16 @@
 	"[shellscript]": {
 		"editor.defaultFormatter": "foxundermoon.shell-format"
 	},
+	"shellcheck.exclude": [
+		// Disable "Declare and assign separately to avoid masking return values."
+		"2155",
+		// Disable: "See if you can use ${variable//search/replace} instead."
+		// https://www.shellcheck.net/wiki/SC2001
+		// Although this recommendation might lead to more concise code,
+		// shell-based substitutions are less portable than
+		// sed / regex, and I generally prefer using those
+		"2001"
+	],
 	"diffEditor.ignoreTrimWhitespace": false,
 	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
