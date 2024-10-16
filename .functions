@@ -2882,11 +2882,28 @@ aws_ec2_instance_get_public_dns_addr() {
 	aws ec2 describe-instances --instance-ids "$1" --query 'Reservations[*].Instances[*].[PublicDnsName]' --output text
 }
 
+aws_pick_default_ec2_username() {
+	# TODO present options of ec2-user, ubuntu, etc.
+	# use fzf
+	:
+}
+
+aws_lint_instance_id() {
+	local INSTANCE_ID=$1
+	if ! [[ $INSTANCE_ID =~ ^i-[a-z0-9]+$ ]]; then
+		echo "Invalid instance ID format. Should be I-123abc455 (found $INSTANCE_ID)"
+		return 1
+	fi
+	return 0
+}
+
 # Connect to an AWS EC2 Instance, via instance-connect
 # Remember: You can use`AWS_PROFILE=${name}` to set the AWS credential profile
 # to use for all the AWS commands
 aws_ec2_instance_connect_send_pub_key() {
-	local EC2_USERNAME="ec2-user"
+	local PUBLIC_KEY
+	local INSTANCE_ID
+	local EC2_USERNAME
 	while [[ ! $# -eq 0 ]]
 	do
 		case "$1" in
@@ -2914,10 +2931,18 @@ aws_ec2_instance_connect_send_pub_key() {
 		return 1
 	fi
 
-	# Check format
-	if ! [[ $INSTANCE_ID =~ ^i-[a-z0-9]+$ ]]; then
-		echo "Invalid instance ID format. Should be I-123abc455"
+	if [[ -z "$INSTANCE_ID" ]]; then
+		echo "You must pass instance ID with '--instance-id' or '-i'"
 		return 1
+	fi
+	aws_lint_instance_id "$INSTANCE_ID" || return 1
+
+	if [[ -z "$EC2_USERNAME" ]]; then
+		echo "You did not specify a username with '--user' / '--username'"
+		echo "Please pick a username, or re-run command with specific username to use"
+		if ! EC2_USERNAME=$(aws_pick_default_ec2_username); then
+			return 1
+		fi
 	fi
 
 	if ! [[ -f $PUBLIC_KEY ]]; then
@@ -2939,10 +2964,14 @@ aws_ec2_instance_connect_send_pub_key() {
 	fi
 }
 
+# WARNING: Because this function is intended to be used with command substitution
+# you need to ***VERY*** careful not to send to stdout within the function,
+# except for the very last echo of the generated private key.
+# Either use stderr, or another fd other than stdout
 aws_ec2_instance_connect_send_pub_key_temp() {
 	local INSTANCE_ID=""
 	local EC2_USERNAME=""
-	local DELETE_LOCAL_KEY_DELAY_SEC=10
+	local DELETE_LOCAL_KEY_DELAY_SEC=30
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -2961,23 +2990,26 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 				;;
 			*)
 				echo "Invalid option ${1}"
+				return 1
 				;;
 		esac
+		shift
 	done
 
 	if [[ -z "$INSTANCE_ID" ]]; then
 		echo "You must pass instance ID with '--instance-id' or '-i'"
 		return 1
 	fi
+	aws_lint_instance_id "$INSTANCE_ID" || return 1
 
 	if [[ -z "$EC2_USERNAME" ]]; then
-		echo "Warning: You didn't specify EC2 username. Defaulting to 'ubuntu'"
+		echo "Warning: You didn't specify EC2 username. Defaulting to 'ubuntu'" 1>&2
 		EC2_USERNAME="ubuntu"
 	fi
 
-	echo "🔐 Generating temporary key pair"
+	echo "🔐 Generating temporary key pair" 1>&2
 	local tmp_dir=$(mktemp -d)
-	ssh-keygen -t rsa -b 4096 -C "TEMPORARY key for EC2 Instance Connect" -N "" -f "$tmp_dir/tmp_key"
+	ssh-keygen -t rsa -b 4096 -C "TEMPORARY key for EC2 Instance Connect" -N "" -f "$tmp_dir/tmp_key" > /dev/null
 	PRIVATE_KEY="$tmp_dir/tmp_key"
 	PUBLIC_KEY="$tmp_dir/tmp_key.pub"
 
@@ -2991,7 +3023,9 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 	echo "$PRIVATE_KEY"
 	{
 		sleep "$DELETE_LOCAL_KEY_DELAY_SEC"
-		echo "🗑️ Deleting temporary key pair" 1>&2
+		echo $'\n========\n🗑️ Deleting temporary key pair' 1>&2
+		rm -r "$tmp_dir"
+		echo $'✅ Successfully deleted temporary key pair\n========\n' 1>&2
 	} > /dev/null &
 }
 
@@ -3000,6 +3034,7 @@ aws_ec2_instance_connect_ssh() {
 	TODO
 	EOF
 	)
+	local INSTANCE_ID=""
 	local EC2_USERNAME="ec2-user"
 	local USE_TEMP_KEY_PAIR=0
 	local USE_DEFAULT_KEY_PAIR=0
@@ -3043,6 +3078,12 @@ aws_ec2_instance_connect_ssh() {
 		esac
 		shift
 	done
+
+	if [[ -z "$INSTANCE_ID" ]]; then
+		echo "You must pass instance ID with '--instance-id' or '-i'"
+		return 1
+	fi
+	aws_lint_instance_id "$INSTANCE_ID" || return 1
 
 	local tmp_dir
 	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
