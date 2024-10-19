@@ -2971,7 +2971,7 @@ aws_ec2_instance_connect_send_pub_key() {
 aws_ec2_instance_connect_send_pub_key_temp() {
 	local INSTANCE_ID=""
 	local EC2_USERNAME=""
-	local DELETE_LOCAL_KEY_DELAY_SEC=30
+	local DELETE_LOCAL_KEY_DELAY_SEC=120
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -2997,7 +2997,7 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 	done
 
 	if [[ -z "$INSTANCE_ID" ]]; then
-		echo "You must pass instance ID with '--instance-id' or '-i'"
+		echo "Error: You must pass instance ID with '--instance-id' or '-i'"
 		return 1
 	fi
 	aws_lint_instance_id "$INSTANCE_ID" || return 1
@@ -3009,10 +3009,11 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 
 	echo "🔐 Generating temporary key pair" 1>&2
 	local tmp_dir=$(mktemp -d)
-	ssh-keygen -t rsa -b 4096 -C "TEMPORARY key for EC2 Instance Connect" -N "" -f "$tmp_dir/tmp_key" > /dev/null
+	ssh-keygen -t rsa -b 4096 -C "TEMPORARY key for EC2 Instance Connect" -N "" -f "$tmp_dir/tmp_key" 1>&2
 	PRIVATE_KEY="$tmp_dir/tmp_key"
 	PUBLIC_KEY="$tmp_dir/tmp_key.pub"
 
+	echo "⬆️ Attempting sending of public key" 1>&2
 	if ! (aws_ec2_instance_connect_send_pub_key --instance-id "$INSTANCE_ID" --username "$EC2_USERNAME" --public-key "$PUBLIC_KEY"); then
 		return 1
 	fi
@@ -3020,6 +3021,15 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 	# Return private key path, and then delete after very short delay
 	# We are assuming that caller is going to use private key very shortly after
 	# generating
+	cat 1>&2 << EOF
+========
+Private key-pair is ready for use.
+    Dir: $(dirname $PRIVATE_KEY)
+        Private key: $PRIVATE_KEY
+        Public key: $PRIVATE_KEY.pub
+    Auto-delete after: $DELETE_LOCAL_KEY_DELAY_SEC seconds.
+========
+EOF
 	echo "$PRIVATE_KEY"
 	{
 		sleep "$DELETE_LOCAL_KEY_DELAY_SEC"
@@ -3029,11 +3039,60 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 	} > /dev/null &
 }
 
+aws_ec2_instance_connect_generate_temp_ssh_command() {
+	local INSTANCE_ID=""
+	local EC2_USERNAME="ec2-user"
+	local PORT_BINDINGS=()
+
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-i|--instance-id)
+				INSTANCE_ID=$2
+				shift
+				;;
+			-u|--user|--username)
+				EC2_USERNAME=$2
+				shift
+				;;
+			-p|--port)
+				PORT_BINDINGS+=("$2")
+				shift
+				;;
+			*)
+				echo "Invalid option ${1}"
+				;;
+		esac
+		shift
+	done
+
+	if [[ -z "$INSTANCE_ID" ]]; then
+		echo "You must pass instance ID with '--instance-id' or '-i'"
+		return 1
+	fi
+	aws_lint_instance_id "$INSTANCE_ID" || return 1
+
+	local PRIVATE_KEY=$(aws_ec2_instance_connect_send_pub_key_temp --user "$EC2_USERNAME" --instance-id "$INSTANCE_ID" --delete-delay 120)
+
+	if [[ $? -ne 0 ]] || [[ $PRIVATE_KEY == "Error"* ]]; then
+		echo "Failed to generate private key: $PRIVATE_KEY"
+		return 1
+	fi
+
+	local SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
+	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
+		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
+			SSH_ARGS+=(-L "\*:$PORT_BINDING:localhost:$PORT_BINDING")
+		done
+	fi
+
+	local DNS_ADDR=$(aws_ec2_instance_get_public_dns_addr "$INSTANCE_ID")
+	SSH_ARGS+=("${EC2_USERNAME}@${DNS_ADDR}")
+
+	echo "ssh ${SSH_ARGS[*]}"
+}
+
 aws_ec2_instance_connect_ssh() {
-	local HELP=$(cat <<- "EOF"
-	TODO
-	EOF
-	)
 	local INSTANCE_ID=""
 	local EC2_USERNAME="ec2-user"
 	local USE_TEMP_KEY_PAIR=0
@@ -3067,10 +3126,6 @@ aws_ec2_instance_connect_ssh() {
 			-dkp|--default-key-pair)
 				USE_DEFAULT_KEY_PAIR=1
 				shift
-				;;
-			-h|--help)
-				echo "$HELP"
-				return
 				;;
 			*)
 				echo "Invalid option ${1}"
