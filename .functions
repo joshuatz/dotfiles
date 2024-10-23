@@ -145,6 +145,25 @@ symlink_resolve() {
 	readlink -f "$1"
 }
 
+alias_resolve() {
+	local ALIAS="$1"
+	shift
+	if (check_args_for_value "--all" "$*"); then
+		type -a "$ALIAS"
+		return 0
+	fi
+	# The last line should be something like `${final_entry_name} is ${bin_path}`
+	local final_alias_path=$(type -a "$ALIAS" | tail -n 1 | sed -rn 's#^.+ is (.+)$#\1#p')
+	# The final entry could still be a symlink (which is actually very likely with applications,
+	# like on mac, `/usr/local/bin/code` is a symlink to the VS Code installed bin,
+	# under the normal applications folder
+	if (check_args_for_value "--no-follow" "$*"); then
+		echo "$final_alias_path"
+		return 0
+	fi
+	symlink_resolve "$final_alias_path"
+}
+
 # Not perfect across all OSes, but a "good enough" approach for most
 get_computer_name() {
 	if (which scutil > /dev/null); then
@@ -1174,6 +1193,15 @@ nerd_font() {
 	esac
 }
 
+exit_code_to_pass_fail_icon() {
+	local exit_code=$?
+	local exit_code_arg=$1
+	if [[ -n "$exit_code_arg" ]]; then
+		exit_code=$exit_code_arg
+	fi
+	[[ $exit_code -eq 0 ]] && echo "✅" || echo  "❌"
+}
+
 is_in_wezterm() {
 	if [[ -z "$WEZTERM_UNIX_SOCKET" ]]; then
 		return 1
@@ -2192,7 +2220,7 @@ docker_pick_container_full() {
 	local container_list=$(docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}")
 	local fzf_args=("--header-lines=1" "--reverse")
 	if [[ "$multi" == "true" ]]; then
-		fzf_args+=("-m")
+		fzf_args+=("--multi")
 	fi
 	local container=$(echo "$container_list" | fzf "${fzf_args[@]}")
 	if [[ -z "$container" ]]; then
@@ -2710,28 +2738,65 @@ npm_ls_global() {
 }
 
 find_proc_by_port() {
-	PORT=$1
+	local PORT=$1
 	lsof -i :"$PORT"
 }
 
-find_proc_by_name() {
-	local PROC_NAME=$1
-	ps aux | grep "$PROC_NAME"
+find_procs_by_string() {
+	local SEARCH_STRING=$1
+	if [[ $SLIM -eq 1 ]]; then
+		# Form of pgrep -l is `${PID}{SPACE}{CMD}`
+		echo $'PID\tCMD'
+		# Change space between PID and CMD to tab, but leave the rest alone
+		# (CMD can have spaces in it, so we don't want to split on *every* space)
+		pgrep -l -f "$SEARCH_STRING" | sed -rn 's/^([0-9]+) (.*)$/\1\t\2/p'
+		# Note: If you want to use `awk` with above, use `-F'\t'` to set separator
+		return
+	fi
+	# r = sort by CPU
+	# m = sort by memory
+	# x = include processes without a controlling terminal (this is most)
+	local ps_output=$(ps -x -m -o ruser,pid,ppid,pgid,etime,cpu,%cpu,%mem,command)
+	# Headings
+	echo "$ps_output" | head -n 1
+	# Filtered content
+	echo "$ps_output" | tail -n +2 | grep "$SEARCH_STRING" | grep --invert "grep"
+}
+
+pick_procs_by_string() {
+	local proc_list=$(find_procs_by_string "$1")
+	local header_row=$(echo $proc_list | head -n 1)
+
+	# Detect proc list format
+	local proc_list_format="ps".
+	local pid_column=2
+	if [[ $header_row == $'PID\tCMD' ]]; then
+		pid_column=1
+		proc_list_format="pgrep"
+	fi
+
+	# Use FZF to select (drop `user` column)
+	# TODO: Add always present preview bar, which shows full un-truncated command entry
+	local selected_lines=$(echo "$proc_list" | fzf --header-lines=1 --reverse --multi --with-nth=2.. --sync --bind 'start:select-all')
+	if [[ -z "$selected_lines" ]]; then
+		return 1
+	fi
+	echo "$selected_lines" | awk "$(printf '{print $%s}' $pid_column)"
 }
 
 find_pid_by_port() {
-	PORT=$1
+	local PORT=$1
 	lsof -t -i :"$PORT"
 }
 
 get_proc_info_by_pid() {
-	PID=$1
+	local PID=$1
 	ps -p "$PID" -o pid,ppid,pgid,command
 }
 
 get_proc_info_by_port() {
-	PORT=$1
-	PID=$(find_pid_by_port "$PORT")
+	local PORT=$1
+	local PID=$(find_pid_by_port "$PORT")
 
 	if [[ -z "$PID" ]]; then
 		echo "No process found on port $PORT"
@@ -3082,7 +3147,17 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	local SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
 	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
 		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
-			SSH_ARGS+=(-L "\*:$PORT_BINDING:localhost:$PORT_BINDING")
+			# If port binding is of form \d+, use same port locally
+			if (echo "$PORT_BINDING" | grep -E --silent '^\d+$'); then
+				SSH_ARGS+=(-L "\*:${PORT_BINDING}:localhost:${PORT_BINDING}")
+			elif (echo "$PORT_BINDING" | grep -E --silent '^\d+:\d+$'); then
+				local REMOTE_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
+				local LOCAL_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
+				SSH_ARGS+=(-L "\*:${REMOTE_PORT}:localhost:${LOCAL_PORT}")
+			else
+				echo "Could not understand how to bind port input of $PORT_BINDING"
+				return 1
+			fi
 		done
 	fi
 
@@ -3168,7 +3243,17 @@ aws_ec2_instance_connect_ssh() {
 	local SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
 	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
 		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
-			SSH_ARGS+=(-L "\*:$PORT_BINDING:localhost:$PORT_BINDING")
+			# If port binding is of form \d+, use same port locally
+			if (echo "$PORT_BINDING" | grep -E --silent '^\d+$'); then
+				SSH_ARGS+=(-L "\*:${PORT_BINDING}:localhost:${PORT_BINDING}")
+			elif (echo "$PORT_BINDING" | grep -E --silent '^\d+:\d+$'); then
+				local REMOTE_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
+				local LOCAL_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
+				SSH_ARGS+=(-L "\*:${REMOTE_PORT}:localhost:${LOCAL_PORT}")
+			else
+				echo "Could not understand how to bind port input of $PORT_BINDING"
+				return 1
+			fi
 		done
 	fi
 

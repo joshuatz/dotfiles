@@ -525,6 +525,10 @@
 		"2001"
 	],
 	"diffEditor.ignoreTrimWhitespace": false,
+	"search.defaultViewMode": "tree",
+	"search.searchEditor.defaultNumberOfContextLines": 6,
+	"search.maxResults": 2000,
+	"search.smartCase": true,
 	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
