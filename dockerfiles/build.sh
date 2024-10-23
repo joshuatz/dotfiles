@@ -29,6 +29,10 @@ build_ubuntu_sandbox() {
 	docker build -t "${LOCAL_DOCKER_PREFIX}/ubuntu_sandbox" -f "$SCRIPT_DIR/ubuntu_sandbox/Dockerfile" "$SCRIPT_DIR"
 }
 
+build_manssh() {
+	docker build -t "${LOCAL_DOCKER_PREFIX}/manssh" -f "$SCRIPT_DIR/manssh/Dockerfile" "$SCRIPT_DIR"
+}
+
 build_all () {
 	build_java & build_tensorflowjs && build_ubuntu_sandbox
 }

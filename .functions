@@ -4,6 +4,9 @@
 # shellcheck disable=SC2155
 # set -x
 
+# Bin aliases
+alias manssh='docker run -t --rm -v ~/.ssh/config:/root/.ssh/config "jtz-reg/jtz/manssh"'
+
 # === Docs / Reusable Selection Lists ===
 docs() {
 	if [[ -d "$DOCS_DIR" ]]; then
@@ -2816,6 +2819,12 @@ kill_procs_by_pid_interactive() {
 	done
 }
 
+restart_vscode() {
+	local CODE_PIDS=$(pick_procs_by_string "Visual Studio Code.app/Contents/MacOS/Electron")
+	kill_procs_by_pid_interactive "$CODE_PIDS"
+	code
+}
+
 kill_procs_locking_file() {
 	local file_path=$1
 	if [[ -z "$file_path" ]]; then
@@ -3036,7 +3045,10 @@ aws_ec2_instance_connect_send_pub_key() {
 aws_ec2_instance_connect_send_pub_key_temp() {
 	local INSTANCE_ID=""
 	local EC2_USERNAME=""
-	local DELETE_LOCAL_KEY_DELAY_SEC=120
+	local SSH_CONFIG_ALIAS=""
+	# 60 seconds is the limit after which the key is removed on the server
+	local DELETE_LOCAL_KEY_DELAY_SEC=60
+	local MODIFY_SSH_CONFIG=1
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -3053,6 +3065,13 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 				DELETE_LOCAL_KEY_DELAY_SEC=$2
 				shift
 				;;
+			-a|--alias)
+				SSH_CONFIG_ALIAS=$2
+				shift
+				;;
+			-n|--no-modify-config)
+				MODIFY_SSH_CONFIG=0
+				;;
 			*)
 				echo "Invalid option ${1}"
 				return 1
@@ -3066,6 +3085,10 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 		return 1
 	fi
 	aws_lint_instance_id "$INSTANCE_ID" || return 1
+
+	if [[ -z "$SSH_CONFIG_ALIAS" ]]; then
+		SSH_CONFIG_ALIAS="$INSTANCE_ID"
+	fi
 
 	if [[ -z "$EC2_USERNAME" ]]; then
 		echo "Warning: You didn't specify EC2 username. Defaulting to 'ubuntu'" 1>&2
@@ -3083,12 +3106,29 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 		return 1
 	fi
 
+	local DNS_ADDR="?"
+
+	local SSH_CONFIG_UPDATED_ICON="❌"
+	if [[ $MODIFY_SSH_CONFIG -eq 1 ]]; then
+		DNS_ADDR=$(aws_ec2_instance_get_public_dns_addr "$INSTANCE_ID")
+		if [[ -z "$DNS_ADDR" ]]; then
+			echo "Cannot update SSH config without knowing hostname" 1>&2
+			return 1
+		fi
+		echo "Adding entry (alias = $SSH_CONFIG_ALIAS) to ~/.ssh/config" 1>&2
+		# TODO
+		manssh add "$SSH_CONFIG_ALIAS" "${EC2_USERNAME}@${DNS_ADDR}" -i "$PRIVATE_KEY" 1>&2
+		SSH_CONFIG_UPDATED_ICON="✅"
+	fi
+
 	# Return private key path, and then delete after very short delay
 	# We are assuming that caller is going to use private key very shortly after
 	# generating
 	cat 1>&2 << EOF
 ========
 Private key-pair is ready for use.
+    Host: $DNS_ADDR
+    SSH Config Updated?: $SSH_CONFIG_UPDATED_ICON
     Dir: $(dirname $PRIVATE_KEY)
         Private key: $PRIVATE_KEY
         Public key: $PRIVATE_KEY.pub
@@ -3101,6 +3141,12 @@ EOF
 		echo $'\n========\n🗑️ Deleting temporary key pair' 1>&2
 		rm -r "$tmp_dir"
 		echo $'✅ Successfully deleted temporary key pair\n========\n' 1>&2
+
+		if [[ $MODIFY_SSH_CONFIG -eq 1 ]]; then
+			printf $'\n========\n🗑️ Removing entry (alias = %s) from ~/.ssh/config' "$SSH_CONFIG_ALIAS" 1>&2
+			manssh delete "$SSH_CONFIG_ALIAS" 1>&2
+			echo $'\n✅ Successfully removed entry from SSH config\n========\n' 1>&2
+		fi
 	} > /dev/null &
 }
 
@@ -3108,6 +3154,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	local INSTANCE_ID=""
 	local EC2_USERNAME="ec2-user"
 	local PORT_BINDINGS=()
+	local OPEN_VS_CODE=0
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -3124,6 +3171,9 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 				PORT_BINDINGS+=("$2")
 				shift
 				;;
+			-c|--code)
+				OPEN_VS_CODE=1
+				;;
 			*)
 				echo "Invalid option ${1}"
 				;;
@@ -3137,7 +3187,11 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	fi
 	aws_lint_instance_id "$INSTANCE_ID" || return 1
 
-	local PRIVATE_KEY=$(aws_ec2_instance_connect_send_pub_key_temp --user "$EC2_USERNAME" --instance-id "$INSTANCE_ID" --delete-delay 120)
+	local DELETE_DELAY=10
+	if [[ $OPEN_VS_CODE -eq 1 ]]; then
+		DELETE_DELAY=60
+	fi
+	local PRIVATE_KEY=$(aws_ec2_instance_connect_send_pub_key_temp --user "$EC2_USERNAME" --instance-id "$INSTANCE_ID" --delete-delay "$DELETE_DELAY")
 
 	if [[ $? -ne 0 ]] || [[ $PRIVATE_KEY == "Error"* ]]; then
 		echo "Failed to generate private key: $PRIVATE_KEY"
@@ -3165,6 +3219,10 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	SSH_ARGS+=("${EC2_USERNAME}@${DNS_ADDR}")
 
 	echo "ssh ${SSH_ARGS[*]}"
+
+	if [[ $OPEN_VS_CODE -eq 1 ]]; then
+		code --folder-uri "vscode-remote://ssh-remote+$INSTANCE_ID/"
+	fi
 }
 
 aws_ec2_instance_connect_ssh() {
