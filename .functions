@@ -190,8 +190,9 @@ augment_path() {
 	)
 }
 
+# Make sure that you call with "$@", not "$*"
 check_args_for_value() {
-	local search_value=$1
+	local search_value="$1"
 	shift
 	for arg in "$@"; do
 		# Note: -x is to force exact whole-line match
@@ -575,9 +576,20 @@ moz_lz4json_to_json() {
 	mozlz4_file="$mozlz4_file" run_raw_python_in_dotfiles_venv "$python_script"
 }
 
+# WARNING: This produces a *huge* (multi-MB) JSON file
 firefox_dump_restore_file() {
-	# TODO
+	if ! local firefox_profile_dir="$(firefox_get_profile_dir)"; then
+		return 1
+	fi
+	local firefox_recovery_file_path="${firefox_profile_dir}/sessionstore-backups/recovery.jsonlz4"
+	local temp_dir="$(mktemp -d)"
+	cp "$firefox_recovery_file_path" "$temp_dir/"
+	moz_lz4json_to_json "$temp_dir/recovery.jsonlz4"
+}
+
+firefox_get_tabs() {
 	:
+	# TODO
 }
 
 # Copies the Firefox DB (`places.sqlite`) to a temp dir,
@@ -595,8 +607,8 @@ firefox_get_temp_db_copy() {
 	[[ $VERBOSE -eq 1 ]] && echo "Firefox DB location(s) = $firefox_db_location"
 
 	# Copy database to a temp directory to avoid lock issues / concurrency / corruption
-	temp_dir=$(mktemp -d)
-	temp_db_copy="$temp_dir/places.sqlite"
+	local temp_dir=$(mktemp -d)
+	local temp_db_copy="$temp_dir/places.sqlite"
 	[[ $VERBOSE -eq 1 ]] && echo "💾 Creating temporary copy of FF DB"
 	cp "$firefox_db_location" "$temp_db_copy"
 
@@ -614,7 +626,7 @@ firefox_db_interact() {
 		return 1
 	fi
 	shift
-	local temp_db_copy=$(firefox_get_temp_db_copy "")
+	local temp_db_copy=$(firefox_get_temp_db_copy)
 
 	# Call our callback with the temporary db, to let it do whatever it wants
 	$callback "$temp_db_copy"
@@ -765,8 +777,7 @@ get_workspace_json() {
 		return 1
 	fi
 
-
-	echo "$JSON" | jq -r ".$WORKSPACE_NAME"
+	echo "$JSON" | jq -r "$(printf '."%s"' "$WORKSPACE_NAME")"
 }
 
 open_workspace() {
@@ -822,9 +833,12 @@ open_workspace_url() {
 		esac
 	done
 	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
-	local first_browser_group_json=$(echo "$WORKSPACE_JSON" | jq -r ".browserGroups[0]")
-	if [[ "$first_browser_group_json" != "null" ]]; then
+	local first_browser_group_json=$(echo "$WORKSPACE_JSON" | jq -r ".browserGroups[0]" 2>/dev/null)
+	if [[ $? -eq 0 ]] && [[ "$first_browser_group_json" != "null" ]]; then
 		open_browser_group_url "$first_browser_group_json" "${PASS_THROUGH_ARGS[@]}"
+	else
+		echo "Could not fetch browserGroups. Is it configured in the JSON config?"
+		return 1
 	fi
 }
 
@@ -2250,6 +2264,7 @@ docker_pick_image() {
 	image_id=$(echo "$selected_image" | awk '{print $2}')
 	echo "$image_id"
 }
+alias docker_image_select="docker_pick_image"
 
 docker_stop() {
 	# TODO add `--all` flag
@@ -2340,7 +2355,7 @@ docker_get_working_dir() {
 
 # Pick a small(ish) docker image; useful for various ephemeral purposes
 docker_pick_minimal_image_name() {
-	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)" "jtz_sandbox (Ubuntu, bash, git, utils, etc.)"; do
+	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)" "jtz_sandbox (Ubuntu, bash, file, git, utils, etc.)"; do
 		case $image in
 			# https://hub.docker.com/_/busybox
 			busybox*) echo "busybox" && break ;;
@@ -2819,9 +2834,16 @@ kill_procs_by_pid_interactive() {
 	done
 }
 
+kill_procs_by_port_interactive() {
+	local pids=$(find_pid_by_port)
+	# TODO display proc pick list, multi-select, before passing to kill
+	kill_procs_by_pid_interactive "$pids"
+}
+
 restart_vscode() {
 	local CODE_PIDS=$(pick_procs_by_string "Visual Studio Code.app/Contents/MacOS/Electron")
 	kill_procs_by_pid_interactive "$CODE_PIDS"
+	sleep 10
 	code
 }
 
@@ -3221,12 +3243,14 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	echo "ssh ${SSH_ARGS[*]}"
 
 	if [[ $OPEN_VS_CODE -eq 1 ]]; then
+		echo "Launching vscode"
 		code --folder-uri "vscode-remote://ssh-remote+$INSTANCE_ID/"
 	fi
 }
 
 aws_ec2_instance_connect_ssh() {
 	local INSTANCE_ID=""
+	local SSH_CONFIG_ALIAS=""
 	local EC2_USERNAME="ec2-user"
 	local USE_TEMP_KEY_PAIR=0
 	local USE_DEFAULT_KEY_PAIR=0
@@ -3258,6 +3282,10 @@ aws_ec2_instance_connect_ssh() {
 				;;
 			-dkp|--default-key-pair)
 				USE_DEFAULT_KEY_PAIR=1
+				shift
+				;;
+			-a|--alias)
+				SSH_CONFIG_ALIAS=$2
 				shift
 				;;
 			*)
@@ -3362,11 +3390,18 @@ get_cert_fingerprint() {
 
 # Open a browser, pre-configured to temporarily trust a local SSL cert file
 trust_cert_fingerprint() {
-	local CERT_FILE=$1
-	local CERT_FINGERPRINT=$(get_cert_fingerprint "$CERT_FILE")
+	local PUBLIC_CERT_FILE=$1
+	if ! [[ -f $PUBLIC_CERT_FILE ]]; then
+		echo "$PUBLIC_CERT_FILE does not exist"
+		return 1
+	fi
+	if ! local PUBLIC_CERT_FINGERPRINT=$(get_cert_fingerprint "$PUBLIC_CERT_FILE"); then
+		echo "Could not generate cert fingerprint"
+		return 1
+	fi
 
-	if (check_args_for_value "--chrome" "$*"); then
-		chrome --ignore-certificate-errors-spki-list="$CERT_FINGERPRINT" --user-data-dir=/tmp
+	if (check_args_for_value "--chrome" "$@"); then
+		chrome --ignore-certificate-errors-spki-list="$PUBLIC_CERT_FINGERPRINT" --user-data-dir=/tmp
 		return 0
 	fi
 

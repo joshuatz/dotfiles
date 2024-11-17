@@ -414,6 +414,11 @@
 	"files.defaultLanguage": "markdown",
 	// Disable snippets from showing up WHILE typing, in intellisense
 	"editor.snippetSuggestions": "none",
+	"editor.quickSuggestions": {
+		"comments": true,
+		"strings": true,
+		"other": true
+	},
 	"liveshare.showVerboseNotifications": true,
 	"liveshare.presence": false,
 	// For "go to" to open in new tab

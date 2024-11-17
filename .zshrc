@@ -175,6 +175,12 @@ if (which task > /dev/null) && [[ -f "$TASK_COMPLETIONS_PATH" ]]; then
 	source "$TASK_COMPLETIONS_PATH"
 fi
 
+# pipx (or any other `.local/bin` entries)
+LOCAL_BINS_PATH=$HOME/.local/bin
+if [[ -d $LOCAL_BINS_PATH ]]; then
+	PATH="$LOCAL_BINS_PATH:$PATH"
+fi
+
 # Make sure brew comes last, so its shims can override any path stuff filled in
 # previous steps
 if type brew &>/dev/null; then

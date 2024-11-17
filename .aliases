@@ -87,9 +87,13 @@ alias gdsp="git diff --staged --word-diff=color --word-diff-regex=. --color-word
 #	gds = git diff --staged
 #	... many more
 
+# === Time tracking / productivity ===
+alias jttu="npx_exec_global --package jtz-time-tracker-utils jttu"
+alias jttu_dev="task --taskfile ~/jtzdev/jtz-time-tracker-utils/Taskfile.yml local -- "
+
 # === work ===
-alias work_time="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=this"
-alias work_time_last="npx_exec_global --package jtz-time-tracker-utils jttu harvest rollup --target-user=just-me --target-week=last"
+alias work_time="jttu harvest rollup --target-user=just-me --target-week=this"
+alias work_time_last="jttu harvest rollup --target-user=just-me --target-week=last"
 
 
 # VS Code: Wayland rendering issues workaround:
