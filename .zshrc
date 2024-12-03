@@ -108,6 +108,10 @@ export LC_ALL=en_US.UTF-8
 # ==== Customizations =====
 
 export EDITOR="code"
+export USER_BIN_OVERRIDES_DIR="${HOME}/.local/bin"
+if ! [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
+	mkdir -p $USER_BIN_OVERRIDES_DIR
+fi
 
 # Autocomplete - ORDER MATTERS
 unsetopt complete_aliases
@@ -163,6 +167,19 @@ if [[ $has_asdf -eq 1 ]]; then
 	fi
 fi
 
+# For general Apple development, some tools (e.g. CocoaPods) will
+# recommend that you use the default system install of Ruby, so make
+# sure it comes first in the path
+if [[ $IS_MAC -eq 1 ]] && [[ -f /usr/bin/ruby ]] && [[ $PREFER_SYSTEM_RUBY -eq 1 ]]; then
+	# We don't want to override *everything* with usr bins, just ruby
+	# Symlink
+	ln -s /usr/bin/ruby $USER_BIN_OVERRIDES_DIR/ruby 2>/dev/null
+	ln -s /usr/bin/gem $USER_BIN_OVERRIDES_DIR/gem 2>/dev/null
+else
+	rm -f $USER_BIN_OVERRIDES_DIR/ruby
+	rm -f $USER_BIN_OVERRIDES_DIR/gem
+fi
+
 # Wezterm
 WEZTERM_PATH_MAC=/Applications/WezTerm.app/Contents/MacOS/
 if [[ -d $WEZTERM_PATH_MAC ]]; then
@@ -176,9 +193,8 @@ if (which task > /dev/null) && [[ -f "$TASK_COMPLETIONS_PATH" ]]; then
 fi
 
 # pipx (or any other `.local/bin` entries)
-LOCAL_BINS_PATH=$HOME/.local/bin
-if [[ -d $LOCAL_BINS_PATH ]]; then
-	PATH="$LOCAL_BINS_PATH:$PATH"
+if [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
+	PATH="$USER_BIN_OVERRIDES_DIR:$PATH"
 fi
 
 # Make sure brew comes last, so its shims can override any path stuff filled in

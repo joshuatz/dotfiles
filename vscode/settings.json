@@ -300,6 +300,9 @@
 	"terminal.integrated.environmentChangesIndicator": "on",
 	// Inheriting can mess up a bunch of things, like $TMUX
 	"terminal.integrated.inheritEnv": false,
+	"terminal.integrated.enablePersistentSessions": false,
+	"python.terminal.activateEnvInCurrentTerminal": false,
+	"python.terminal.activateEnvironment": false,
 	"workbench.iconTheme": "vscode-icons",
 	"peacock.favoriteColors": [
 		{

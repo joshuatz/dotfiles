@@ -1,0 +1,89 @@
+// Place your key bindings in this file to override the defaults
+[
+	{
+		// NOTE: This requires disabling the global CMD+SPACE `Spotlight` trigger on macOS
+		// You can also trigger suggest on macOS with `CMD + I`
+		"key": "cmd+space",
+		"command": "Trigger Suggest",
+		"when": "editorTextFocus"
+	},
+	{
+		// NOTE: This requires disabling the global `move focus` shortcut(s)
+		"key": "shift+cmd+`",
+		"command": "workbench.action.terminal.new"
+	},
+	{
+		"key": "alt+left",
+		"command": "workbench.action.navigateBack"
+	},
+	{
+		"key": "alt+right",
+		"command": "workbench.action.navigateForward"
+	},
+	{
+		"key": "cmd+d",
+		"command": "-editor.action.addSelectionToNextFindMatch",
+		"when": "editorFocus"
+	},
+	{
+		"key": "ctrl+alt+l",
+		"command": "-vsc-labeled-bookmarks.toggleLabeledBookmark",
+		"when": "editorTextFocus"
+	},
+	{
+		"key": "cmd+d",
+		"command": "vsc-labeled-bookmarks.toggleBookmark",
+		"when": "editorTextFocus"
+	},
+	{
+		"key": "ctrl+alt+m",
+		"command": "-vsc-labeled-bookmarks.toggleBookmark",
+		"when": "editorTextFocus"
+	},
+	{
+		"key": "ctrl+right",
+		"command": "editor.action.smartSelect.expand",
+		"when": "editorTextFocus"
+	},
+	{
+		"key": "ctrl+shift+right",
+		"command": "-editor.action.smartSelect.expand",
+		"when": "editorTextFocus"
+	},
+	{
+		"key": "ctrl+/",
+		"command": "editor.action.inlineSuggest.trigger",
+		"when": "config.github.copilot.inlineSuggest.enable && editorTextFocus && !editorHasSelection && !inlineSuggestionsVisible"
+	},
+	{
+		"key": "alt+\\",
+		"command": "-editor.action.inlineSuggest.trigger",
+		"when": "config.github.copilot.inlineSuggest.enable && editorTextFocus && !editorHasSelection && !inlineSuggestionsVisible"
+	},
+	{
+		"key": "shift+enter",
+		"command": "-python.execSelectionInTerminal",
+		"when": "editorTextFocus && !findInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused && !replaceInputFocussed && editorLangId == 'python'"
+	},
+	{
+		"key": "cmd+shift+z",
+		"command": "editor.action.insertSnippet",
+		"args": { "name": "Actions_Refactor" }
+	},
+	// This is to REMOVE the default binding for CMD+., so it can be freed up for emoji / etc
+	// Make sure it comes last in the list
+	{
+		"key": "cmd+.",
+		"command": "-editor.action.quickFix",
+		"when": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly"
+	},
+	{
+		"key": "cmd+.",
+		"command": "-acceptSelectedCodeAction",
+		"when": "codeActionMenuVisible"
+	},
+	{
+		"key": "cmd+.",
+		"command": "-problems.action.showQuickFixes"
+	},
+]

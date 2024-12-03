@@ -7,6 +7,7 @@ brittanychiang.halcyon-vscode
 charliermarsh.ruff
 dbaeumer.vscode-eslint
 denoland.vscode-deno
+dtsvet.vscode-wasm
 eamodio.gitlens
 editorconfig.editorconfig
 esbenp.prettier-vscode
@@ -16,6 +17,7 @@ github.copilot-chat
 github.vscode-github-actions
 github.vscode-pull-request-github
 golang.go
+grapecity.gc-excelviewer
 hashicorp.terraform
 jakob101.relativepath
 jebbs.plantuml
@@ -31,6 +33,7 @@ ms-python.isort
 ms-python.mypy-type-checker
 ms-python.python
 ms-python.vscode-pylance
+ms-toolsai.datawrangler
 ms-toolsai.jupyter
 ms-toolsai.jupyter-keymap
 ms-toolsai.jupyter-renderers
@@ -52,6 +55,7 @@ mxsdev.typescript-explorer
 njpwerner.autodocstring
 orta.vscode-jest
 pomber.git-file-history
+redhat.java
 redhat.vscode-yaml
 rust-lang.rust-analyzer
 sissel.shopify-liquid
@@ -61,6 +65,7 @@ svelte.svelte-vscode
 timonwong.shellcheck
 tobias-faller.vt100-syntax-highlighting
 twxs.cmake
+vscjava.vscode-gradle
 vscode-icons-team.vscode-icons
 vscodevim.vim
 vsls-contrib.codetour

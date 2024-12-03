@@ -82,9 +82,7 @@ pull() {
 
 		# Separate keyboard settings by OS
 		os_keybinding_file="vscode/keybindings.$OS_NAME.json"
-		if [[ -f "$os_keybinding_file" ]]; then
-			cp "$CODE_USER_DIR/keybindings.json" "$SCRIPT_DIR/$os_keybinding_file"
-		fi
+		cp "$CODE_USER_DIR/keybindings.json" "$SCRIPT_DIR/$os_keybinding_file"
 		echo "✅ Pulled VS Code"
 	else
 		echo "⏩ Skipped: VS Code"

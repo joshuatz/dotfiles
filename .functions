@@ -2635,7 +2635,8 @@ exec_in() {
 	fi
 }
 
-# Find the true global package dir / bin for a brew installed package
+# Find the true global package dir / bin for a brew installed package,
+# where `brew --prefix PKG` only returns something like `/usr/local/opt/PKG`
 # e.g. `brew_find_global_pkd_dir fzf` -> `/usr/local/Cellar/fzf/0.45.0`
 brew_find_global_pkd_dir() {
 	PACKAGE_NAME=$1
@@ -3508,6 +3509,22 @@ get_local_ip() {
 		fi
 	done
 	return 1
+}
+
+dev_ticket() {
+	cat <<- "EOF" | copy_to_clipboard
+	# Intro / Abstract
+
+	SHORT_INTRO
+
+	# Implementation Guidance / Resources / Tips
+
+	- Item_A
+
+	# Acceptance Criteria
+
+	- [ ] Item_A
+	EOF
 }
 
 # This is currently pretty macoS specific
