@@ -81,9 +81,22 @@ docs_signals() {
 # === Styling ===
 # For ANSI, this is a helpful guide - https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
 # However, `tput` seems to be generally preferred over ANSI escape sequences now
+
+# A style reset can take many different forms:
+# \033[0m = reset _all_ attributes
+# \e[0m = Reset all attributes
+# \e[39m = Reset text color
+# \e[49m = Reset background color
 if (which tput >/dev/null) && [[ -n $TERM ]]; then
-	STYLE_RESET="$(tput sgr0)"
+	TERM_STYLE_RESET="$(tput sgr0)"
 fi
+
+colorize_text() {
+	local hex_code=$1
+	local text=$2
+	echo -e "\e[38;2;${hex_code}m${text}\e[0m"
+}
+
 # === /Styling ===
 
 get_shell_type() {
@@ -443,6 +456,11 @@ markdown_to_html() {
 		npx marked --gfm -s "$md"
 		return
 	fi
+}
+
+html_to_markdown() {
+	local html="$1"
+	echo "$html" | pandoc --from html --to gfm
 }
 
 markdown_to_html_clipboard() {
@@ -1074,6 +1092,66 @@ render_json_as_table() {
 	render_table "$json_as_table" "$@"
 }
 
+# For rendering text adjacent / to the right of a dynamically shaped block of text
+# E.g., for scripting a display like neofetch, with ANSI color escape codes used
+# This is hacky, but can mostly get the job done
+# TODO: make this more ergonomic, with some sort of arg parser
+render_text_overlay() {
+	TERM_STYLE_RESET=$TERM_STYLE_RESET TERM_COLUMNS=$COLUMNS LEFT_TEXT=$1 RIGHT_TEXT=$2 MAX_LEFT_COLUMN_COUNT=$3 PAD_TOP=$4 node <<-"EOF"
+	const stripAnsi = (s) => s.replace(/\x1b\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]/g, '');
+
+	const TERM_STYLE_RESET=process.env.TERM_STYLE_RESET || '';
+	const TERM_COLUMNS = parseInt(process.env.TERM_COLUMNS);
+	const LEFT_LINES = process.env.LEFT_TEXT.split('\n');
+	const RIGHT_LINES = process.env.RIGHT_TEXT.split('\n');
+	let PAD_TOP = parseInt(process.env.PAD_TOP);
+	if (isNaN(PAD_TOP)) {
+		PAD_TOP = 0;
+	}
+	let LEFT_COLUMN_COUNT = parseInt(process.env.MAX_LEFT_COLUMN_COUNT);
+	const longestLeftColumnCount = LEFT_LINES.reduce((max, line) => {
+		return Math.max(max, stripAnsi(line).length);
+	}, 0);
+	if (isNaN(LEFT_COLUMN_COUNT) || LEFT_COLUMN_COUNT <= 0) {
+		LEFT_COLUMN_COUNT = longestLeftColumnCount;
+	}
+
+	let i = 0;
+	while (i < Math.max(RIGHT_LINES.length + PAD_TOP, LEFT_LINES.length)) {
+		let leftLine = LEFT_LINES[i] || '';
+		let rightLine = '';
+		// Subtract padding from current index, since a positive padding
+		// should delay when we start outputting right lines
+		let rightLineIndex = i - PAD_TOP;
+		if (i >= PAD_TOP && RIGHT_LINES[rightLineIndex]) {
+			rightLine = RIGHT_LINES[rightLineIndex]
+		}
+		const leftLineLength = stripAnsi(leftLine);
+		if (leftLineLength > LEFT_COLUMN_COUNT) {
+			// Clip left line if it's too long (completely clip, not ellipses)
+			leftLine = leftLine.slice(0, LEFT_COLUMN_COUNT);
+		} else {
+			// If too short, pad-right to justify with other rows
+			leftLine = leftLine + ' '.repeat(LEFT_COLUMN_COUNT - leftLineLength)
+		}
+		leftLine += TERM_STYLE_RESET;
+		let lineToRender = `${leftLine} | ${rightLine}`;
+		// If line is now over terminal width, then split the right part into a new chunk, and indent with space
+		const numColumnsOverTermWidth = stripAnsi(lineToRender).length - TERM_COLUMNS;
+		if (numColumnsOverTermWidth > 0) {
+			// Slice off excess, and insert for next loop
+			const rightLineToInsert = rightLine.slice(-numColumnsOverTermWidth);
+			RIGHT_LINES.splice(rightLineIndex + 1, 0, rightLineToInsert);
+			// Reset current line, with truncation
+			lineToRender = `${leftLine} | ${rightLine.slice(0, -numColumnsOverTermWidth)}`;
+		}
+		i++;
+
+		console.log(lineToRender);
+	}
+	EOF
+}
+
 # Note: This is ZSH specific; todo - make agnostic?
 reload_func() {
 	unfunction "_$1" && compinit
@@ -1448,6 +1526,9 @@ tmux_auto_open() {
 		tmux_attach_with_init "$tmux_session_name"
 		return
 	fi
+
+	# Offer pick list, of already open sessions + new session (at top)
+	# TODO
 
 	PANE_NUM=1
 	select pane_config in "1 Pane" "2 Pane (H-Split)" "3 Pane (V, HH)"; do
@@ -2355,7 +2436,7 @@ docker_get_working_dir() {
 
 # Pick a small(ish) docker image; useful for various ephemeral purposes
 docker_pick_minimal_image_name() {
-	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)" "jtz_sandbox (Ubuntu, bash, file, git, utils, etc.)"; do
+	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)" "nektos_act_ubuntu_22_04_slim" "jtz_sandbox (Ubuntu, bash, file, git, utils, etc.)"; do
 		case $image in
 			# https://hub.docker.com/_/busybox
 			busybox*) echo "busybox" && break ;;
@@ -2365,6 +2446,8 @@ docker_pick_minimal_image_name() {
 			debian*) echo "debian" && break ;;
 			# https://hub.docker.com/_/ubuntu
 			ubuntu*) echo "ubuntu" && break ;;
+			# https://github.com/catthehacker/docker_images
+			nektos_act_ubuntu_22_04_slim*) echo "ghcr.io/catthehacker/ubuntu:act-latest" && break ;;
 			# ./adockerfiles/ubuntu_sandbox
 			jtz_sandbox*) echo "jtz-reg/jtz/ubuntu_sandbox" && break ;;
 			*) echo "Invalid selection" ;;
@@ -2745,6 +2828,16 @@ local_web_server_dir() {
 		return 1
 	fi
 	asdf_exec_with_global_version npx local-web-server --directory "$serve_dir" "$@"
+}
+
+local_web_server_for_file() {
+	local serve_file="$1"
+	if ! [[ -f $serve_file ]]; then
+		echo "Missing file to serve"
+		return 1
+	fi
+	shift
+	asdf_exec_with_global_version npx local-web-server --spa "$serve_file" "$@"
 }
 
 # Note to self: you can use `--package` to avoid ambiguity around package name vs bin / entrypoint
@@ -3527,6 +3620,24 @@ dev_ticket() {
 	EOF
 }
 
+top_snapshot() {
+	if [[ $IS_MAC -eq 1 ]]; then
+		top -l 1 | head -n 11
+	else
+		top -bn1 | head -n 11
+	fi
+}
+
+splash_screen() {
+	local INFO_TEXT=$(cat <<-EOF
+	OS = $(uname -a)
+
+	$(top_snapshot)
+	EOF
+	)
+	render_text_overlay "$JT_LOGO" "$INFO_TEXT" "-1" 2
+}
+
 # This is currently pretty macoS specific
 # Also, runs code that triggers OS permission checks, so will fail if denied
 whats_up() {
@@ -3567,5 +3678,5 @@ EOF
 if [[ "$SHELL_TYPE" == "ZSH" ]]; then
 	# This has a lot of zsh-isms in it
 	# shellcheck disable=SC1091
-	source "$HOME/utils/large_llm_query.sh"
+	source "$DOTFILES_DIR/utils/large_llm_query.sh"
 fi

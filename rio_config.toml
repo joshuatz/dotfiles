@@ -1,0 +1,33 @@
+#############################
+#      RIO CONFIG
+#
+# Rio source: https://github.com/raphamorim/rio
+# Docs: https://raphamorim.io/rio/docs/config/
+#############################
+
+[renderer]
+strategy = "events"
+
+performance = "Low"
+
+# Shader sources:
+# - slang-shaders: https://github.com/libretro/slang-shaders
+# Previews of shaders:
+# - https://github.com/libretro/shader-previews
+# - https://docs.libretro.com/shader/crt/
+# - https://thingsiplay.game.blog/2022/03/08/crt-shader-showcase-for-retroarch/
+filters = [
+# "$HOME/shaders/slang-shaders/crt/newpixie-crt.slangp"
+# "/Users/joshua/shaders/slang-shaders/crt/newpixie-crt.slangp" # FUN! But a little dark and blurry
+#  "/Users/joshua/shaders/slang-shaders/crt/crtglow_lanczos.slangp" # TOO BRIGHT! My eyes, they burn!
+#  "/Users/joshua/shaders/slang-shaders/crt/crt-simple.slangp" # too blurry
+#  "/Users/joshua/shaders/slang-shaders/crt/crt-consumer.slangp" # OK
+#  "/Users/joshua/shaders/slang-shaders/crt/crt-lottes.slangp" # FUN!
+#  "/Users/joshua/shaders/slang-shaders/crt/crt-lottes-multipass.slangp" # ALSO FUN!
+#  "/Users/joshua/shaders/slang-shaders/crt/crt-easymode-halation.slangp" # OK
+#  "/Users/joshua/shaders/slang-shaders/crt/crt-royale.slangp" # AWESOME, but resource intensive
+  "/Users/joshua/shaders/slang-shaders/crt/crt-royale-intel.slangp" # Also AWESOME
+]
+
+# Padding SHOULD be useful if using a shader that over-projects / clips the edges
+# TODO

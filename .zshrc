@@ -112,6 +112,7 @@ export USER_BIN_OVERRIDES_DIR="${HOME}/.local/bin"
 if ! [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
 	mkdir -p $USER_BIN_OVERRIDES_DIR
 fi
+export DOTFILES_DIR="${HOME}/dotfiles"
 
 # Autocomplete - ORDER MATTERS
 unsetopt complete_aliases
@@ -119,6 +120,7 @@ autoload -Uz compinit
 compinit
 
 # Load main customization files
+[[ -f "$DOTFILES_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DIR/ascii_art/loader.sh"
 [[ -f ~/.functions ]] && source ~/.functions
 [[ -f ~/.aliases ]] && source ~/.aliases
 [[ -f ~/.env.public ]] && source ~/.env.public

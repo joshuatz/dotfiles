@@ -101,6 +101,7 @@ pull() {
 }
 
 push() {
+	mkdir -p $HOME/dotfiles
 	# Make sure env files are scaffolded
 	for env_file in "$SCRIPT_DIR"/.env.*.example; do
 		non_tracked_env_file_name=$(basename "$env_file" | sed -e 's/\.example$//')
@@ -118,12 +119,14 @@ push() {
 	cp "$SCRIPT_DIR/global.gitignore" ~
 	cp "$SCRIPT_DIR/.tmux.conf" ~
 	cp "$SCRIPT_DIR/.wezterm.lua" ~
+	cp "$SCRIPT_DIR/rio_config.toml" ~/.config/rio/config.toml
 	cp "$SCRIPT_DIR/.asdfrc" ~
 
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)
-	cp -r "$SCRIPT_DIR/scripts" ~/
-	cp -r "$SCRIPT_DIR/utils" ~/
+	for DIR_NAME in "scripts" "utils" "ascii_art"; do
+		cp -r "$SCRIPT_DIR/$DIR_NAME" ~/dotfiles/
+	done
 
 	# Todo: This needs to be merged, not overwritten, because it contains stuff like
 	# email = REDACTED
@@ -197,6 +200,49 @@ push() {
 			if [[ $UPDATE_TASK_COMPLETIONS -eq 1 ]]; then
 				$SUDO_PREFIX cp "$TEMP_UPDATED_TASK_COMPLETIONS" "$CURRENT_TASK_COMPLETIONS"
 				$SUDO_PREFIX chmod 644 "$CURRENT_TASK_COMPLETIONS"
+			fi
+		fi
+	fi
+
+	# ======== Downloads / Plugins ============
+
+	# Shaders
+	local SHADERS_DIR="$HOME/shaders"
+	mkdir -p $SHADERS_DIR
+	if ! [[ -d "$SHADERS_DIR/slang-shaders" ]]; then
+		local SHADERS_INSTALL_CONFIRMED=0
+		while true; do
+			printf "Would you like to install slang-shaders?"
+			printf "  Install? [Yy]es, [Nn]o / [Cc]ancel\n"
+			read -r answer
+			case $answer in
+				[Yy]*) SHADERS_INSTALL_CONFIRMED=1 && break ;;
+				[Nn]*) break ;;
+				[Cc]*) break ;;
+			esac
+		done
+		if [[ $SHADERS_INSTALL_CONFIRMED -eq 1 ]]; then
+			git clone https://github.com/libretro/slang-shaders "$SHADERS_DIR/slang-shaders"
+		fi
+	fi
+
+	# Ensure tmux plugin manager is installed
+	if (which tmux > /dev/null); then
+		local TMUX_TPM_INSTALL_DIR="$HOME/.tmux/plugins/tpm"
+		local INSTALL_TMUX_PLUGINS=0
+		if ! [[ -d $TMUX_TPM_INSTALL_DIR ]]; then
+			while true; do
+				printf "Looks like you have tmux installed, but not the tmux plugin manager (https://github.com/tmux-plugins/tpm). Would you like to install it now?"
+				printf "  Install? [Yy]es, [Nn]o / [Cc]ancel\n"
+				read -r answer
+				case $answer in
+					[Yy]*) INSTALL_TMUX_PLUGINS=1 && break ;;
+					[Nn]*) break ;;
+					[Cc]*) break ;;
+				esac
+			done
+			if [[ $INSTALL_TMUX_PLUGINS -eq 1 ]]; then
+				git clone https://github.com/tmux-plugins/tpm "$TMUX_TPM_INSTALL_DIR"
 			fi
 		fi
 	fi
