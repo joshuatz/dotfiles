@@ -1507,7 +1507,56 @@ tmux_passthrough_escape() {
 tmux_attach_with_init() {
 	local tmux_session_name=$1
 	set_title "$(printf "%s %s" "\Uebc8" "$tmux_session_name")"
+
+	# Get the list of allowed pass-through vars
+	# show-option returns list as:
+	#  update-environment[0] VAR_A
+	#  update-environment[1] VAR_B
+	#  ...etc.
+	local tmux_var_names=()
+	while read -r line; do tmux_var_names+=("$line"); done < <(tmux show-option -g update-environment | awk '{print $2}')
+
+	# Have to remap passthrough values
+	# OUTER_TERM_PROGRAM -> TERM_PROGRAM
+	for tmux_var_name in "${tmux_var_names[@]}"; do
+		if [[ $tmux_var_name != OUTER_TERM* ]]; then
+			continue
+		fi
+		local local_var_name=$(echo "$tmux_var_name" | sed -rn 's/^OUTER_TERM(.*)/TERM\1/p')
+		local local_var_val=$(get_var_value "$local_var_name")
+		set_var_value "$tmux_var_name" "$local_var_val"
+		export "${tmux_var_name?}"
+		echo "Set $tmux_var_name to $local_var_name val of $local_var_val"
+	done
+
+	# For Rio, use different color schemes to avoid conflicts with shader renderers
+	if [[ "$TERM_PROGRAM" == "rio" ]]; then
+		tmux set-option -t "$session_name" window-style 'fg=colour240,bg=default'
+		tmux set-option -t "$session_name" window-active-style 'fg=colour255,bg=default'
+	else
+		# Reset back to defaults
+		tmux set-option -t "$session_name" window-style "$(tmux_get_global_option_value "window-style")"
+		tmux set-option -t "$session_name" window-active-style "$(tmux_get_global_option_value "window-active-style")"
+	fi
+
 	tmux attach-session -t "$tmux_session_name"
+}
+
+tmux_get_global_option_value() {
+	local dummy_session_name=""
+	# In order to get tmux config values, the server has to be up and running
+	if ! (tmux has-session); then
+		dummy_session_name="dummy_session$(date +%s)"
+		tmux new-session -s "$dummy_session_name" -d
+	fi
+
+	# This is basically equivalent to `show-option`, thanks to `-g`
+	# `-v` is to return value only, otherwise tmux returns `{VAR_NAME} {VALUE}`
+	tmux show-options -gv "$1"
+
+	if [[ -n "$dummy_session_name" ]]; then
+		tmux kill-session -t "$dummy_session_name"
+	fi
 }
 
 tmux_auto_open() {
