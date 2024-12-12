@@ -253,7 +253,7 @@ set_var_value() {
 	if [[ "$SHELL_TYPE" == "ZSH" ]]; then
 		# shellcheck disable=SC2296
 		# shellcheck disable=SC2086
-		: ${(P)VAR_NAME::=VAR_VALUE}
+		: ${(P)VAR_NAME::=$VAR_VALUE}
 	elif [[ "$SHELL_TYPE" == "BASH" ]]; then
 		if [[ $BASH_VERSION_NUM -gt $(parse_version_string "4.2") ]]; then
 			declare -g "${VAR_NAME}=$VAR_VALUE"
