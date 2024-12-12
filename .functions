@@ -2264,9 +2264,10 @@ git_pack_to_tarball_with_tracking() {
 	# - `git bundle` does include git objects, but does not work well with git LFS (which we use for large files)
 	# So, instead use "bare" repo folders to clone
 	local BARE_REPO_DIR_NAME=$(git_repo_name_normalized)
-	mkdir -p "$TMP_DIR/$BARE_REPO_DIR_NAME"
+	local BARE_REPO_DIR_PATH="$TMP_DIR/$BARE_REPO_DIR_NAME"
+	mkdir -p "$BARE_REPO_DIR_PATH"
 	local GIT_BARE_REMOTE_PATH="file://$TMP_DIR/$BARE_REPO_DIR_NAME"
-	pushd "$TMP_DIR/$BARE_REPO_DIR_NAME" || exit
+	pushd "$BARE_REPO_DIR_PATH" || exit
 	echo "🏗️ Initializing temp bare repository"
 	git init --bare
 	popd || exit
@@ -2287,6 +2288,23 @@ git_pack_to_tarball_with_tracking() {
 	fi
 
 	local UNPACKED_SIZE=$(du -hs "$TMP_DIR/$BARE_REPO_DIR_NAME")
+
+	# Perform auto-sync of remote ref, so we don't run into this:
+	# `warning: remote HEAD refers to nonexistent ref, unable to checkout`
+	# https://stackoverflow.com/a/15631690/11447682
+	pushd "$BARE_REPO_DIR_PATH" || exit
+	local BARE_HEAD_REF=$(git symbolic-ref HEAD)
+	if ! [[ -f "$BARE_HEAD_REF" ]]; then
+		cat <<- EOF
+		=== 🚨 WARNING 🚨 ===
+		Could not find a HEAD ref of $BARE_HEAD_REF in the bare repo.
+		    Auto-patching to match $TRUNK_BRANCH.
+		=====================
+		EOF
+		git symbolic-ref HEAD refs/heads/"$TRUNK_BRANCH"
+	fi
+	popd || exit
+
 
 	# Detach
 	git remote remove git-bare-clone
