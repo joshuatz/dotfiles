@@ -64,7 +64,9 @@ alias rand_pass="openssl rand -base64 32"
 
 # === Global stuff ===
 alias gtask="task -t ~/Taskfile.global.yml"
-alias npxg="npx_exec_global"
+alias npmg="asdf_exec_with_global_version npm "
+alias npxg="asdf_exec_with_global_version npx"
+alias npxeg="npx_exec_global"
 alias node_repl="node --experimental-repl-await"
 alias ws="npx_exec_global local-web-server"
 

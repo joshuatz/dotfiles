@@ -1486,7 +1486,7 @@ tmux_do_in_session_for_all_panes() {
 		shift
 	fi
 	tmux set-window-option -t "$session_name" synchronize-panes on
-	tmux send-keys -t "$session_name" "$@" C-m || true
+	tmux send-keys -t "$session_name" "$*" C-m || true
 	tmux set-window-option -t "$session_name" synchronize-panes off
 }
 
@@ -2503,7 +2503,7 @@ docker_get_working_dir() {
 
 # Pick a small(ish) docker image; useful for various ephemeral purposes
 docker_pick_minimal_image_name() {
-	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)" "nektos_act_ubuntu_22_04_slim" "jtz_sandbox (Ubuntu, bash, file, git, utils, etc.)"; do
+	select image in "busybox (smallest, no bash)" "alpine (small, no bash)" "debian (w/bash)" "ubuntu (w/bash)" "nektos_act_ubuntu_22_04_slim" "jtz_sandbox (Ubuntu, bash, file, git, utils, etc.)" "arch_linux" "fedora"; do
 		case $image in
 			# https://hub.docker.com/_/busybox
 			busybox*) echo "busybox" && break ;;
@@ -2517,6 +2517,10 @@ docker_pick_minimal_image_name() {
 			nektos_act_ubuntu_22_04_slim*) echo "ghcr.io/catthehacker/ubuntu:act-latest" && break ;;
 			# ./adockerfiles/ubuntu_sandbox
 			jtz_sandbox*) echo "jtz-reg/jtz/ubuntu_sandbox" && break ;;
+			# https://hub.docker.com/_/archlinux/
+			arch_linux*) echo "archlinux" && break ;;
+			# https://hub.docker.com/_/fedora/
+			fedora*) echo "fedora" && break ;;
 			*) echo "Invalid selection" ;;
 		esac
 	done
@@ -2884,7 +2888,7 @@ lint_versions() {
 	#TODO
 }
 
-local_web_server_dir() {
+local_web_server_for_dir() {
 	local serve_dir="$PWD"
 	if [[ -d $1 ]]; then
 		serve_dir=$1
@@ -2999,6 +3003,11 @@ kill_procs_by_port_interactive() {
 	local pids=$(find_pid_by_port)
 	# TODO display proc pick list, multi-select, before passing to kill
 	kill_procs_by_pid_interactive "$pids"
+}
+
+kill_procs_by_string_interactive() {
+	local MATCHING_PIDS=$(pick_procs_by_string "$@")
+	kill_procs_by_pid_interactive "$MATCHING_PIDS"
 }
 
 restart_vscode() {
@@ -3703,6 +3712,19 @@ splash_screen() {
 	EOF
 	)
 	render_text_overlay "$JT_LOGO" "$INFO_TEXT" "-1" 2
+}
+
+# TODO: Idea for cool util - parse doc strings / comments
+# above fn names, and use them as part of quick pick list.
+# I.e., so you could do so something like:
+# - `dot_fn_pick docker*` - pick from docker commands
+# - `dot_fn_pick fn_a fn_b` - pick from specific pick list
+dot_fn_pick() {
+	:
+}
+
+dot_fn_help() {
+	:
 }
 
 # This is currently pretty macoS specific
