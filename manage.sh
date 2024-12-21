@@ -119,8 +119,14 @@ push() {
 	cp "$SCRIPT_DIR/global.gitignore" ~
 	cp "$SCRIPT_DIR/.tmux.conf" ~
 	cp "$SCRIPT_DIR/.wezterm.lua" ~
-	cp "$SCRIPT_DIR/rio_config.toml" ~/.config/rio/config.toml
 	cp "$SCRIPT_DIR/.asdfrc" ~
+
+	# Rio does not support shell expansion in config files (like for `$HOME`), so some monkey-patching
+	# is necessary
+	mkdir -p ~/.config/rio
+	cp "$SCRIPT_DIR/rio_config.toml" ~/.config/rio/config.toml
+	sed -i --follow-symlinks "s#\$HOME#${HOME}#g" ~/.config/rio/config.toml
+
 
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)

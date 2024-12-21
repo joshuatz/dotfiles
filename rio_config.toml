@@ -3,6 +3,8 @@
 #
 # Rio source: https://github.com/raphamorim/rio
 # Docs: https://raphamorim.io/rio/docs/config/
+#
+# To generate a default config, use `rio --write-config default.toml`
 #############################
 
 # Padding SHOULD be useful if using a shader that over-projects / clips the edges
@@ -21,22 +23,21 @@ performance = "Low"
 # - https://docs.libretro.com/shader/crt/
 # - https://thingsiplay.game.blog/2022/03/08/crt-shader-showcase-for-retroarch/
 #
-# WARNING: Seems like variable expansion is not supported, so can't do `$HOME/shaders/...`
-# TODO: Could work around the above issue by baking in the expansion into the dotfiles management push command
+# WARNING: variable expansion of `$HOME` is not natively supported; this is worked around in `manage.sh`
 filters = [
-#  "/Users/joshua/shaders/slang-shaders/crt/newpixie-crt.slangp" # FUN! But a little dark and blurry, and too much ghosting. Good on low DPI.
-#  "/Users/joshua/shaders/slang-shaders/crt/crtglow_lanczos.slangp" # TOO BRIGHT! My eyes, they burn!
-#  "/Users/joshua/shaders/slang-shaders/crt/crt-simple.slangp" # too blurry
-#  "/Users/joshua/shaders/slang-shaders/crt/crt-consumer.slangp" # OK - mostly just applies curvature without the CRT grain look
-#  "/Users/joshua/shaders/slang-shaders/crt/crt-lottes.slangp" # FUN! And works well on low DPI
-#  "/Users/joshua/shaders/slang-shaders/crt/crt-lottes-multipass.slangp" # ALSO FUN! And works well on low DPI
-#  "/Users/joshua/shaders/slang-shaders/crt/crt-easymode-halation.slangp" # OK
-#  "/Users/joshua/shaders/slang-shaders/crt/crt-royale.slangp" # AWESOME, but resource intensive
-#  "/Users/joshua/shaders/slang-shaders/crt/crt-royale-intel.slangp" # Also AWESOME! But doesn't work well on low rez / low DPI
+#  "$HOME/shaders/slang-shaders/crt/newpixie-crt.slangp" # FUN! But a little dark and blurry, and too much ghosting. Good on low DPI.
+#  "$HOME/shaders/slang-shaders/crt/crtglow_lanczos.slangp" # TOO BRIGHT! My eyes, they burn!
+#  "$HOME/shaders/slang-shaders/crt/crt-simple.slangp" # too blurry
+#  "$HOME/shaders/slang-shaders/crt/crt-consumer.slangp" # OK - mostly just applies curvature without the CRT grain look
+#  "$HOME/shaders/slang-shaders/crt/crt-lottes.slangp" # FUN! And works well on low DPI
+#  "$HOME/shaders/slang-shaders/crt/crt-lottes-multipass.slangp" # ALSO FUN! And works well on low DPI
+#  "$HOME/shaders/slang-shaders/crt/crt-easymode-halation.slangp" # OK
+#  "$HOME/shaders/slang-shaders/crt/crt-royale.slangp" # AWESOME, but resource intensive
+#  "$HOME/shaders/slang-shaders/crt/crt-royale-intel.slangp" # Also AWESOME! But doesn't work well on low rez / low DPI
 
   # ==== Favorites =====
-  "/Users/joshua/shaders/slang-shaders/crt/crt-frutbunn.slangp" # A little dark, but otherwise pretty good. No ghosting and works well on low DPI.
-#  "/Users/joshua/shaders/slang-shaders/crt/newpixie-mini.slangp" # FUN! Very similar to newpixie-crt.slangp, but without the ghosting as things move, and a darker look. Still suffers from blur though. Works well on low DPI
+  "$HOME/shaders/slang-shaders/crt/crt-frutbunn.slangp" # A little dark, but otherwise pretty good. No ghosting and works well on low DPI.
+#  "$HOME/shaders/slang-shaders/crt/newpixie-mini.slangp" # FUN! Very similar to newpixie-crt.slangp, but without the ghosting as things move, and a darker look. Still suffers from blur though. Works well on low DPI
 ]
 
 

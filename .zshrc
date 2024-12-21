@@ -119,9 +119,16 @@ unsetopt complete_aliases
 autoload -Uz compinit
 compinit
 
+[[ -f ~/.functions ]] && source ~/.functions
+
+# Set aliases for g* (GNU) versions of programs, on systems where not necessary
+if [[ $IS_MAC -ne 1 ]]; then
+	alias ghead="head"
+	alias greadlink="readlink"
+fi
+
 # Load main customization files
 [[ -f "$DOTFILES_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DIR/ascii_art/loader.sh"
-[[ -f ~/.functions ]] && source ~/.functions
 [[ -f ~/.aliases ]] && source ~/.aliases
 [[ -f ~/.env.public ]] && source ~/.env.public
 
