@@ -515,6 +515,7 @@
 		"**/node_modules": false,
 		"**/bower_components": true
 	},
+	"explorer.sortOrder": "modified",
 	"editor.minimap.renderCharacters": false,
 	// Helps with wayland stuff
 	"window.titleBarStyle": "custom",

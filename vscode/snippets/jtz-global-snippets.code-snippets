@@ -75,6 +75,26 @@
 		],
 		"description": "Convert markdown links to <a> tags with noopener newtab"
 	},
+	"MD Callout - Note": {
+		"scope": "markdown",
+		"body": "> [!NOTE]\n> "
+	},
+	"MD Callout - Tip": {
+		"scope": "markdown",
+		"body": "> [!TIP]\n> "
+	},
+	"MD Callout - Important": {
+		"scope": "markdown",
+		"body": "> [!IMPORTANT]\n> "
+	},
+	"MD Callout - Warning": {
+		"scope": "markdown",
+		"body": "> [!WARNING]\n> "
+	},
+	"MD Callout - Caution": {
+		"scope": "markdown",
+		"body": "> [!CAUTION]\n> "
+	},
 	"Github MD Checkbox": {
 		"scope": "markdown",
 		"prefix": "checkbox",

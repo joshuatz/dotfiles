@@ -56,6 +56,7 @@ alias tmuxkp="tmux kill-pane"
 alias tmuxkw="tmux kill-window"
 alias tmuxks="tmux kill-session"
 alias tmuxds="tmux detach"
+alias tmuxd="tmux detach"
 alias tmuxrn="tmux rename-session"
 alias tmuxnw="tmux_new_window"
 

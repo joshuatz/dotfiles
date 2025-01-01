@@ -2295,6 +2295,7 @@ git_pack_to_tarball_with_tracking() {
 		ARCHIVE_PATH="$(project_name_normalized)___$(git_sha_full).tar.gz"
 		echo "Defaulting output filename to $ARCHIVE_PATH"
 	fi
+	local ARCHIVE_NAME=$(basename "$ARCHIVE_PATH")
 
 	local TMP_DIR=$(mktemp -d)
 	echo "🔗 Temp dir for bundling = $TMP_DIR"
@@ -2336,7 +2337,7 @@ git_pack_to_tarball_with_tracking() {
 		git lfs push --all git-bare-clone
 	fi
 
-	local UNPACKED_SIZE=$(du -hs "$TMP_DIR/$BARE_REPO_DIR_NAME")
+	local UNPACKED_SIZE=$(du -hs "$TMP_DIR/$BARE_REPO_DIR_NAME" | awk '{print $1}')
 
 	# Perform auto-sync of remote ref, so we don't run into this:
 	# `warning: remote HEAD refers to nonexistent ref, unable to checkout`
@@ -2354,7 +2355,6 @@ git_pack_to_tarball_with_tracking() {
 	fi
 	popd || exit
 
-
 	# Detach
 	git remote remove git-bare-clone
 	# Pack
@@ -2368,24 +2368,66 @@ git_pack_to_tarball_with_tracking() {
 	# Move file, cleanup
 	echo "💾 Copying tarball to final location"
 	mv "$TMP_DIR/git-repository.tar.gz" "$ARCHIVE_PATH"
-	local PACKED_SIZE=$(du -hs "$ARCHIVE_PATH")
+	local PACKED_SIZE=$(du -hs "$ARCHIVE_PATH" | awk '{print $1}')
 	rm -rf "$TMP_DIR"
+
+	local META_INFO_MD=$(cat <<- EOF
+	- (Primary) Remote: $(git_remote_url)
+	- Trunk Branch:     $TRUNK_BRANCH
+	- Has LS Files      $([[ $HAS_LFS_FILES -eq 1 ]] && echo "TRUE" || echo "FALSE")
+	- Packed Size:      $PACKED_SIZE
+	- Unpacked Size:    $UNPACKED_SIZE
+	EOF
+	)
+
+	local CLONE_INSTRUCTIONS_MD=$(cat <<- EOF
+	# $BARE_REPO_DIR_NAME
+
+	## Instructions for Unpacking and Cloning
+
+	***Shell One-Liner***
+
+	\`\`\`bash
+	REPO_TEMP_DIR="\$(mktemp -d)"; tar -xvzf $ARCHIVE_NAME -C "\$REPO_TEMP_DIR"; git clone "file://\$REPO_TEMP_DIR/$BARE_REPO_DIR_NAME" ./where_to_restore_repo_to; rm -rf \$REPO_TEMP_DIR
+	\`\`\`
+
+	***Manual Unpacking***
+
+	1. Unpack archive with utility of choice
+	2. Run \`git clone \${unpacked_path} \${where_to_restore_repo_to}\`
+
+	## Meta Info
+
+	$META_INFO_MD
+
+	EOF
+	)
+
+	local CLONE_INSTRUCTIONS_FIE_PATH="$(dirname "$ARCHIVE_PATH")/${ARCHIVE_NAME}__README.md"
+	echo "$CLONE_INSTRUCTIONS_MD" > "$CLONE_INSTRUCTIONS_FIE_PATH"
 
 	echo "✅ Done! Tarball exported and temp dir deleted."
 	echo "  ↳ Final Path = $ARCHIVE_PATH"
+	echo "     ↳ README      = $CLONE_INSTRUCTIONS_FIE_PATH"
 	echo "     ↳ Packed Size = $PACKED_SIZE"
 	echo "  ↳ Unpacked name = $BARE_REPO_DIR_NAME"
 	echo "     ↳ Unpacked Size = $UNPACKED_SIZE"
 }
 
 docker_pick_container_full() {
+	local _PRESELECT_ALL="${PRESELECT_ALL:=$(check_args_for_value "--all" "$@" && echo 1 || echo 0)}"
+	unset PRESELECT_ALL
 	local multi=$([[ -n "$multi" ]] && echo "true" || echo "false")
 	# TODO support picking non-active containers
 	# TODO add fzf preview (show more details?)
 	local container_list=$(docker ps --format "table {{.ID}}\t{{.Image}}\t{{.Names}}")
 	local fzf_args=("--header-lines=1" "--reverse")
-	if [[ "$multi" == "true" ]]; then
+	if [[ "$multi" == "true" ]] || [[ $_PRESELECT_ALL -eq 1 ]]; then
 		fzf_args+=("--multi")
+	fi
+	if [[ $_PRESELECT_ALL -eq 1 ]]; then
+		fzf_args+=("--bind")
+		fzf_args+=("load:select-all+clear-query")
 	fi
 	local container=$(echo "$container_list" | fzf "${fzf_args[@]}")
 	if [[ -z "$container" ]]; then
@@ -2415,8 +2457,8 @@ docker_pick_image() {
 alias docker_image_select="docker_pick_image"
 
 docker_stop() {
-	# TODO add `--all` flag
-	local containers_str=$(multi=1 docker_pick_container_full)
+	if (check_args_for_value "--all" "$@"); then local PRESELECT_ALL=1; fi
+	local containers_str=$(multi=1 PRESELECT_ALL=$PRESELECT_ALL docker_pick_container_full)
 	if [[ -z "$containers_str" ]]; then
 		return 1
 	fi
@@ -2428,6 +2470,7 @@ docker_stop() {
 		docker stop "$container_id"
 	done
 }
+alias docker_stop_all="docker_stop --all"
 
 docker_restart() {
 	local HARD_RESTART=$([[ $* == *--hard* ]] && echo "true" || echo "false")
@@ -3308,8 +3351,11 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 			return 1
 		fi
 		echo "Adding entry (alias = $SSH_CONFIG_ALIAS) to ~/.ssh/config" 1>&2
-		# TODO
-		manssh add "$SSH_CONFIG_ALIAS" "${EC2_USERNAME}@${DNS_ADDR}" -i "$PRIVATE_KEY" 1>&2
+		if ! (manssh add "$SSH_CONFIG_ALIAS" "${EC2_USERNAME}@${DNS_ADDR}" -i "$PRIVATE_KEY" 1>&2); then
+			echo "Error: Failure updating SSH config via manssh"
+			return 1
+		fi
+
 		SSH_CONFIG_UPDATED_ICON="✅"
 	fi
 
@@ -3347,6 +3393,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	local EC2_USERNAME="ec2-user"
 	local PORT_BINDINGS=()
 	local OPEN_VS_CODE=0
+	local EXEC_COMMAND=0
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -3365,6 +3412,9 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 				;;
 			-c|--code)
 				OPEN_VS_CODE=1
+				;;
+			-e|--exec)
+				EXEC_COMMAND=1
 				;;
 			*)
 				echo "Invalid option ${1}"
@@ -3415,6 +3465,10 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	if [[ $OPEN_VS_CODE -eq 1 ]]; then
 		echo "Launching vscode"
 		code --folder-uri "vscode-remote://ssh-remote+$INSTANCE_ID/"
+	fi
+
+	if [[ $EXEC_COMMAND -eq 1 ]]; then
+		ssh "${SSH_ARGS[@]}"
 	fi
 }
 
