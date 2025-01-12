@@ -536,15 +536,16 @@ firefox() {
 }
 
 firefox_get_profile_dir() {
-	if [[ $IS_MAC -ne 1 ]]; then
-		# TODO: Linux support
-		return 1
+	local firefox_db_location=""
+	if [[ $IS_MAC -eq 1 ]]; then
+		firefox_db_location=$(rg \
+			--files \
+			--no-ignore \
+			--glob "**/Profiles/*.default-release/places.sqlite" \
+			~/Library/Application\ Support/Firefox 2>/dev/null)
+	else
+		firefox_db_location=$(find ~/snap/firefox -iname "places.sqlite" -type f 2>/dev/null)
 	fi
-	local firefox_db_location=$(rg \
-		--files \
-		--no-ignore \
-		--glob "**/Profiles/*.default-release/places.sqlite" \
-		~/Library/Application\ Support/Firefox 2>/dev/null)
 	# Error out on no matches, or greater than 1 match
 	if [[ -z "$firefox_db_location" ]]; then
 		echo "ERROR: Could not find Firefox DB location"
@@ -596,7 +597,8 @@ moz_lz4json_to_json() {
 
 # WARNING: This produces a *huge* (multi-MB) JSON file
 firefox_dump_restore_file() {
-	if ! local firefox_profile_dir="$(firefox_get_profile_dir)"; then
+	local firefox_profile_dir=$(firefox_get_profile_dir)
+	if [[ $? -ne 0 ]] || [[ -z "$firefox_profile_dir" ]]; then
 		return 1
 	fi
 	local firefox_recovery_file_path="${firefox_profile_dir}/sessionstore-backups/recovery.jsonlz4"
@@ -618,7 +620,7 @@ firefox_get_temp_db_copy() {
 		VERBOSE=1
 	fi
 	local firefox_profile_dir=$(firefox_get_profile_dir)
-	if ! [[ $? -eq 0 ]]; then
+	if [[ $? -ne 0 ]] || [[ -z "$firefox_profile_dir" ]]; then
 		return 1
 	fi
 	local firefox_db_location="$firefox_profile_dir/places.sqlite"
@@ -1097,11 +1099,14 @@ render_json_as_table() {
 # This is hacky, but can mostly get the job done
 # TODO: make this more ergonomic, with some sort of arg parser
 render_text_overlay() {
-	TERM_STYLE_RESET=$TERM_STYLE_RESET TERM_COLUMNS=$COLUMNS LEFT_TEXT=$1 RIGHT_TEXT=$2 MAX_LEFT_COLUMN_COUNT=$3 PAD_TOP=$4 node <<-"EOF"
+	local _NO_TRUNCATE="${NO_TRUNCATE:=0}"
+
+	TERM_STYLE_RESET=$TERM_STYLE_RESET TERM_LINES=$LINES TERM_COLUMNS=$COLUMNS LEFT_TEXT=$1 RIGHT_TEXT=$2 MAX_LEFT_COLUMN_COUNT=$3 PAD_TOP=$4 NO_TRUNCATE=$_NO_TRUNCATE node <<-"EOF"
 	const stripAnsi = (s) => s.replace(/\x1b\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]/g, '');
 
 	const TERM_STYLE_RESET=process.env.TERM_STYLE_RESET || '';
 	const TERM_COLUMNS = parseInt(process.env.TERM_COLUMNS);
+	const TERM_LINES = parseInt(process.env.TERM_LINES);
 	const LEFT_LINES = process.env.LEFT_TEXT.split('\n');
 	const RIGHT_LINES = process.env.RIGHT_TEXT.split('\n');
 	let PAD_TOP = parseInt(process.env.PAD_TOP);
@@ -1115,9 +1120,14 @@ render_text_overlay() {
 	if (isNaN(LEFT_COLUMN_COUNT) || LEFT_COLUMN_COUNT <= 0) {
 		LEFT_COLUMN_COUNT = longestLeftColumnCount;
 	}
+	let MAX_LINES_OUT = Math.max(RIGHT_LINES.length + PAD_TOP, LEFT_LINES.length);
+	if (process.env.NO_TRUNCATE == '0') {
+		// Cap at number of terminal lines
+		MAX_LINES_OUT = Math.min(MAX_LINES_OUT, TERM_LINES);
+	}
 
 	let i = 0;
-	while (i < Math.max(RIGHT_LINES.length + PAD_TOP, LEFT_LINES.length)) {
+	while (i < MAX_LINES_OUT) {
 		let leftLine = LEFT_LINES[i] || '';
 		let rightLine = '';
 		// Subtract padding from current index, since a positive padding
@@ -2794,6 +2804,7 @@ run_raw_python_in_dotfiles_venv() {
 
 ensure_pkg_in_dotfiles_venv() {
 	pkg_name="$1"
+	echo "Checking if $pkg_name is installed..."
 	if ! (run_raw_cmd_in_dotfiles_venv "pip show $pkg_name" > /dev/null); then
 		echo "$pkg_name is not installed. Would you like to install it in the dotfiles venv? [Yy]es / [Nn]o"
 		read -r answer
@@ -3759,13 +3770,15 @@ top_snapshot() {
 }
 
 splash_screen() {
-	local INFO_TEXT=$(cat <<-EOF
-	OS = $(uname -a)
+	local INFO_TEXT="$(uname -snriom)"
+	if (which lsb_release > /dev/null); then
+		INFO_TEXT+=$'\n'
+		INFO_TEXT+="$(lsb_release -a 2>/dev/null)"
+	fi
+	INFO_TEXT+=$'\n\n'
+	INFO_TEXT+="$(top_snapshot)"
 
-	$(top_snapshot)
-	EOF
-	)
-	render_text_overlay "$JT_LOGO" "$INFO_TEXT" "-1" 2
+	render_text_overlay "$JT_LOGO" "$INFO_TEXT" "-1" 1
 }
 
 # TODO: Idea for cool util - parse doc strings / comments

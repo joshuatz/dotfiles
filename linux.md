@@ -5,9 +5,10 @@
 #### Gnome
 
 - Install `gnome-tweaks` and restart DE
-- Install _Dash to Panel_ (provides fixed taskbar at bottom, like Windows)
+- Install [_Dash to Panel_](https://extensions.gnome.org/extension/1160/dash-to-panel/) (provides fixed taskbar at bottom, like Windows)
 	- If [Issue #1963](https://github.com/home-sweet-gnome/dash-to-panel/issues/1963) has not been resolved, manually go and disable the default _Ubuntu Dock_ extension in the Gnome extension manager
-- Install _ArcMenu_ (provides start menu)
+- Install [_ArcMenu_](https://extensions.gnome.org/extension/3628/arcmenu/) (provides start menu)
+- Install [_PIP On Top_](https://extensions.gnome.org/extension/4691/pip-on-top/)
 
 ### Other Software
 

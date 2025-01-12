@@ -40,4 +40,9 @@ filters = [
 #  "$HOME/shaders/slang-shaders/crt/newpixie-mini.slangp" # FUN! Very similar to newpixie-crt.slangp, but without the ghosting as things move, and a darker look. Still suffers from blur though. Works well on low DPI
 ]
 
-
+[bindings]
+keys = [
+  # Enable classic `CTRL+V` pasting
+  { key = "V", with = "control | shift", action = "none" },
+  { key = "V", with = "control", action = "Paste" },
+]

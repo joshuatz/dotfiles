@@ -208,11 +208,23 @@ fi
 
 # Make sure brew comes last, so its shims can override any path stuff filled in
 # previous steps
+if [[ -d /home/linuxbrew/.linuxbrew/ ]]; then
+	export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew";
+	export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar";
+	export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew";
+
+	export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin${PATH+:$PATH}";
+	[ -z "${MANPATH-}" ] || export MANPATH=":${MANPATH#:}";
+	export INFOPATH="/home/linuxbrew/.linuxbrew/share/info:${INFOPATH:-}";
+fi
 if type brew &>/dev/null; then
 	FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
+fi
 
-	# Docker autocompletion
-	DOCKER_COMPLETION_DIR=/Applications/Docker.app/Contents/Resources/etc
+
+# Docker autocompletion, mac
+DOCKER_COMPLETION_DIR=/Applications/Docker.app/Contents/Resources/etc
+if [[ -d $DOCKER_COMPLETION_DIR ]]; then
 	DOCKER_COMPLETION_PATHS=(
 		"$DOCKER_COMPLETION_DIR/docker.zsh-completion"
 		"$DOCKER_COMPLETION_DIR/docker-compose.zsh-completion"
@@ -226,12 +238,12 @@ if type brew &>/dev/null; then
 			FPATH="$FPATH:$_path"
 		fi
 	done
+fi
 
-	# monkey business with PG via homebrew - especially useful / necessary for psycopg2
-	if [[ "$computer_name" == "Joshua’s MacBook Pro" ]]; then
-		PG_CONFIG_PATH="$(greadlink -f $(brew --prefix postgresql@12))/bin"
-		export PATH="$PATH:$PG_CONFIG_PATH"
-	fi
+# monkey business with PG via homebrew - especially useful / necessary for psycopg2
+if [[ "$computer_name" == "Joshua’s MacBook Pro" ]]; then
+	PG_CONFIG_PATH="$(greadlink -f $(brew --prefix postgresql@12))/bin"
+	export PATH="$PATH:$PG_CONFIG_PATH"
 fi
 
 # === Dynamic Injection Section ===
