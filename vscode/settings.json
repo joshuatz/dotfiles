@@ -538,8 +538,9 @@
 	"search.searchEditor.defaultNumberOfContextLines": 6,
 	"search.maxResults": 2000,
 	"search.smartCase": true,
-	"window.zoomLevel": -1,
-	"typescript.experimental.expandableHover": true
+	"typescriptExplorer.typeTree.maxRecursionDepth": 4,
+	"typescript.experimental.expandableHover": true,
+	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
 	// Things that there are no exposed settings for in `settings.json`, but are worth changing

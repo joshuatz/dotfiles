@@ -20,16 +20,12 @@ golang.go
 grapecity.gc-excelviewer
 hashicorp.terraform
 jakob101.relativepath
-jebbs.plantuml
 koalamer.labeled-bookmarks
 mads-hartmann.bash-ide-vscode
 mrmlnc.vscode-scss
-ms-azuretools.vscode-azurefunctions
-ms-azuretools.vscode-azureresourcegroups
 ms-azuretools.vscode-docker
 ms-python.black-formatter
 ms-python.debugpy
-ms-python.isort
 ms-python.mypy-type-checker
 ms-python.python
 ms-python.vscode-pylance
@@ -58,8 +54,6 @@ pomber.git-file-history
 redhat.java
 redhat.vscode-yaml
 rust-lang.rust-analyzer
-sissel.shopify-liquid
-skellock.just
 streetsidesoftware.code-spell-checker
 svelte.svelte-vscode
 timonwong.shellcheck

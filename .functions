@@ -474,20 +474,23 @@ markdown_to_html_clipboard() {
 	echo "✅ HTML copied to clipboard"
 }
 
-convert_clipboard_md_to_html() {
+clipboard_md_to_html() {
 	markdown_to_html_clipboard "$(get_clipboard_contents)"
 }
+alias convert_clipboard_md_to_html="clipboard_md_to_html"
 
-convert_clipboard_to_plaintext() {
+clipboard_to_plaintext() {
 	# Takes the clipboard contents and converts it to plaintext, in-place
 	text=$(get_clipboard_contents)
 	echo "$text" | copy_to_clipboard
 }
+alias convert_clipboard_to_plaintext="clipboard_to_plaintext"
 
-convert_clipboard_html_to_md() {
+clipboard_html_to_md() {
 	html=$(get_clipboard_html)
 	echo "$html" | pandoc --from html --to gfm | copy_to_clipboard
 }
+alias convert_clipboard_html_to_md="clipboard_html_to_md"
 
 spreadsheet_to_markdown() {
 	local filepath="$1"
@@ -524,6 +527,56 @@ markdown_table = [
 markdown_table_str = '\n'.join(markdown_table)
 
 print(markdown_table_str)
+EOF
+}
+
+spreadsheet_to_json() {
+	SPREADSHEET_FILE_PATH="$1" python << "EOF"
+import json
+import os
+import string
+import sys
+import csv
+
+filepath = os.environ.get("SPREADSHEET_FILE_PATH")
+if not filepath:
+	print("❌ No filepath provided")
+	sys.exit(1)
+
+delimiter = '\t' if filepath.endswith('.tsv') else ','
+
+try:
+	with open(filepath, 'r') as file:
+		reader = csv.reader(file, delimiter=delimiter)
+		rows = list(reader)
+except Exception as e:
+	print(f"❌ Error reading file: {e}")
+	sys.exit(1)
+
+if not rows:
+	print("❌ No content to convert")
+	sys.exit(1)
+
+headers = [v.strip() for v in rows[0]]
+# Strip non-printable
+headers = list(map(lambda v: ''.join(filter(lambda x: x in string.printable, v)), headers))
+only_keys = list(headers)
+only_keys_str = os.environ.get("ONLY_KEYS")
+if only_keys_str:
+	only_keys = only_keys_str.split(',')
+
+output_list = []
+for row in rows[1:]:
+	row_dict = {}
+	for c_index, val in enumerate(row):
+		if headers[c_index] not in only_keys:
+			continue
+		row_dict[headers[c_index]] = val.strip()
+	output_list.append(row_dict)
+
+indent_spaces_str = os.environ.get("INDENT_SPACES", "2")
+indent_spaces = int(indent_spaces_str)
+print(json.dumps(output_list, indent=indent_spaces))
 EOF
 }
 
@@ -597,14 +650,33 @@ moz_lz4json_to_json() {
 
 # WARNING: This produces a *huge* (multi-MB) JSON file
 firefox_dump_restore_file() {
+	local OUT_DIR="$(pwd)"
+	while true; do
+		printf "Where to export? ENTER / [Pp]wd dir, [Tt]emp dir?\n"
+		read -r answer
+		case $answer in
+			[Pp]*) break ;;
+			"") break ;;
+			[Tt]*) OUT_DIR="$(mktemp -d)"
+		esac
+	done
+
 	local firefox_profile_dir=$(firefox_get_profile_dir)
 	if [[ $? -ne 0 ]] || [[ -z "$firefox_profile_dir" ]]; then
 		return 1
 	fi
 	local firefox_recovery_file_path="${firefox_profile_dir}/sessionstore-backups/recovery.jsonlz4"
-	local temp_dir="$(mktemp -d)"
-	cp "$firefox_recovery_file_path" "$temp_dir/"
-	moz_lz4json_to_json "$temp_dir/recovery.jsonlz4"
+
+	cp "$firefox_recovery_file_path" "$OUT_DIR/"
+	local OUT_FILE="$OUT_DIR/firefox_recovery.json"
+	moz_lz4json_to_json "$OUT_DIR/recovery.jsonlz4" > "$OUT_FILE"
+	echo "💾 Backed up: $firefox_recovery_file_path"
+	echo "    -> To: $OUT_FILE"
+}
+
+firefox_run_backups() {
+	local MAX_BACKUPS=${FF_MAX_BACKUPS:=6}
+	# TODO
 }
 
 firefox_get_tabs() {
@@ -1705,8 +1777,18 @@ git_has_lfs_files() {
 	git lfs ls-files | grep -q .
 }
 
+alias git_default_origin="git remote"
+
+# Returns the (best-guess) name of the trunk branch, but
+# WITHOUT the remote prefix (e.g. `main`, not `origin/main`)
 git_trunk_branch() {
-	git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'
+	git remote show "$(git_default_origin)" | grep "HEAD branch" | cut -d ":" -f 2 | sed -e 's/^[[:space:]]*//'
+}
+
+# Returns the (best-guess) name of the trunk branch, but
+# WITH the remote prefix (e.g. `origin/main`, not `main`)
+git_trunk_branch_remote() {
+	echo "$(git_default_origin)/$(git_trunk_branch)"
 }
 
 git_root_dir() {
@@ -1887,9 +1969,41 @@ git_find_fixup_base() {
 	done
 }
 
+
+# Returns the git SHA base of HEAD and default trunk
+git_find_merge_base() {
+	git merge-base HEAD "$(git_trunk_branch_remote)"
+}
+
+
+
 git_find_github_pr() {
 	SHA=$1
 	gh pr list --search "$SHA"
+}
+
+# Useful internal util for accepting either `$1` as PR base,
+# if supplied, else guessing that user wanted the default remote + trunk
+_git_pr_base() {
+	local TARGET_REF="$1"
+	if [[ -z $TARGET_REF ]]; then
+		TARGET_REF="$(git_trunk_branch_remote)"
+	fi
+	echo "$TARGET_REF"
+}
+
+git_diff_pr() {
+	git diff "$(_git_pr_base "$1")...HEAD"
+}
+
+# TODO: I don't think this is quite right...
+git_log_pr() {
+	git log --cherry-pick --right-only "$(_git_pr_base "$1")...HEAD"
+}
+
+# TODO: Blergh
+git_squash_diff_log() {
+	:
 }
 
 # Use this with `--fixup` commits, to auto-target the last commit before fixup
@@ -2804,9 +2918,9 @@ run_raw_python_in_dotfiles_venv() {
 
 ensure_pkg_in_dotfiles_venv() {
 	pkg_name="$1"
-	echo "Checking if $pkg_name is installed..."
+	echo "Checking if $pkg_name is installed..." 1>&2
 	if ! (run_raw_cmd_in_dotfiles_venv "pip show $pkg_name" > /dev/null); then
-		echo "$pkg_name is not installed. Would you like to install it in the dotfiles venv? [Yy]es / [Nn]o"
+		echo "$pkg_name is not installed. Would you like to install it in the dotfiles venv? [Yy]es / [Nn]o" 1>&2
 		read -r answer
 		case $answer in
 			[Yy]*)
@@ -3100,7 +3214,7 @@ task_mark_up_to_date() {
 		echo "ERROR: Please define TASK_NAME"
 		return 1
 	fi
-	TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/scripts/task_mark_up_to_date.mjs"
+	TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/dotfiles/scripts/task_mark_up_to_date.mjs"
 }
 
 # This might seem like a lot of code just to wrap ffmpeg's `scale`, but this:
@@ -3770,7 +3884,12 @@ top_snapshot() {
 }
 
 splash_screen() {
-	local INFO_TEXT="$(uname -snriom)"
+	local INFO_TEXT=""
+	if [[ $IS_MAC -eq 1 ]]; then
+		INFO_TEXT="$(uname -snrom)"
+	else
+		INFO_TEXT="$(uname -snriom)"
+	fi
 	if (which lsb_release > /dev/null); then
 		INFO_TEXT+=$'\n'
 		INFO_TEXT+="$(lsb_release -a 2>/dev/null)"

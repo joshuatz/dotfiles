@@ -30,6 +30,10 @@ if (!taskName || !taskfilePath) {
 	process.exit(1);
 }
 const taskfileDir = path.dirname(taskfilePath);
+const tempTaskfilePath = path.join(taskfileDir, 'taskfile_fingerprint_temp.yml');
+try {
+	rmSync(tempTaskfilePath);
+} catch {}
 
 const parsedTaskfile = parse(readFileSync(taskfilePath).toString());
 const taskEntry = parsedTaskfile.tasks[taskName];
@@ -56,11 +60,13 @@ if (!taskEntry.sources && !taskEntry.generates) {
 // Start by cloning task of entry, and configuring it to be a noop for fingerprinting
 const cloneEntryForFingerprinting = structuredClone(taskEntry);
 delete cloneEntryForFingerprinting.cmds;
+delete cloneEntryForFingerprinting.prompt;
 cloneEntryForFingerprinting.cmd = 'true';
+
+console.log('Noop task:', cloneEntryForFingerprinting);
 
 // Now, clone entire taskfile, with add noop entry, and save to temp file
 parsedTaskfile.tasks[NOOP_TASK_NAME] = cloneEntryForFingerprinting;
-const tempTaskfilePath = path.join(taskfileDir, 'taskfile_fingerprint_temp.yml');
 writeFileSync(
 	tempTaskfilePath,
 	stringify(parsedTaskfile, {

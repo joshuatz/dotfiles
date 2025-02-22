@@ -5,12 +5,18 @@ scratch*
 .env.*
 !.env.*.example
 *.pem
+places.sqlite
 
 # Libraries
 .venv
+node_modules/
 
 # Artifacts
 .mypy_cache
 
 # Settings that are not git-tracked / committed
 obs
+
+# Root level JSON files are likely temp backups, etc.
+/*.json
+/*.jsonlz4
