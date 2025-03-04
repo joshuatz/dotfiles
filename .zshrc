@@ -174,6 +174,20 @@ if [[ $has_asdf -eq 1 ]]; then
 		export GOCACHE="${GOPATH}/pkg/mod"
 		export PATH="${PATH}:$(go env GOPATH)/bin"
 	fi
+
+	# (ノ ゜Д゜)ノ ︵ ┻━┻
+	# Certain bins seem to get forcefully overwritten on mac - e.g. `$HOME/.asdf/shims/pod`
+	# keeps getting overshadowed by the system pod...
+	if [[ $IS_MAC -eq 1 ]]; then
+		# However, we don't want to override ALL bins, just problematic ones
+		for problem_bin in "pod"
+		do
+			problem_bin_path="$HOME/.asdf/shims/$problem_bin"
+			if [[ -f "$problem_bin_path" ]]; then
+				ln -s "$problem_bin_path" "$USER_BIN_OVERRIDES_DIR/$problem_bin"
+			fi
+		done
+	fi
 fi
 
 # For general Apple development, some tools (e.g. CocoaPods) will
@@ -189,6 +203,7 @@ else
 	rm -f $USER_BIN_OVERRIDES_DIR/gem
 fi
 
+
 # Wezterm
 WEZTERM_PATH_MAC=/Applications/WezTerm.app/Contents/MacOS/
 if [[ -d $WEZTERM_PATH_MAC ]]; then
@@ -201,7 +216,8 @@ if (which task > /dev/null) && [[ -f "$TASK_COMPLETIONS_PATH" ]]; then
 	source "$TASK_COMPLETIONS_PATH"
 fi
 
-# pipx (or any other `.local/bin` entries)
+PATH="/usr/local/bin:$PATH"
+# Move bin overrides to front of path / max precedence
 if [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
 	PATH="$USER_BIN_OVERRIDES_DIR:$PATH"
 fi

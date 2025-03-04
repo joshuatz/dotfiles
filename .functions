@@ -153,15 +153,16 @@ expand_path() {
 	echo "$INPUT_PATH"
 }
 
-symlink_resolve() {
+resolve_symlink() {
 	if [[ $IS_MAC -eq 1 ]]; then
 		greadlink -f "$1"
 		return
 	fi
 	readlink -f "$1"
 }
+alias symlink_resolve="resolve_symlink"
 
-alias_resolve() {
+resolve_alias() {
 	local ALIAS="$1"
 	shift
 	if (check_args_for_value "--all" "$*"); then
@@ -179,6 +180,7 @@ alias_resolve() {
 	fi
 	symlink_resolve "$final_alias_path"
 }
+alias alias_resolve="resolve_alias"
 
 # Not perfect across all OSes, but a "good enough" approach for most
 get_computer_name() {
@@ -668,7 +670,7 @@ firefox_dump_restore_file() {
 	local firefox_recovery_file_path="${firefox_profile_dir}/sessionstore-backups/recovery.jsonlz4"
 
 	cp "$firefox_recovery_file_path" "$OUT_DIR/"
-	local OUT_FILE="$OUT_DIR/firefox_recovery.json"
+	local OUT_FILE="$OUT_DIR/$(date_iso)__firefox_recovery.json"
 	moz_lz4json_to_json "$OUT_DIR/recovery.jsonlz4" > "$OUT_FILE"
 	echo "💾 Backed up: $firefox_recovery_file_path"
 	echo "    -> To: $OUT_FILE"
