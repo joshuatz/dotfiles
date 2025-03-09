@@ -1758,6 +1758,10 @@ tmux_auto_close() {
 	fi
 }
 
+git_version_parsed() {
+	git --version | grep -E -o "[0-9]+\.[0-9]+\.[0-9]+$"
+}
+
 # Revert the last commit, but don't undo the changes
 git_revert_last() {
 	git reset HEAD~1
@@ -2036,7 +2040,7 @@ git_auto_rebase() {
 		esac
 	done
 
-	local git_version=$(git --version | grep -E -o "\d+\.\d+.\d+$")
+	local git_version=$(git_version_parsed)
 
 	if [[ "$skip_editor" != "true" ]]; then
 		git rebase --autosquash --interactive "$new_target_base"
@@ -2229,7 +2233,7 @@ EOF
 	# Use stash to temporarily stash changes
 	# Newer versions of git can support stashing just staged changes
 	use_staged_stash=false
-	git_version=$(git --version | grep -E -o "\d+\.\d+.\d+")
+	git_version=$(git_version_parsed)
 	if [[ $(parse_version_string "$git_version") -ge $(parse_version_string "2.35") ]]; then
 		echo "Found git version >= 2.3"
 		echo "💡 Your git version supports staged stashes."
@@ -3571,9 +3575,9 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
 		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
 			# If port binding is of form \d+, use same port locally
-			if (echo "$PORT_BINDING" | grep -E --silent '^\d+$'); then
+			if (echo "$PORT_BINDING" | grep -E --silent '^[0-9]+$'); then
 				SSH_ARGS+=(-L "\*:${PORT_BINDING}:localhost:${PORT_BINDING}")
-			elif (echo "$PORT_BINDING" | grep -E --silent '^\d+:\d+$'); then
+			elif (echo "$PORT_BINDING" | grep -E --silent '^[0-9]+:[0-9]+$'); then
 				local REMOTE_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
 				local LOCAL_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
 				SSH_ARGS+=(-L "\*:${REMOTE_PORT}:localhost:${LOCAL_PORT}")
@@ -3681,9 +3685,9 @@ aws_ec2_instance_connect_ssh() {
 	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
 		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
 			# If port binding is of form \d+, use same port locally
-			if (echo "$PORT_BINDING" | grep -E --silent '^\d+$'); then
+			if (echo "$PORT_BINDING" | grep -E --silent '^[0-9]+$'); then
 				SSH_ARGS+=(-L "\*:${PORT_BINDING}:localhost:${PORT_BINDING}")
-			elif (echo "$PORT_BINDING" | grep -E --silent '^\d+:\d+$'); then
+			elif (echo "$PORT_BINDING" | grep -E --silent '^[0-9]+:[0-9]+$'); then
 				local REMOTE_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
 				local LOCAL_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
 				SSH_ARGS+=(-L "\*:${REMOTE_PORT}:localhost:${LOCAL_PORT}")
