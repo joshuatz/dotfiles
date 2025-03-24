@@ -160,6 +160,9 @@ fi
 
 # asdf mods
 if [[ $has_asdf -eq 1 ]]; then
+	# Main shimming
+	PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
+
 	# golang
 	export ASDF_GOLANG_MOD_VERSION_ENABLED=true
 	asdf_golang_path=$(asdf where golang 2>&1 > /dev/null)
@@ -188,6 +191,11 @@ if [[ $has_asdf -eq 1 ]]; then
 			fi
 		done
 	fi
+
+	# OH COME ON NOW!!!
+	# (ノ ゜Д゜)ノ ︵ ┻━┻
+	export ASDF_FORCE_PREPEND=
+	PATH="/usr/local/bin:$PATH"
 fi
 
 # For general Apple development, some tools (e.g. CocoaPods) will
@@ -216,7 +224,6 @@ if (which task > /dev/null) && [[ -f "$TASK_COMPLETIONS_PATH" ]]; then
 	source "$TASK_COMPLETIONS_PATH"
 fi
 
-PATH="/usr/local/bin:$PATH"
 # Move bin overrides to front of path / max precedence
 if [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
 	PATH="$USER_BIN_OVERRIDES_DIR:$PATH"

@@ -19,7 +19,7 @@ docs() {
 	fi
 }
 
-fuzzy_preview() {
+search_fuzzy() {
 	local search_dir="$1"
 	local search_pattern="$2"
 
@@ -29,11 +29,26 @@ fuzzy_preview() {
 
 	local RG_ARGS=(
 		"$search_dir"
-		"--glob"
+		'--glob'
 		'!**/node_modules/'
+		'--glob'
+		'!**/.venv/'
+		'--glob'
+		'!**/venv/'
+		'--glob'
+		'!package-lock.json'
+		'--glob'
+		'!yarn.lock'
+		'--glob'
+		'!poetry.lock'
+		'--glob'
+		'!**/.git/'
 	)
 
-	results=$(rg --files-with-matches -e "$search_pattern" "${RG_ARGS[@]}")
+	echo "RG args: ${RG_ARGS[*]}"
+	echo "Searching in $search_dir"
+
+	results=$(rg --files-with-matches -e "$search_pattern" "${RG_ARGS[@]}" 2>/dev/null)
 
 	if [[ -z "$ONLY_CONTENT" ]]; then
 		# Check filenames too
@@ -46,6 +61,7 @@ fuzzy_preview() {
 	fi
 
 	if [[ -z "$results" ]]; then
+		echo "No results!"
 		return 1
 	fi
 
@@ -53,13 +69,27 @@ fuzzy_preview() {
 	echo "$results" | fzf --reverse --preview-window=wrap --preview "rg --with-filename --line-number --context=10 --no-heading --column --color=always --smart-case -e $search_pattern {}"
 }
 
-docs_fuzzy() {
+search_docs_fuzzy() {
 	if ! [[ -d "$DOCS_DIR" ]]; then
 		echo "DOCS_DIR is unset!"
 		return 1
 	fi
-	fuzzy_preview "$DOCS_DIR" "$@"
+	search_fuzzy "$DOCS_DIR" "$@"
 }
+
+search_dev_fuzzy() {
+	search_fuzzy "$HOME/jtzdev" "$@"
+}
+
+search_home_fuzzy() {
+	search_fuzzy "$HOME" "$@"
+}
+
+search_fuzzy_all() {
+	# TODO
+	:
+}
+
 
 SIGNALS_PICK_LIST=$(cat << "EOF"
 9	KILL	(non-catchable, non-ignorable kill)
@@ -1174,8 +1204,9 @@ render_json_as_table() {
 # TODO: make this more ergonomic, with some sort of arg parser
 render_text_overlay() {
 	local _NO_TRUNCATE="${NO_TRUNCATE:=0}"
+	local _DEBUG=$(check_args_for_value "--debug" "$*" && echo 1 || echo 0)
 
-	TERM_STYLE_RESET=$TERM_STYLE_RESET TERM_LINES=$LINES TERM_COLUMNS=$COLUMNS LEFT_TEXT=$1 RIGHT_TEXT=$2 MAX_LEFT_COLUMN_COUNT=$3 PAD_TOP=$4 NO_TRUNCATE=$_NO_TRUNCATE node <<-"EOF"
+	DEBUG=$_DEBUG TERM_STYLE_RESET=$TERM_STYLE_RESET TERM_LINES=$LINES TERM_COLUMNS=$COLUMNS LEFT_TEXT=$1 RIGHT_TEXT=$2 MAX_LEFT_COLUMN_COUNT=$3 PAD_TOP=$4 NO_TRUNCATE=$_NO_TRUNCATE node <<-"EOF"
 	const stripAnsi = (s) => s.replace(/\x1b\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]/g, '');
 
 	const TERM_STYLE_RESET=process.env.TERM_STYLE_RESET || '';
@@ -1198,6 +1229,26 @@ render_text_overlay() {
 	if (process.env.NO_TRUNCATE == '0') {
 		// Cap at number of terminal lines
 		MAX_LINES_OUT = Math.min(MAX_LINES_OUT, TERM_LINES);
+	}
+
+	if (process.env.DEBUG === "1") {
+		console.warn({
+			term: {
+				TERM_STYLE_RESET,
+				TERM_COLUMNS,
+				TERM_LINES,
+			},
+			computed: {
+				longestLeftColumnCount,
+				LEFT_COLUMN_COUNT,
+				MAX_LINES_OUT,
+				RIGHT_LINES_ROWS: RIGHT_LINES.length,
+				LEFT_LINE_ROWS: LEFT_LINES.length
+			},
+			config: {
+				PAD_TOP
+			}
+		});
 	}
 
 	let i = 0;
@@ -1693,6 +1744,7 @@ tmux_auto_open() {
 	tmux select-pane -t "$tmux_session_name":0.0
 	tmux_attach_with_init "$tmux_session_name"
 }
+# TODO - add zsh completions
 
 # This function scans for active tmux sessions where at least one pane
 # has a working directory scoped to the current one - which is useful if you
@@ -2357,20 +2409,22 @@ git_stats() {
 		remote_diff_stats="NA"
 	fi
 
-	cat <<- EOF
-		+=====================================================================================
-		|                                      |
-		|   .oooooo.     ooooo  ooooooooooooo  |  Branch = $CURRENT_BRANCH
-		|  d8P'   Y8b     888   8    888    8  |  Trunk Branch = $TRUNK_BRANCH
-		|  888            888        888       |    Trunk Diff Stats = $trunk_diff_stats
-		|  888            888        888       |  Remote Branch = ${REMOTE_BRANCH}
-		|  888     ooooo  888        888       |    Remote Diff Stats = ${remote_diff_stats}
-		|  .88.    .88'   888        888       |    Behind / Ahead =
-		|  .Y8bood8P.    o888o      o888o      |      Behind | Ahead
-		|                                      |         $(git_behind_ahead_plain)
-		|                                      |
-		+=====================================================================================
+	local INFO_TEXT=$(cat <<- EOF
+		     == Branch = $CURRENT_BRANCH ==
+
+		Trunk Branch = $TRUNK_BRANCH
+		    Trunk Diff Stats = $trunk_diff_stats
+
+		Remote Branch = ${REMOTE_BRANCH}
+		    Remote Diff Stats = ${remote_diff_stats}
+		    Behind / Ahead =
+			  Behind | Ahead
+			    $(git_behind_ahead_plain)
 	EOF
+	)
+
+
+	render_text_overlay "$GIT_LOGO" "$INFO_TEXT"
 }
 
 # Display most touched and/or most recently touched
@@ -2910,6 +2964,10 @@ run_raw_cmd_in_dotfiles_venv() {
 	)
 }
 
+run_python_repl_in_dotfiles_venv() {
+	echo "TODO"
+}
+
 run_raw_python_in_dotfiles_venv() {
 	local RAW_CODE_TO_RUN=$1
 	if ! [[ -d "$DOTFILES_DIR" ]]; then
@@ -2984,12 +3042,12 @@ npm_find_global_node_modules() {
 }
 
 npm_find_global_pkg_dir() {
-	PACKAGE_NAME=$1
-	GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
+	local PACKAGE_NAME=$1
+	local GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
 	# Make sure to scan for symlinks as well, to handle `npm link` and friends
 	found_dir=$(find -L "$GLOBAL_NODE_MODULES" -type d -depth 1 -name "$PACKAGE_NAME")
 	if [[ -z "$found_dir" ]]; then
-		echo "ERROR: Could not find $PACKAGE_NAME in global node_modules"
+		echo "ERROR: Could not find $PACKAGE_NAME in global node_modules ($GLOBAL_NODE_MODULES)"
 		return 1
 	fi
 	echo "$found_dir" | head -n 1

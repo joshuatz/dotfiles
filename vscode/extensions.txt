@@ -54,6 +54,7 @@ pomber.git-file-history
 redhat.java
 redhat.vscode-yaml
 rust-lang.rust-analyzer
+sabitovvt.favorites-panel
 streetsidesoftware.code-spell-checker
 svelte.svelte-vscode
 timonwong.shellcheck

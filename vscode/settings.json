@@ -540,7 +540,37 @@
 	"search.smartCase": true,
 	"typescriptExplorer.typeTree.maxRecursionDepth": 4,
 	"typescript.experimental.expandableHover": true,
-	"window.zoomLevel": -1
+	// https://github.com/sabitovvt/vscode-favorites-panel
+	"favoritesPanel.commands": [
+		{
+			"label": "New Bookmark Group",
+			"description": "Create a new (labeled) bookmark group",
+			"command": "runCommand",
+			"icon": "tag",
+			"arguments": ["vsc-labeled-bookmarks.addGroup"]
+		},
+		{
+			"label": "Git: Stage Selected",
+			"description": "",
+			"command": "runCommand",
+			"icon": "diff-insert",
+			"arguments": ["git.stageSelectedRanges"]
+		},
+		{
+			"label": "Select and Start Debugging",
+			"description": "",
+			"command": "runCommand",
+			"icon": "debug",
+			"arguments": ["workbench.action.debug.selectandstart"]
+		},
+		{
+			"label": "Pull to Dotfiles",
+			"description": "",
+			"command": "run",
+			"arguments": ["cd ~/jtzdev/dotfiles; ./manage.sh pull"]
+		}
+	],
+	"window.zoomLevel": -1,
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
 	// Things that there are no exposed settings for in `settings.json`, but are worth changing
