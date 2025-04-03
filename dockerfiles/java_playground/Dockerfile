@@ -5,7 +5,9 @@ RUN mkdir /opt/scratch
 # Install git, so we can sparse clone some tools
 # Technically, we could just wget the tarballs from GitHub,
 # but some of these are _massive_
-RUN apt-get update && apt-get install -y git
+RUN apt-get update && apt-get install -y \
+	git \
+	unzip
 
 ENV intellij_path="/opt/JetBrains/intellij-community"
 RUN mkdir -p ${intellij_path}
@@ -26,7 +28,15 @@ WORKDIR /opt/scratch
 # https://github.com/Vineflower/vineflower/releases/tag/1.10.1
 RUN wget -O vineflower.jar https://github.com/Vineflower/vineflower/releases/download/1.10.1/vineflower-1.10.1.jar
 
-COPY ./java/*.sh .
+# JADX (APK DEX to JAR)
+RUN wget -O jadx.zip https://github.com/skylot/jadx/releases/download/v1.5.1/jadx-1.5.1.zip
+RUN unzip -q jadx.zip -d jadx
+RUN rm -rf jadx.zip
+# Add bin to PATH
+ENV PATH="/opt/scratch/jadx/bin:$PATH"
+
+# Copy over local scripts as last step
+COPY ./java_playground/*.sh .
 COPY ./docker-entrypoint.sh .
 RUN chmod +x ./docker-entrypoint.sh
 

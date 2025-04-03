@@ -12,28 +12,17 @@ echo "$SCRIPT_DIR"
 LOCAL_DOCKER_PREFIX="jtz-reg/jtz"
 # TODO - I wonder if you could use the `docker.io/library/` auto-gen for ^ ?
 
-# A Temurin-based image, with pre-built decompilers that run on startup
-# You can use to just get a bash shell with JDK access:
-#	docker run -it --rm java-playground bash
-# Or, if feeling fancy, you can bind-mount JARs to decompile and it will automatically decompile them on startup
-#	docker run -it --rm -v ~/jtzdev/some_file.jar:/var/some_file.jar -v ~/jtzdev/decompiled/:/var/decompile_output java-playground
-build_java () {
-	docker build -t "${LOCAL_DOCKER_PREFIX}/java-playground" -f "$SCRIPT_DIR/java/Dockerfile" "$SCRIPT_DIR"
+build_image() {
+	local subdir_name="$1"
+	docker build -t "${LOCAL_DOCKER_PREFIX}/$subdir_name" -f "$SCRIPT_DIR/$subdir_name/Dockerfile" "$SCRIPT_DIR"
 }
 
-build_tensorflowjs () {
-	docker build -t "${LOCAL_DOCKER_PREFIX}/tensorflowjs" -f "$SCRIPT_DIR/tensorflowjs/Dockerfile" "$SCRIPT_DIR"
+build_all() {
+	for subdir in "$SCRIPT_DIR"/*; do
+		if [[ -d $subdir && -f $subdir/Dockerfile ]]; then
+			local subdir_name=$(basename "$subdir")
+			echo "Building image for $subdir_name"
+			build_image "$subdir_name"
+		fi
+	done
 }
-
-build_ubuntu_sandbox() {
-	docker build -t "${LOCAL_DOCKER_PREFIX}/ubuntu_sandbox" -f "$SCRIPT_DIR/ubuntu_sandbox/Dockerfile" "$SCRIPT_DIR"
-}
-
-build_manssh() {
-	docker build -t "${LOCAL_DOCKER_PREFIX}/manssh" -f "$SCRIPT_DIR/manssh/Dockerfile" "$SCRIPT_DIR"
-}
-
-build_all () {
-	build_java & build_tensorflowjs && build_ubuntu_sandbox
-}
-
