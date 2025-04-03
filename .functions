@@ -3577,10 +3577,16 @@ EOF
 	} > /dev/null &
 }
 
+
+# TODO: Add root dir option for vscode open
 aws_ec2_instance_connect_generate_temp_ssh_command() {
 	local INSTANCE_ID=""
+	local SSH_CONFIG_ALIAS=""
 	local EC2_USERNAME="ec2-user"
+	local USE_DEFAULT_KEY_PAIR=0
 	local PORT_BINDINGS=()
+	local PRIVATE_KEY=""
+	local PUBLIC_KEY=""
 	local OPEN_VS_CODE=0
 	local EXEC_COMMAND=0
 
@@ -3605,6 +3611,22 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 			-e|--exec)
 				EXEC_COMMAND=1
 				;;
+			-pk|--private-key)
+				PRIVATE_KEY=$2
+				shift
+				;;
+			-pub|--public-key)
+				PUBLIC_KEY=$2
+				shift
+				;;
+			-dkp|--default-key-pair)
+				USE_DEFAULT_KEY_PAIR=1
+				shift
+				;;
+			-a|--alias)
+				SSH_CONFIG_ALIAS=$2
+				shift
+				;;
 			*)
 				echo "Invalid option ${1}"
 				;;
@@ -3618,13 +3640,27 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	fi
 	aws_lint_instance_id "$INSTANCE_ID" || return 1
 
-	local DELETE_DELAY=10
-	if [[ $OPEN_VS_CODE -eq 1 ]]; then
-		DELETE_DELAY=60
+	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
+		if [[ $USE_DEFAULT_KEY_PAIR -eq 1 ]]; then
+			PRIVATE_KEY="$HOME/.ssh/id_rsa"
+			PUBLIC_KEY="$HOME/.ssh/id_rsa.pub"
+		else
+			local DELETE_DELAY=10
+			if [[ $OPEN_VS_CODE -eq 1 ]]; then
+				DELETE_DELAY=60
+			fi
+			PRIVATE_KEY=$(aws_ec2_instance_connect_send_pub_key_temp --user "$EC2_USERNAME" --instance-id "$INSTANCE_ID" --delete-delay "$DELETE_DELAY")
+			PUBLIC_KEY="$PRIVATE_KEY.pub"
+		fi
+	else
+		# Push custom public key before establishing SSH
+		if ! (aws_ec2_instance_connect_send_pub_key --instance-id "$INSTANCE_ID" --username "$EC2_USERNAME" --public-key "$PUBLIC_KEY"); then
+			return 1
+		fi
 	fi
-	local PRIVATE_KEY=$(aws_ec2_instance_connect_send_pub_key_temp --user "$EC2_USERNAME" --instance-id "$INSTANCE_ID" --delete-delay "$DELETE_DELAY")
 
-	if [[ $? -ne 0 ]] || [[ $PRIVATE_KEY == "Error"* ]]; then
+
+	if [[ $? -ne 0 ]] || ! [[ -f "$PRIVATE_KEY" ]]; then
 		echo "Failed to generate private key: $PRIVATE_KEY"
 		return 1
 	fi
@@ -3661,113 +3697,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	fi
 }
 
-aws_ec2_instance_connect_ssh() {
-	local INSTANCE_ID=""
-	local SSH_CONFIG_ALIAS=""
-	local EC2_USERNAME="ec2-user"
-	local USE_TEMP_KEY_PAIR=0
-	local USE_DEFAULT_KEY_PAIR=0
-	local PORT_BINDINGS=()
-	local PRIVATE_KEY=""
-	local PUBLIC_KEY=""
-	while [[ ! $# -eq 0 ]]
-	do
-		case "$1" in
-			-i|--instance-id)
-				INSTANCE_ID=$2
-				shift
-				;;
-			-u|--user|--username)
-				EC2_USERNAME=$2
-				shift
-				;;
-			-p|--port)
-				PORT_BINDINGS+=("$2")
-				shift
-				;;
-			-pk|--private-key)
-				PRIVATE_KEY=$2
-				shift
-				;;
-			-pub|--public-key)
-				PUBLIC_KEY=$2
-				shift
-				;;
-			-dkp|--default-key-pair)
-				USE_DEFAULT_KEY_PAIR=1
-				shift
-				;;
-			-a|--alias)
-				SSH_CONFIG_ALIAS=$2
-				shift
-				;;
-			*)
-				echo "Invalid option ${1}"
-				;;
-		esac
-		shift
-	done
-
-	if [[ -z "$INSTANCE_ID" ]]; then
-		echo "You must pass instance ID with '--instance-id' or '-i'"
-		return 1
-	fi
-	aws_lint_instance_id "$INSTANCE_ID" || return 1
-
-	local tmp_dir
-	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
-		if [[ $USE_DEFAULT_KEY_PAIR -eq 1 ]]; then
-			PRIVATE_KEY="$HOME/.ssh/id_rsa"
-			PUBLIC_KEY="$HOME/.ssh/id_rsa.pub"
-		else
-			echo "🔐 Generating temporary key pair"
-			USE_TEMP_KEY_PAIR=1
-			tmp_dir=$(mktemp -d)
-			ssh-keygen -t rsa -b 4096 -C "TEMPORARY key for EC2 Instance Connect" -N "" -f "$tmp_dir/tmp_key"
-			PRIVATE_KEY="$tmp_dir/tmp_key"
-			PUBLIC_KEY="$tmp_dir/tmp_key.pub"
-		fi
-	fi
-
-	if ! [[ -f $PUBLIC_KEY ]] || ! [[ -f $PRIVATE_KEY ]]; then
-		echo "Couldn't find public key and/or private key"
-		return 1
-	fi
-
-	# Push public key before establishing SSH
-	if ! (aws_ec2_instance_connect_send_pub_key --instance-id "$INSTANCE_ID" --username "$EC2_USERNAME" --public-key "$PUBLIC_KEY"); then
-		return 1
-	fi
-
-	local SSH_ARGS=(-o ServerAliveInterval=20 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i "$PRIVATE_KEY")
-	if [[ ${#PORT_BINDINGS[@]} -gt 0 ]]; then
-		for PORT_BINDING in "${PORT_BINDINGS[@]}"; do
-			# If port binding is of form \d+, use same port locally
-			if (echo "$PORT_BINDING" | grep -E --silent '^[0-9]+$'); then
-				SSH_ARGS+=(-L "\*:${PORT_BINDING}:localhost:${PORT_BINDING}")
-			elif (echo "$PORT_BINDING" | grep -E --silent '^[0-9]+:[0-9]+$'); then
-				local REMOTE_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
-				local LOCAL_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
-				SSH_ARGS+=(-L "\*:${REMOTE_PORT}:localhost:${LOCAL_PORT}")
-			else
-				echo "Could not understand how to bind port input of $PORT_BINDING"
-				return 1
-			fi
-		done
-	fi
-
-	# Establish SSH connection
-	local DNS_ADDR=$(aws_ec2_instance_get_public_dns_addr "$INSTANCE_ID")
-	SSH_ARGS+=("${EC2_USERNAME}@${DNS_ADDR}")
-	declare -p SSH_ARGS
-	ssh "${SSH_ARGS[@]}"
-
-	# Cleanup
-	if [[ $USE_TEMP_KEY_PAIR -eq 1 ]] && [[ -d "$tmp_dir" ]]; then
-		echo "🗑️ Deleting temporary key pair"
-		rm -r "$tmp_dir"
-	fi
-}
+alias aws_ec2_instance_connect_ssh='aws_ec2_instance_connect_generate_temp_ssh_command --exec'
 
 tensorjs_keras_converter() {
 	local raw_model_path=$1
