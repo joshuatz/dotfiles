@@ -1752,6 +1752,8 @@ tmux_auto_open() {
 # If there are more than one matching sessions, it will let you select
 # which one to attach to with `fzf`
 tmux_auto_attach() {
+	local no_delay=1
+	local pass_through_args=()
 	# Get the current working directory
 	current_dir=$(pwd)
 
@@ -1854,7 +1856,7 @@ git_root_dir() {
 }
 
 git_repo_name() {
-	remote_url=$(git_remote_url)
+	local remote_url=$(git_remote_url)
 	basename "$remote_url"
 }
 
@@ -1867,27 +1869,28 @@ git_cd_root_dir() {
 }
 
 git_trunk_ahead_files() {
-	TRUNK_BRANCH=$(git_trunk_branch)
+	local TRUNK_BRANCH=$(git_trunk_branch)
 	git fetch
 	git --no-pager diff --name-only origin/"$TRUNK_BRANCH"...HEAD
 }
 
 # This should essentially be the file list of the diff for your `push`
 git_local_ahead_of_remote_files() {
-	CURRENT_BRANCH=$(git_branch_name)
+	local CURRENT_BRANCH=$(git_branch_name)
 	git fetch
 	git --no-pager diff --name-only origin/"$CURRENT_BRANCH"...HEAD
 }
 
 git_update_local_trunk() {
-	TRUNK_BRANCH=$(git_trunk_branch)
-	CURRENT_BRANCH=$(git_branch_name)
+	local ORIGIN=$(git_default_origin)
+	local TRUNK_BRANCH=$(git_trunk_branch)
+	local CURRENT_BRANCH=$(git_branch_name)
 	if [[ "$TRUNK_BRANCH" == "$CURRENT_BRANCH" ]]; then
 		git pull
 		return
 	fi
 	git fetch
-	git fetch . origin/"$TRUNK_BRANCH":"$TRUNK_BRANCH"
+	git fetch . "${ORIGIN}/${TRUNK_BRANCH}:${TRUNK_BRANCH}"
 }
 
 git_behind_ahead_plain() {
@@ -1918,14 +1921,14 @@ git_diff_live() {
 }
 
 git_select_commit() {
-	MAX_PAST_COMMITS_TO_LIST=40
-	commits=$(git log --pretty=format:"%H %s" -n $MAX_PAST_COMMITS_TO_LIST)
+	local MAX_PAST_COMMITS_TO_LIST=40
+	local commits=$(git log --pretty=format:"%H %s" -n $MAX_PAST_COMMITS_TO_LIST)
 
 	# Use fzf to interactively select a commit
-	commit=$(echo "$commits" | fzf --height 70% --reverse --ansi)
+	local commit=$(echo "$commits" | fzf --height 70% --reverse --ansi)
 
 	# Extract the commit hash from the selected line
-	commit_hash=$(echo "$commit" | awk '{print $1}')
+	local commit_hash=$(echo "$commit" | awk '{print $1}')
 
 	echo "$commit_hash"
 }
@@ -1933,14 +1936,14 @@ git_select_commit() {
 # Given a stash string like `stash@{0}: On main: do x and y`,
 # extract out just the stash index
 git_extract_stash_index() {
-	stash_string="$1"
+	local stash_string="$1"
 	echo "$stash_string" | grep -o -E "\{[0-9]+\}" | tr -d "{}"
 }
 
 git_stash_select() {
-	stash_list=$(git stash list)
+	local stash_list=$(git stash list)
 	# shellcheck disable=SC2016
-	selected_stash=$(echo "$stash_list" | fzf \
+	local selected_stash=$(echo "$stash_list" | fzf \
 		--height 70% \
 		--reverse \
 		--ansi \
@@ -3152,6 +3155,10 @@ npm_ls_global() {
 	asdf_exec_with_global_version npm ls -g --depth=0 "$1"
 }
 
+npm_outdated_upgrades() {
+	npx npm-check-updates -u -i
+}
+
 find_proc_by_port() {
 	local PORT=$1
 	lsof -i :"$PORT"
@@ -3278,7 +3285,11 @@ task_mark_up_to_date() {
 		echo "ERROR: Please define TASK_NAME"
 		return 1
 	fi
-	TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/dotfiles/scripts/task_mark_up_to_date.mjs"
+
+	# We are running this twice to verify hash stability
+	for i in {1..2}; do
+		TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/dotfiles/scripts/task_mark_up_to_date.mjs"
+	done
 }
 
 # This might seem like a lot of code just to wrap ffmpeg's `scale`, but this:
@@ -3578,7 +3589,6 @@ EOF
 }
 
 
-# TODO: Add root dir option for vscode open
 aws_ec2_instance_connect_generate_temp_ssh_command() {
 	local INSTANCE_ID=""
 	local SSH_CONFIG_ALIAS=""
@@ -3589,6 +3599,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	local PUBLIC_KEY=""
 	local OPEN_VS_CODE=0
 	local EXEC_COMMAND=0
+	local CHANGE_DIR=""
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -3607,6 +3618,10 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 				;;
 			-c|--code)
 				OPEN_VS_CODE=1
+				;;
+			-cd|--change-directory|--code-dir)
+				CHANGE_DIR=$2
+				shift
 				;;
 			-e|--exec)
 				EXEC_COMMAND=1
@@ -3635,7 +3650,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	done
 
 	if [[ -z "$INSTANCE_ID" ]]; then
-		echo "You must pass instance ID with '--instance-id' or '-i'"
+		echo "You must pass instance ID with '--instance-id' or '-i'" 1>&2
 		return 1
 	fi
 	aws_lint_instance_id "$INSTANCE_ID" || return 1
@@ -3661,7 +3676,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 
 
 	if [[ $? -ne 0 ]] || ! [[ -f "$PRIVATE_KEY" ]]; then
-		echo "Failed to generate private key: $PRIVATE_KEY"
+		echo "Failed to generate private key: $PRIVATE_KEY" 1>&2
 		return 1
 	fi
 
@@ -3676,7 +3691,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 				local LOCAL_PORT=$(echo "$PORT_BINDING" | cut -d':' -f1)
 				SSH_ARGS+=(-L "\*:${REMOTE_PORT}:localhost:${LOCAL_PORT}")
 			else
-				echo "Could not understand how to bind port input of $PORT_BINDING"
+				echo "Could not understand how to bind port input of $PORT_BINDING" 1>&2
 				return 1
 			fi
 		done
@@ -3688,8 +3703,13 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 	echo "ssh ${SSH_ARGS[*]}"
 
 	if [[ $OPEN_VS_CODE -eq 1 ]]; then
-		echo "Launching vscode"
-		code --folder-uri "vscode-remote://ssh-remote+$INSTANCE_ID/"
+		local vs_code_remote_str="ssh-remote+$INSTANCE_ID"
+		echo "Launching vscode" 1>&2
+		if [[ -n "$CHANGE_DIR" ]]; then
+			code --remote "$vs_code_remote_str" "$CHANGE_DIR"
+		else
+			code --folder-uri "vscode-remote://$vs_code_remote_str/"
+		fi
 	fi
 
 	if [[ $EXEC_COMMAND -eq 1 ]]; then

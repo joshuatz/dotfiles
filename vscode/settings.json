@@ -136,38 +136,11 @@
 	// Spell checker
 	"cSpell.enabled": true,
 	"cSpell.maxNumberOfProblems": 200,
-	"cSpell.enableFiletypes": [
-		"!csharp",
-		"!handlebars",
-		"!jade",
-		"!java",
-		"!json",
-		"!jsonc",
-		"!latex",
-		"!less",
-		"!pug",
-		"!restructuredtext",
-		"!scala",
-		"!scss",
-		"asciidoc",
-		"c",
-		"cpp",
-		"css",
-		"dockercompose",
-		"git-commit",
-		"github-actions-workflow",
-		"go",
-		"ini",
-		"javascript",
-		"javascriptreact",
-		"php",
-		"plaintext",
-		"rust",
-		"shellscript",
-		"text",
-		"yaml",
-		"yml"
-	],
+	"cSpell.enabledFileTypes": {
+		"*": true,
+		"json": false,
+		"jsonc": false
+	},
 	"cSpell.ignorePaths": [
 		"**/package-lock.json",
 		"**/*.lock",
@@ -188,6 +161,7 @@
 		"CORB",
 		"DEBUGPY",
 		"devs",
+		"dicom",
 		"Dodds",
 		"dotfiles",
 		"eval",
@@ -474,6 +448,10 @@
 	// with set to "always"
 	// Thus, recommend generally keeping off and just with flag
 	"debug.javascript.autoAttachFilter": "onlyWithFlag",
+	// Although sometimes handy, this gets _really_ annoying quickly, as this triggers autocomplete
+	// in the debugger REPL with all past entries, when I'm often using autocomplete as an
+	// investigatory tool and am not interested in unrelated past entries
+	"debug.console.historySuggestions": false,
 	"files.associations": {
 		".prettierrc": "json"
 	},
@@ -500,10 +478,6 @@
 	"githubPullRequests.quickDiff": true,
 	"githubPullRequests.defaultCommentType": "review",
 	"githubPullRequests.createOnPublishBranch": "never",
-	// Although sometimes handy, this gets _really_ annoying quickly, as this triggers autocomplete
-	// in the debugger REPL with all past entries, when I'm often using autocomplete as an
-	// investigatory tool and am not interested in unrelated past entries
-	"debug.console.historySuggestions": false,
 	"[typescript]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
@@ -541,7 +515,21 @@
 	"typescriptExplorer.typeTree.maxRecursionDepth": 4,
 	"typescript.experimental.expandableHover": true,
 	// https://github.com/sabitovvt/vscode-favorites-panel
+	// - Select icons from: https://code.visualstudio.com/api/references/icons-in-labels#icon-listing
+	// - You can use `blank` for no icon. Or `gripper` is another good choice
 	"favoritesPanel.commands": [
+		{
+			"label": "Back",
+			"description": "",
+			"icon": "arrow-left",
+			"command": "runCommand",
+			"arguments": ["workbench.action.navigateBack"]
+		},
+		{
+			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
+			"description": "",
+			"icon": "blank"
+		},
 		{
 			"label": "New Bookmark Group",
 			"description": "Create a new (labeled) bookmark group",
@@ -550,11 +538,51 @@
 			"arguments": ["vsc-labeled-bookmarks.addGroup"]
 		},
 		{
-			"label": "Git: Stage Selected",
-			"description": "",
+			"label": "Bookmark with Note",
 			"command": "runCommand",
-			"icon": "diff-insert",
-			"arguments": ["git.stageSelectedRanges"]
+			"icon": "tag",
+			"arguments": ["vsc-labeled-bookmarks.toggleLabeledBookmark"]
+		},
+		{
+			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
+			"description": "",
+			"icon": "blank"
+		},
+		{
+			"label": "GIT",
+			"commands": [
+				{
+					"label": "Git: Stage Selected",
+					"description": "",
+					"command": "runCommand",
+					"icon": "diff-insert",
+					"arguments": ["git.stageSelectedRanges"]
+				},
+				{
+					"label": "Git: Commit",
+					"description": "",
+					"command": "runCommand",
+					"icon": "check",
+					"arguments": ["git.commit"]
+				}
+			]
+		},
+		{
+			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
+			"description": "",
+			"icon": "blank"
+		},
+		{
+			"label": "New Terminal",
+			"description": "",
+			"icon": "terminal-bash",
+			"command": "runCommand",
+			"arguments": ["workbench.action.createTerminalEditor"]
+		},
+		{
+			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
+			"description": "",
+			"icon": "blank"
 		},
 		{
 			"label": "Select and Start Debugging",
@@ -564,13 +592,25 @@
 			"arguments": ["workbench.action.debug.selectandstart"]
 		},
 		{
-			"label": "Pull to Dotfiles",
-			"description": "",
-			"command": "run",
-			"arguments": ["cd ~/jtzdev/dotfiles; ./manage.sh pull"]
+			"label": "Settings",
+			"commands": [
+				{
+					"label": "Open Settings (JSON)",
+					"description": "",
+					"command": "runCommand",
+					"icon": "gear",
+					"arguments": ["workbench.action.openSettingsJson"]
+				},
+				{
+					"label": "Pull to Dotfiles",
+					"description": "",
+					"command": "run",
+					"arguments": ["cd ~/jtzdev/dotfiles; ./manage.sh pull"]
+				}
+			]
 		}
 	],
-	"window.zoomLevel": -1,
+	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
 	// Things that there are no exposed settings for in `settings.json`, but are worth changing
