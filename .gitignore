@@ -20,3 +20,6 @@ obs
 # Root level JSON files are likely temp backups, etc.
 /*.json
 /*.jsonlz4
+
+# Backup dirs
+ff_backups/

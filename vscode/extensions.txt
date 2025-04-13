@@ -7,6 +7,7 @@ brittanychiang.halcyon-vscode
 charliermarsh.ruff
 dbaeumer.vscode-eslint
 denoland.vscode-deno
+docker.docker
 dtsvet.vscode-wasm
 eamodio.gitlens
 editorconfig.editorconfig

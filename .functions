@@ -347,6 +347,14 @@ remove_first_and_last_line() {
 	echo "$1" | sed -r '1d;$d'
 }
 
+remove_all_line_breaks() {
+	echo "$1" | tr -d '\n\r'
+}
+
+replace_all_line_breaks() {
+	echo "$1" | tr '\n\r' ' '
+}
+
 reload() {
 	if [[ $SHELL_TYPE == "ZSH" ]]; then
 		# Note: Don't use source ~/.zshrc
@@ -371,6 +379,39 @@ alert() {
 		# TODO: Add styling
 		echo "$1"
 	fi
+}
+
+toast() {
+	local message="$1"
+	local title="From Your Shell"
+
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-t|--title)
+				title=$2
+				shift
+				;;
+			-m|--message)
+				message=$2
+				shift
+				;;
+			-b|--branch)
+				BRANCH=$2
+				shift
+				;;
+		esac
+		shift
+	done
+
+	if [[ $IS_MAC -eq 1 ]]; then
+		# https://apple.stackexchange.com/a/115373/428959
+		osascript -e "display notification \"$message\" with title \"$title\""
+		return 0
+	fi
+
+	# TODO: Linux
+	return 1
 }
 
 get_clipboard_contents() {
@@ -513,16 +554,26 @@ alias convert_clipboard_md_to_html="clipboard_md_to_html"
 
 clipboard_to_plaintext() {
 	# Takes the clipboard contents and converts it to plaintext, in-place
-	text=$(get_clipboard_contents)
+	local text=$(get_clipboard_contents)
 	echo "$text" | copy_to_clipboard
 }
 alias convert_clipboard_to_plaintext="clipboard_to_plaintext"
 
 clipboard_html_to_md() {
-	html=$(get_clipboard_html)
+	local html=$(get_clipboard_html)
 	echo "$html" | pandoc --from html --to gfm | copy_to_clipboard
 }
 alias convert_clipboard_html_to_md="clipboard_html_to_md"
+
+clipboard_strip_newlines() {
+	local text=$(get_clipboard_contents)
+	remove_all_line_breaks "$text" | copy_to_clipboard
+}
+
+clipboard_replace_newlines() {
+	local text=$(get_clipboard_contents)
+	replace_all_line_breaks "$text" | copy_to_clipboard
+}
 
 spreadsheet_to_markdown() {
 	local filepath="$1"
@@ -682,14 +733,16 @@ moz_lz4json_to_json() {
 
 # WARNING: This produces a *huge* (multi-MB) JSON file
 firefox_dump_restore_file() {
+	local BACKUP_DIR=~/backups/ff
 	local OUT_DIR="$(pwd)"
 	while true; do
-		printf "Where to export? ENTER / [Pp]wd dir, [Tt]emp dir?\n"
+		printf "Where to export? ENTER / [Bb]ackup dir, [Pp]wd, [Tt]emp dir?\n"
 		read -r answer
 		case $answer in
+			[Bb]*) OUT_DIR=$BACKUP_DIR && break ;;
 			[Pp]*) break ;;
-			"") break ;;
-			[Tt]*) OUT_DIR="$(mktemp -d)"
+			"") OUT_DIR=$BACKUP_DIR && break ;;
+			[Tt]*) OUT_DIR="$(mktemp -d)" && break ;;
 		esac
 	done
 
@@ -1667,13 +1720,13 @@ tmux_attach_with_init() {
 	# For Rio, use different color schemes to avoid conflicts with shader renderers
 	if [[ "$TERM_PROGRAM" == "rio" ]]; then
 		tmux set-option -t "$session_name" window-style 'fg=colour240,bg=default'
-		tmux set-option -t "$session_name" window-active-style 'fg=colour255,bg=default'
+		tmux set-option -t "$session_name" window-active-style 'fg=colour255,bg=#000000'
 	else
 		# Reset back to defaults
 		tmux set-option -t "$session_name" window-style "$(tmux_get_global_option_value "window-style")"
 		tmux set-option -t "$session_name" window-active-style "$(tmux_get_global_option_value "window-active-style")"
 	fi
-
+	sleep 1
 	tmux attach-session -t "$tmux_session_name"
 }
 

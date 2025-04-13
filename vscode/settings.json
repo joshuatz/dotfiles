@@ -580,6 +580,13 @@
 			"arguments": ["workbench.action.createTerminalEditor"]
 		},
 		{
+			"label": "Replace line breaks in Clipboard",
+			"description": "Replace all line breaks in Clipboard (with spaces)",
+			"icon": "terminal-bash",
+			"command": "run",
+			"arguments": ["zsh -c '. ~/.functions && clipboard_replace_newlines && toast \"Clipboard Updated\"'"]
+		},
+		{
 			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
 			"description": "",
 			"icon": "blank"
@@ -602,10 +609,23 @@
 					"arguments": ["workbench.action.openSettingsJson"]
 				},
 				{
+					"label": "Open Snippets",
+					"description": "",
+					"command": "runCommand",
+					"icon": "notebook-mimetype",
+					"arguments": ["workbench.action.openSnippets"]
+				},
+				{
 					"label": "Pull to Dotfiles",
 					"description": "",
 					"command": "run",
 					"arguments": ["cd ~/jtzdev/dotfiles; ./manage.sh pull"]
+				},
+				{
+					"label": "Push from Dotfiles",
+					"description": "",
+					"command": "run",
+					"arguments": ["cd ~/jtzdev/dotfiles; ./manage.sh push"]
 				}
 			]
 		}
