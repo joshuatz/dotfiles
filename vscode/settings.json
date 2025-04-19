@@ -538,7 +538,13 @@
 			"arguments": ["vsc-labeled-bookmarks.addGroup"]
 		},
 		{
-			"label": "Bookmark with Note",
+			"label": "Bookmark",
+			"command": "runCommand",
+			"icon": "tag",
+			"arguments": ["vsc-labeled-bookmarks.toggleBookmark"]
+		},
+		{
+			"label": "Bookmark with Note / Label",
 			"command": "runCommand",
 			"icon": "tag",
 			"arguments": ["vsc-labeled-bookmarks.toggleLabeledBookmark"]
@@ -551,6 +557,20 @@
 		{
 			"label": "GIT",
 			"commands": [
+				{
+					"label": "Git: Copy remote URL",
+					"description": "",
+					"command": "runCommand",
+					"icon": "link",
+					"arguments": ["gitlens.copyRemoteFileUrlToClipboard"]
+				},
+				{
+					"label": "Git: Diff against prev revision",
+					"description": "",
+					"command": "runCommand",
+					"icon": "chevron-left",
+					"arguments": ["gitlens.diffWithPreviousInDiffLeft"]
+				},
 				{
 					"label": "Git: Stage Selected",
 					"description": "",
