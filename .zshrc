@@ -178,38 +178,17 @@ if [[ $has_asdf -eq 1 ]]; then
 		export PATH="${PATH}:$(go env GOPATH)/bin"
 	fi
 
-	# (ノ ゜Д゜)ノ ︵ ┻━┻
-	# Certain bins seem to get forcefully overwritten on mac - e.g. `$HOME/.asdf/shims/pod`
-	# keeps getting overshadowed by the system pod...
-	if [[ $IS_MAC -eq 1 ]]; then
-		# However, we don't want to override ALL bins, just problematic ones
-		for problem_bin in "pod"
-		do
-			problem_bin_path="$HOME/.asdf/shims/$problem_bin"
-			if [[ -f "$problem_bin_path" ]]; then
-				ln -s "$problem_bin_path" "$USER_BIN_OVERRIDES_DIR/$problem_bin"
-			fi
-		done
-	fi
-
 	# OH COME ON NOW!!!
 	# (ノ ゜Д゜)ノ ︵ ┻━┻
 	export ASDF_FORCE_PREPEND=
 	PATH="/usr/local/bin:$PATH"
 fi
 
-# For general Apple development, some tools (e.g. CocoaPods) will
-# recommend that you use the default system install of Ruby, so make
-# sure it comes first in the path
-if [[ $IS_MAC -eq 1 ]] && [[ -f /usr/bin/ruby ]] && [[ $PREFER_SYSTEM_RUBY -eq 1 ]]; then
-	# We don't want to override *everything* with usr bins, just ruby
-	# Symlink
-	ln -s /usr/bin/ruby $USER_BIN_OVERRIDES_DIR/ruby 2>/dev/null
-	ln -s /usr/bin/gem $USER_BIN_OVERRIDES_DIR/gem 2>/dev/null
-else
-	rm -f $USER_BIN_OVERRIDES_DIR/ruby
-	rm -f $USER_BIN_OVERRIDES_DIR/gem
-fi
+# Make sure shims / overrides come first, which handle some edge-cases.
+# For example, for Apple development, some tools (e.g. CocoaPods) will
+# have high-priority system paths that have to be intelligently
+# overwritten
+export PATH="$DOTFILES_DIR/shims:$PATH"
 
 
 # Wezterm
@@ -218,15 +197,17 @@ if [[ -d $WEZTERM_PATH_MAC ]]; then
 	PATH="$PATH:$WEZTERM_PATH_MAC"
 fi
 
+# Android dev - see https://developer.android.com/tools/variables
+EXPECTED_ANDROID_HOME="$HOME/Library/Android/sdk"
+if [[ -d "$EXPECTED_ANDROID_HOME" ]]; then
+	export ANDROID_HOME="$EXPECTED_ANDROID_HOME"
+	export PATH="$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools"
+fi
+
 # Shell completions for task (go-task)
 TASK_COMPLETIONS_PATH=/usr/local/share/zsh/site-functions/_task
 if (which task > /dev/null) && [[ -f "$TASK_COMPLETIONS_PATH" ]]; then
 	source "$TASK_COMPLETIONS_PATH"
-fi
-
-# Move bin overrides to front of path / max precedence
-if [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
-	PATH="$USER_BIN_OVERRIDES_DIR:$PATH"
 fi
 
 # Make sure brew comes last, so its shims can override any path stuff filled in
@@ -267,6 +248,24 @@ fi
 if [[ "$computer_name" == "Joshua’s MacBook Pro" ]]; then
 	PG_CONFIG_PATH="$(greadlink -f $(brew --prefix postgresql@12))/bin"
 	export PATH="$PATH:$PG_CONFIG_PATH"
+fi
+
+# Finally, any thing in `~/.local/bin`, *recursively* should take priority
+if [[ -d "$USER_BIN_OVERRIDES_DIR" ]]; then
+	export PATH="$USER_BIN_OVERRIDES_DIR:$PATH"
+	RECURSIVE_PATH_ADDITIONS=0
+	# Recursively add all subdirs to path, but bail out if a large number are detected
+	# (e.g. if a user has a lot of random stuff in there)
+	for dir in $(find "$USER_BIN_OVERRIDES_DIR" -type d); do
+		if [[ $RECURSIVE_PATH_ADDITIONS -gt 100 ]]; then
+			echo "A large amount of subdirectories were found in $USER_BIN_OVERRIDES_DIR; please investigate"
+			break
+		fi
+		if [[ $dir != "$USER_BIN_OVERRIDES_DIR" ]]; then
+			PATH="$dir:$PATH"
+			RECURSIVE_PATH_ADDITIONS=$((RECURSIVE_PATH_ADDITIONS + 1))
+		fi
+	done
 fi
 
 # === Dynamic Injection Section ===

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# cocoapod setup is very annoying on macOS...
+
+# Prefer asdf managed pod
+pod_bin_path=$(asdf which pod 2>/dev/null)
+if [[ $? -eq 0 ]]; then
+	# Exec with args
+	exec "$pod_bin_path" "$@"
+	exit $?
+fi
+
+# Else, use system pod
+exec /usr/local/bin/pod "$@"

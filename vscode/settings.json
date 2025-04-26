@@ -41,6 +41,9 @@
 	// If working in a project that requires them, change "auto" to "js"
 	"typescript.preferences.importModuleSpecifierEnding": "auto",
 	"javascript.preferences.importModuleSpecifierEnding": "auto",
+	// TS / JS import suggestions
+	"typescript.suggest.autoImports": true,
+	"javascript.suggest.autoImports": true,
 	// Limit number of open tabs
 	"workbench.editor.limit.enabled": true,
 	"workbench.editor.limit.value": 20,
@@ -619,6 +622,11 @@
 			"arguments": ["workbench.action.debug.selectandstart"]
 		},
 		{
+			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
+			"description": "",
+			"icon": "blank"
+		},
+		{
 			"label": "Settings",
 			"commands": [
 				{
@@ -646,6 +654,46 @@
 					"description": "",
 					"command": "run",
 					"arguments": ["cd ~/jtzdev/dotfiles; ./manage.sh push"]
+				}
+			]
+		},
+		{
+			"label": "Troubleshooting",
+			"commands": [
+				{
+					"label": "TS: Restart Server",
+					"description": "",
+					"command": "runCommand",
+					"icon": "debug-restart",
+					"arguments": ["typescript.restartTsServer"]
+				},
+				{
+					"label": "Python - lang: Restart Server",
+					"description": "",
+					"command": "runCommand",
+					"icon": "debug-restart",
+					"arguments": ["python.analysis.restartLanguageServer"]
+				},
+				{
+					"label": "Python - mypy: Restart Server",
+					"description": "",
+					"command": "runCommand",
+					"icon": "debug-restart",
+					"arguments": ["mypy-type-checker.restart"]
+				},
+				{
+					"label": "Reload Extensions",
+					"description": "",
+					"command": "runCommand",
+					"icon": "debug-restart",
+					"arguments": ["workbench.action.restartExtensionHost"]
+				},
+				{
+					"label": "Reload WINDOW",
+					"description": "",
+					"command": "runCommand",
+					"icon": "warning",
+					"arguments": ["workbench.action.reloadWindow"]
 				}
 			]
 		}

@@ -67,6 +67,8 @@ search_fuzzy() {
 
 	# Display results with FZF, with a fancy preview pane
 	echo "$results" | fzf --reverse --preview-window=wrap --preview "rg --with-filename --line-number --context=10 --no-heading --column --color=always --smart-case -e $search_pattern {}"
+
+	# TODO: Copy selected file path to clipboard and/or offer options menu (open in $EDITOR, etc.)
 }
 
 search_docs_fuzzy() {
@@ -83,6 +85,28 @@ search_dev_fuzzy() {
 
 search_home_fuzzy() {
 	search_fuzzy "$HOME" "$@"
+}
+
+search_vscode_backups_fuzzy() {
+	local possible_backup_paths=(
+		# macOS
+		"$HOME/Library/Application Support/Code/Backups"
+		# Linux
+		"$HOME/.config/Code/Backups"
+	)
+	local search_path=""
+	for possible_path in "${possible_backup_paths[@]}"; do
+		if [[ -d "$possible_path" ]]; then
+			search_path="$possible_path"
+			break
+		fi
+	done
+	if [[ -z "$search_path" ]]; then
+		echo "Could not locate VS Code backup dir!"
+		return 1
+	fi
+
+	search_fuzzy "$search_path" "$@"
 }
 
 search_fuzzy_all() {
@@ -195,12 +219,14 @@ alias symlink_resolve="resolve_symlink"
 resolve_alias() {
 	local ALIAS="$1"
 	shift
+	# Each line should be something like:
+	# `${final_entry_name} is ${bin_path}`
+	local all_aliases=$(type -a "$ALIAS" | sed -rn 's#^.+ is (.+)$#\1#p')
 	if (check_args_for_value "--all" "$*"); then
-		type -a "$ALIAS"
+		echo $all_aliases
 		return 0
 	fi
-	# The last line should be something like `${final_entry_name} is ${bin_path}`
-	local final_alias_path=$(type -a "$ALIAS" | tail -n 1 | sed -rn 's#^.+ is (.+)$#\1#p')
+	local final_alias_path=$(echo "$all_aliases" | head -n 1)
 	# The final entry could still be a symlink (which is actually very likely with applications,
 	# like on mac, `/usr/local/bin/code` is a symlink to the VS Code installed bin,
 	# under the normal applications folder
@@ -396,10 +422,6 @@ toast() {
 				message=$2
 				shift
 				;;
-			-b|--branch)
-				BRANCH=$2
-				shift
-				;;
 		esac
 		shift
 	done
@@ -411,7 +433,8 @@ toast() {
 	fi
 
 	# TODO: Linux
-	return 1
+	alert "$message"
+	return 0
 }
 
 get_clipboard_contents() {
@@ -1508,13 +1531,6 @@ wezterm_set_var() {
 	tmux_passthrough_escape "$var_setter_str"
 }
 
-wezterm_get_var() {
-	if ! (is_in_wezterm); then
-		return 1
-	fi
-	echo "@TODO"
-}
-
 set_title() {
 	local title=$1
 	if ($OH_MY_ZSH_ACTIVE) && [[ $DISABLE_AUTO_TITLE != true ]]; then
@@ -1592,8 +1608,10 @@ tmux_session_select() {
 		echo "$TMUX_SESSION"
 		return
 	fi
+	# TODO: Sort by most recently used (does tmux expose this meta info?)
 	active_sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
-	selected_session=$(printf "%s\n" "${active_sessions[@]}" | fzf)
+	# TODO: Add some sort of session preview!
+	selected_session=$(printf "%s\n" "${active_sessions[@]}" | fzf --reverse)
 	echo "$selected_session"
 }
 
@@ -1609,6 +1627,7 @@ tmux_session_select_or_current() {
 tmux_session_select_and_attach() {
 	tmux_attach_with_init "$(tmux_session_select)"
 }
+alias toas="tmux_session_select_and_attach"
 
 tmux_window_select() {
 	local selected_session=$(tmux_session_select)
@@ -1690,6 +1709,13 @@ tmux_passthrough_escape() {
 		return 0
 	fi
 	echo -ne "$string_to_wrap"
+}
+
+tmux_set_theme() {
+	# TODO: use get or select
+	local session_name="$1"
+	# TODO: Offer interactive picker if not specified
+	local selected_theme="$2"
 }
 
 tmux_attach_with_init() {
@@ -1973,6 +1999,32 @@ git_diff_live() {
 	watch -n 2 -c "git diff --staged ':(exclude)package-lock.json'"
 }
 
+# git diff doesn't support a breaking up patches (it outputs a "unified" diff),
+# but we can emulate an interactive chunk selector by using the staging area to
+# compose our chunked changes first, and then dumping the diff of the staging
+# area as the unified diff
+git_diff_selective() {
+	:
+	# TODO
+	# Steps are probably going to be:
+	# 1. Check if staged is clean / empty. If not, set flag, warn, and dump staged to stash
+	# 2. Run `git add --patch` in interactive mode
+	# 3. Check exit code, and if clean, use `git diff --staged` to generate patch
+	# 4. Unset staged
+	# 5. If staged was unclean in step 1, restore via stash
+	#
+	# Alternatively, we could maybe use the `--patch` mode of `stash` to achieve
+	# the same thing
+	#
+	# Another alternative could be to just dump the unified diff first, and then
+	# run an interactive picker (maybe via fzf) over the sections. This would be
+	# nice to implement as a generic function that can be used to break apart
+	# any diff output (maybe something like `select_diff_chunks` or `diff_breakup`).
+	# Or, perhaps, one of these utils would fit well:
+	# - https://github.com/benjsc/splitpatch
+	# - https://github.com/twaugh/patchutils
+}
+
 git_select_commit() {
 	local MAX_PAST_COMMITS_TO_LIST=40
 	local commits=$(git log --pretty=format:"%H %s" -n $MAX_PAST_COMMITS_TO_LIST)
@@ -2009,19 +2061,19 @@ alias git_stash_list="git_stash_select"
 alias git_stash_preview="git_stash_select"
 
 git_copy_commit_sha() {
-	commit_hash=$(git_select_commit)
+	local commit_hash=$(git_select_commit)
 	echo "$commit_hash" | copy_to_clipboard
 }
 
 git_copy_commit_msg() {
-	commit_hash=$(git_select_commit)
-	commit_msg=$(git log --pretty=format:"%B" -n 1 "$commit_hash")
+	local commit_hash=$(git_select_commit)
+	local commit_msg=$(git log --pretty=format:"%B" -n 1 "$commit_hash")
 	echo "$commit_msg" | copy_to_clipboard
 }
 
 # Use this to interactively select a past commit to target for `git commit --fixup=`
 git_fixup() {
-	commit_hash=$(git_select_commit)
+	local commit_hash=$(git_select_commit)
 	git commit --fixup="$commit_hash"
 }
 
@@ -2029,10 +2081,10 @@ git_fixup() {
 # TODO: This works, but really should be re-written in JS or Python
 # (too many ZSH and bash workarounds, hard to read)
 git_find_fixup_base() {
-	MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP=40
-	LOG_DIVIDER="$UNIT_SEPARATOR_CHAR"
-	seeking_commit_msgs=()
-	commit_scan_counter=0
+	local seeking_commit_msgs=()
+	local MAX_PAST_COMMITS_TO_SCAN_PER_FIXUP=40
+	local LOG_DIVIDER="$UNIT_SEPARATOR_CHAR"
+	local commit_scan_counter=0
 	# Iterate over all git log entries
 	git log --pretty=format:"%H${LOG_DIVIDER}%s" | while read line
 	do
@@ -2081,6 +2133,8 @@ git_find_fixup_base() {
 			seeking_commit_msgs=($seeking_commit_msgs)
 		fi
 	done
+
+	return 1
 }
 
 
@@ -2092,7 +2146,7 @@ git_find_merge_base() {
 
 
 git_find_github_pr() {
-	SHA=$1
+	local SHA=$1
 	gh pr list --search "$SHA"
 }
 
@@ -2199,15 +2253,15 @@ git_branch_backup() {
 			return 1
 		fi
 	fi
-	backup_branch_name="backup/$branch_to_backup--$(date '+%Y-%m-%d--%I-%M-%p')"
+	local backup_branch_name="backup/$branch_to_backup--$(date '+%Y-%m-%d--%I-%M-%p')"
 	git branch "$branch_to_backup" "$backup_branch_name"
 	echo "✅ Backed up branch $branch_to_backup to $backup_branch_name"
 }
 alias git_backup_branch="git_branch_backup"
 
 git_checkout_dirty() {
-	target_branch_name=$1
-	operation="git checkout $target_branch_name"
+	local target_branch_name=$1
+	local operation="git checkout $target_branch_name"
 	git_do_while_dirty "$operation"
 }
 if [[ $SHELL_TYPE == "ZSH" ]]; then
@@ -3121,21 +3175,24 @@ scaffold_global_node_import() {
 }
 
 run_file_in_global_node() {
-	GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
+	local GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
 	# TODO clean this up with piping?
-	FILE_TO_EXEC="$1"
-	FILENAME=$(basename "$FILE_TO_EXEC")
+	local FILE_TO_EXEC="$1"
+	local FILENAME=$(basename "$FILE_TO_EXEC")
 	# no-clobber
 	cp -n "$FILE_TO_EXEC" "$GLOBAL_NODE_MODULES/"
 	# WARNING: This might seem super hacky - why not just use `NODE_PATH=$GLOBAL_NODE_MODULES`?
 	# Well, that *would* work, except for that they decided to ignore `NODE_PATH` when
 	# moving to ESM `import` 🙃
 	# https://nodejs.org/api/esm.html#esm_no_node_path
+	local sub_proc_exit=1
 	(
 		cd "$GLOBAL_NODE_MODULES" || exit
 		node "$FILENAME"
 	)
+	sub_proc_exit=$?
 	rm "$GLOBAL_NODE_MODULES/$FILENAME"
+	return $sub_proc_exit
 }
 
 run_raw_js_in_global_node() {
@@ -3164,9 +3221,43 @@ asdf_exec_with_global_version() {
 	# Note: Above should pass through exit code, so no need to check and re-throw
 }
 
-# E.g. `asdf_get_true_path golang``
+# E.g. `asdf_get_true_path go`
 asdf_get_true_path() {
-	asdf where "$1"
+	# NOTE: `asdf where` resolves the plugin itself, whereas `asdf which`
+	# resolves the specific bin entry
+	asdf which "$1"
+}
+
+# Resolve the bin entry name to the asdf plugin name (if exists)
+#
+# asdf plugin names often do not match the bin entry / shim name, which
+# can cause issues when trying to use a plugin-specific API or automate something
+# related.
+# Example: `node` belongs to plugin `nodejs`, `go` belongs to plugin `golang`
+# Also, a plugin can expose multiple bins; e.g., `ruby` has both `ruby` and `gem`,
+# nodejs has both `node` and `npm`
+asdf_bin_name_to_plugin_name() {
+	# Is this _already_ a plugin name?
+	if (asdf where "$1" > /dev/null); then
+		echo "$1"
+	fi
+	# Resolve entry to shim
+	local bin_path=$(asdf_get_true_path "$1")
+	# Was that actually an asdf shim? Check.
+	if [[ $? -eq 0 ]]; then
+		local plugin_dir=$(echo "$bin_path" | sed -rn 's/^.+\.asdf\/installs\/([^/]+).+/\1/p')
+		if [[ -n "$plugin_dir" ]]; then
+			echo "$plugin_dir"
+			return 0
+		fi
+	fi
+
+	return 1
+}
+
+asdf_plugin_help() {
+	local plugin_name=$(asdf_bin_name_to_plugin_name "$1")
+	# TODO
 }
 
 lint_versions() {
@@ -3341,7 +3432,9 @@ task_mark_up_to_date() {
 
 	# We are running this twice to verify hash stability
 	for i in {1..2}; do
-		TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/dotfiles/scripts/task_mark_up_to_date.mjs"
+		if ! (TASK_NAME=$TASK_NAME TASKFILE_PATH=$TASKFILE_PATH run_file_in_global_node "$HOME/dotfiles/scripts/task_mark_up_to_date.mjs"); then
+			return 1
+		fi
 	done
 }
 
