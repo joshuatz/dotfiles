@@ -105,7 +105,7 @@ alias work_time_last="jttu harvest rollup --target-user=just-me --target-week=la
 # configuring requires touching a mostly undocumented set of files (e.g. `~/.vscode/arvg.json`)
 # WARNING: I'm still running into issues having VSCode rendering correctly with Wayland; these flags are working, but
 # require running "Developer: Reload Window" after first launch for some reason
-if [[ $IS_WAYLAND ]]; then
+if [[ $IS_WAYLAND -eq 1 ]]; then
 	if (whereis code | grep -q '/snap/code'); then
 		# https://github.com/microsoft/vscode/issues/202072
 		alias code="echo 'Warning: Wayland flags cannot be set for snap-installed VS Code. Use .deb distribution instead.' && code"

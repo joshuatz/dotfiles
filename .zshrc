@@ -5,6 +5,14 @@
 export ZSH="$HOME/.oh-my-zsh"
 export OH_MY_ZSH_ACTIVE=true
 
+if ! [[ -d "$ZSH" ]]; then
+	cat <<-  "EOF"
+	Could not find ZSH directory. Has it been installed?
+	    See: https://github.com/ohmyzsh/ohmyzsh
+	EOF
+	exit 0
+fi
+
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
@@ -105,9 +113,28 @@ export LC_ALL=en_US.UTF-8
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-# ==== Customizations =====
+# ==== Customizations - INIT FUNCS =====
+register_homebrew_paths() {
+	if [[ -d /home/linuxbrew/.linuxbrew/ ]]; then
+		# Linux
+		export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew";
+		export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar";
+		export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew";
 
-export EDITOR="code"
+		export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin${PATH+:$PATH}";
+		[ -z "${MANPATH-}" ] || export MANPATH=":${MANPATH#:}";
+		export INFOPATH="/home/linuxbrew/.linuxbrew/share/info:${INFOPATH:-}";
+	elif [[ -d /opt/homebrew/bin ]]; then
+		# Apple Silicon
+		export PATH="/opt/homebrew/bin:$PATH"
+	fi
+	if type brew &>/dev/null; then
+		export FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
+	fi
+}
+
+# ==== Customizations - INIT RUN =====
+
 export USER_BIN_OVERRIDES_DIR="${HOME}/.local/bin"
 if ! [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
 	mkdir -p $USER_BIN_OVERRIDES_DIR
@@ -119,16 +146,39 @@ unsetopt complete_aliases
 autoload -Uz compinit
 compinit
 
+# Tell zsh about shared function definitions
+export FPATH="$ZSH_SHARED_SITE_FUNCTIONS_DIR:$FPATH"
+register_homebrew_paths
+
 [[ -f ~/.functions ]] && source ~/.functions
 
-# Set aliases for g* (GNU) versions of programs, on systems where not necessary
-if [[ $IS_MAC -ne 1 ]]; then
+# Make sure VS Code is set as default editor and in PATH
+export EDITOR="code"
+if [[ $IS_MAC -eq 1 ]]; then
+	export PATH="$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin:$PATH"
+fi
+
+# Set aliases for g* (GNU) versions of programs
+USE_MAC_COREUTILS=0
+if [[ $IS_MAC -eq 1 ]]; then
+	USE_MAC_COREUTILS=1
+	if ! (which ghead > /dev/null); then
+		cat <<- "EOF"
+		WARNING: You are missing GNU coreutils
+		    See https://formulae.brew.sh/formula/coreutils for a brew installable package
+		EOF
+		USE_MAC_COREUTILS=0
+	fi
+fi
+if [[ $USE_MAC_COREUTILS -eq 0 ]]; then
+	# If not on mac, we shouldn't need to use coreutils and can just alias to
+	# the normal utils
 	alias ghead="head"
 	alias greadlink="readlink"
 fi
 
 # Load main customization files
-[[ -f "$DOTFILES_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DIR/ascii_art/loader.sh"
+[[ -f "$DOTFILES_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DIR/ascii_art/loader.sh" || true
 [[ -f ~/.aliases ]] && source ~/.aliases
 [[ -f ~/.env.public ]] && source ~/.env.public
 
@@ -148,6 +198,7 @@ fi
 # over global brew installs (e.g., if accidentally installed some bin through
 # both tools)
 has_asdf=0
+# LEGACY installer / setup for asdf
 if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
 	# Homebrew
 	source /usr/local/opt/asdf/libexec/asdf.sh
@@ -155,6 +206,9 @@ if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
 elif [[ -f ~/.asdf/asdf.sh ]]; then
 	# Manual install (e.g. git cloned)
 	source ~/.asdf/asdf.sh
+	has_asdf=1
+elif (which asdf > /dev/null); then
+	# Non-legacy installer, no setup script to source
 	has_asdf=1
 fi
 
@@ -212,19 +266,7 @@ fi
 
 # Make sure brew comes last, so its shims can override any path stuff filled in
 # previous steps
-if [[ -d /home/linuxbrew/.linuxbrew/ ]]; then
-	export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew";
-	export HOMEBREW_CELLAR="/home/linuxbrew/.linuxbrew/Cellar";
-	export HOMEBREW_REPOSITORY="/home/linuxbrew/.linuxbrew/Homebrew";
-
-	export PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin${PATH+:$PATH}";
-	[ -z "${MANPATH-}" ] || export MANPATH=":${MANPATH#:}";
-	export INFOPATH="/home/linuxbrew/.linuxbrew/share/info:${INFOPATH:-}";
-fi
-if type brew &>/dev/null; then
-	FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
-fi
-
+register_homebrew_paths
 
 # Docker autocompletion, mac
 DOCKER_COMPLETION_DIR=/Applications/Docker.app/Contents/Resources/etc

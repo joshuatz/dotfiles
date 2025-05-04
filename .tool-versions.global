@@ -1,0 +1,5 @@
+# Note: This is used to control "global" asdf plugin versions,
+# which had a massive overhaul to how they worked in 0.16
+# See: https://github.com/asdf-vm/asdf/blob/cddee4bce832fbefc1f1d9b78329c57a6aad7f6e/docs/guide/upgrading-to-v0-16.md?plain=1#L104-L115
+
+nodejs 22.15.0

@@ -11,13 +11,16 @@ else
 fi
 
 USER_CONFIG_DIR=$HOME/.config
-
 OS_NAME="linux"
 IS_MAC=0
+IS_MAC_SILICON=0
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	USER_CONFIG_DIR=$HOME/Library/Application\ Support
 	OS_NAME="mac"
 	IS_MAC=1
+	if [[ "$(uname -p)" == "arm" ]]; then
+		IS_MAC_SILICON=1
+	fi
 fi
 
 CODE_USER_DIR=$USER_CONFIG_DIR/Code/User
@@ -112,6 +115,12 @@ push() {
 		cp "$SCRIPT_DIR/$non_tracked_env_file_name" ~
 	done
 
+	# ZSH shared function defs
+	local ZSH_SHARED_SITE_FUNCTIONS_DIR=/usr/local/share/zsh/site-functions
+	if ! [[ -e $ZSH_SHARED_SITE_FUNCTIONS_DIR ]]; then
+		sudo mkdir -p $ZSH_SHARED_SITE_FUNCTIONS_DIR
+	fi
+
 	# Single files
 	cp "$SCRIPT_DIR/Taskfile.global.yml" ~
 	cp "$SCRIPT_DIR/.functions" ~
@@ -120,6 +129,7 @@ push() {
 	cp "$SCRIPT_DIR/.tmux.conf" ~
 	cp "$SCRIPT_DIR/.wezterm.lua" ~
 	cp "$SCRIPT_DIR/.asdfrc" ~
+	cp "$SCRIPT_DIR/.tool-versions.global" ~/.tool-versions
 
 	# Rio does not support shell expansion in config files (like for `$HOME`), so some monkey-patching
 	# is necessary
@@ -137,6 +147,13 @@ push() {
 	# Todo: This needs to be merged, not overwritten, because it contains stuff like
 	# email = REDACTED
 	# cp .gitconfig ~/.gitconfig
+	if ! [[ -f ~/.gitconfig ]]; then
+		cat <<- "EOF"
+		WARNING: You are missing a user .gitconfig file!
+		  You can copy the template in dotfiles and fill in the details
+		    For signingKey, 
+		EOF
+	fi
 
 	# VS Code
 	if (which code > /dev/null); then
@@ -180,12 +197,12 @@ push() {
 			local UPDATE_TASK_COMPLETIONS=0
 			# Noop / non-sudo by default
 			local SUDO_PREFIX=exec
-			local CURRENT_TASK_COMPLETIONS=/usr/local/share/zsh/site-functions/_task
+			local CURRENT_TASK_COMPLETIONS="$ZSH_SHARED_SITE_FUNCTIONS_DIR/_task"
 			local TEMP_UPDATED_TASK_COMPLETIONS=$(mktemp)
 			task --completion zsh 2>/dev/null > "$TEMP_UPDATED_TASK_COMPLETIONS"
 
 			# Check if sudo is needed
-			if [[ -f "$CURRENT_TASK_COMPLETIONS" ]] && ! (stat "$CURRENT_TASK_COMPLETIONS" > /dev/null); then
+			if ! (stat "$CURRENT_TASK_COMPLETIONS" > /dev/null); then
 				SUDO_PREFIX="sudo"
 			fi
 

@@ -187,7 +187,18 @@ fi
 # Useful for splitting with non-printable char, etc.
 UNIT_SEPARATOR_CHAR=$'\x1F'
 
+USER_CONFIG_DIR=$HOME/.config
+OS_NAME="linux"
 IS_MAC=0
+IS_MAC_SILICON=0
+if [[ "$OSTYPE" == "darwin"* ]]; then
+	USER_CONFIG_DIR=$HOME/Library/Application\ Support
+	OS_NAME="mac"
+	IS_MAC=1
+	if [[ "$(uname -p)" == "arm" ]]; then
+		IS_MAC_SILICON=1
+	fi
+fi
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	IS_MAC=1
 fi
@@ -1627,7 +1638,7 @@ tmux_session_select_or_current() {
 tmux_session_select_and_attach() {
 	tmux_attach_with_init "$(tmux_session_select)"
 }
-alias toas="tmux_session_select_and_attach"
+alias taos="tmux_session_select_and_attach"
 
 tmux_window_select() {
 	local selected_session=$(tmux_session_select)
