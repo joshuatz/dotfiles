@@ -248,6 +248,33 @@ resolve_alias() {
 	symlink_resolve "$final_alias_path"
 }
 alias alias_resolve="resolve_alias"
+alias which_all="resolve_alias --all"
+
+# TODO
+bin_info() {
+	local bin="$1"
+	local is_file=$([[ -e "$bin" ]] && echo 1 || echo 0)
+	local is_homebrew=0
+	local has_homebrew=0
+	local is_asdf=0
+	local has_asdf=0
+	local is_python=0
+	local has_python=0
+	local is_node=0
+	local has_node=0
+	if [[ $is_file -ne 1 ]]; then
+		:
+	else
+		:
+	fi
+
+	local INFO_TEXT=$(cat <<- EOF
+		Hello World
+	EOF
+	)
+
+	render_text_overlay "BIN Info" "$INFO_TEXT"
+}
 
 # Not perfect across all OSes, but a "good enough" approach for most
 get_computer_name() {

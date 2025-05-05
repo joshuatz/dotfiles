@@ -101,6 +101,9 @@ pull() {
 	else
 		echo "⏩ Skipped: OBS"
 	fi
+
+	source ./.functions
+	toast --title "dotfiles sync" --message "Pull complete!"
 }
 
 push() {
@@ -140,7 +143,7 @@ push() {
 
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)
-	for DIR_NAME in "scripts" "utils" "ascii_art"; do
+	for DIR_NAME in "scripts" "utils" "ascii_art" "shims"; do
 		cp -r "$SCRIPT_DIR/$DIR_NAME" ~/dotfiles/
 	done
 
@@ -270,6 +273,11 @@ push() {
 		fi
 	fi
 
+	source ./.functions
+	echo "Push complete!"
+	toast --title "dotfiles sync" --message "Push complete!"
+
+	# WARNING: THIS NEEDS TO COME LAST!
 	bootstrap
 }
 
