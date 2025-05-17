@@ -22,6 +22,7 @@ grapecity.gc-excelviewer
 hashicorp.terraform
 jakob101.relativepath
 koalamer.labeled-bookmarks
+llvm-vs-code-extensions.lldb-dap
 mads-hartmann.bash-ide-vscode
 mrmlnc.vscode-scss
 ms-azuretools.vscode-docker
@@ -58,10 +59,10 @@ rust-lang.rust-analyzer
 sabitovvt.favorites-panel
 streetsidesoftware.code-spell-checker
 svelte.svelte-vscode
+swiftlang.swift-vscode
 task.vscode-task
 timonwong.shellcheck
 tobias-faller.vt100-syntax-highlighting
-twxs.cmake
 vscjava.vscode-gradle
 vscode-icons-team.vscode-icons
 vscodevim.vim

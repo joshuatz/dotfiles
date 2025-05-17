@@ -50,6 +50,8 @@
 	"workbench.editor.limit.perEditorGroup": false,
 	// WOO! Keep layout (e.g. three column), even if you *close* all the tabs within the editors! NOTE: This won't stop the action "Close all editor ***groups***" from closing the layout - instead use "close all ***editors***"
 	"workbench.editor.closeEmptyGroups": false,
+	"accessibility.dimUnfocused.enabled": true,
+	"accessibility.dimUnfocused.opacity": 0.8,
 	// Hide "open editors"
 	// "explorer.openEditors.visible": 0,
 	// Emulate Notepad++ showing hidden chars
@@ -608,6 +610,27 @@
 			"icon": "terminal-bash",
 			"command": "run",
 			"arguments": ["zsh -c '. ~/.functions && clipboard_replace_newlines && toast \"Clipboard Updated\"'"]
+		},
+		{
+			"label": "Clipboard HTML to MD",
+			"description": "",
+			"icon": "markdown",
+			"command": "run",
+			"arguments": ["zsh -c '. ~/.functions && clipboard_html_to_md && toast \"Clipboard Updated\"'"]
+		},
+		{
+			"label": "Clipboard HTML to MD (Reduced)",
+			"description": "",
+			"icon": "markdown",
+			"command": "run",
+			"arguments": ["zsh -c '. ~/.functions && clipboard_html_to_md_reduced && toast \"Clipboard Updated\"'"]
+		},
+		{
+			"label": "Clipboard (any) to Plaintext",
+			"description": "",
+			"icon": "symbol-text",
+			"command": "run",
+			"arguments": ["zsh -c '. ~/.functions && clipboard_to_plaintext && toast \"Clipboard Updated\"'"]
 		},
 		{
 			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",

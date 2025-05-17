@@ -626,6 +626,11 @@ clipboard_html_to_md() {
 }
 alias convert_clipboard_html_to_md="clipboard_html_to_md"
 
+clipboard_html_to_md_reduced() {
+	local html=$(get_clipboard_html)
+	echo "$html" | pandoc --from html --to markdown_github-raw_html | copy_to_clipboard
+}
+
 clipboard_strip_newlines() {
 	local text=$(get_clipboard_contents)
 	remove_all_line_breaks "$text" | copy_to_clipboard
@@ -3346,6 +3351,15 @@ find_proc_by_port() {
 	lsof -i :"$PORT"
 }
 
+_PS_OUTPUT_FOR_PICK_PROCS_INTERACTIVE_COLUMNS="ruser,pid,ppid,pgid,etime,cpu,%cpu,%mem,command"
+# r = sort by CPU
+# m = sort by memory
+# x = include processes without a controlling terminal (this is most)
+_PS_OUTPUT_FOR_PICK_PROCS_INTERACTIVE_ARGS=(
+	-x -m
+	-o "$_PS_OUTPUT_FOR_PICK_PROCS_INTERACTIVE_COLUMNS"
+)
+
 find_procs_by_string() {
 	local SEARCH_STRING=$1
 	if [[ $SLIM -eq 1 ]]; then
@@ -3357,10 +3371,8 @@ find_procs_by_string() {
 		# Note: If you want to use `awk` with above, use `-F'\t'` to set separator
 		return
 	fi
-	# r = sort by CPU
-	# m = sort by memory
-	# x = include processes without a controlling terminal (this is most)
-	local ps_output=$(ps -x -m -o ruser,pid,ppid,pgid,etime,cpu,%cpu,%mem,command)
+
+	local ps_output=$(ps "${_PS_OUTPUT_FOR_PICK_PROCS_INTERACTIVE_ARGS[@]}")
 	# Headings
 	echo "$ps_output" | head -n 1
 	# Filtered content
@@ -3369,6 +3381,11 @@ find_procs_by_string() {
 
 pick_procs_by_string() {
 	local proc_list=$(find_procs_by_string "$1")
+	pick_procs_interactive "$proc_list"
+}
+
+pick_procs_interactive() {
+	local proc_list="$1"
 	local header_row=$(echo $proc_list | head -n 1)
 
 	# Detect proc list format
@@ -3415,13 +3432,14 @@ kill_procs_by_pid_interactive() {
 	if [[ -z "$SELECTED_SIG" ]] || [[ "$SELECTED_SIG" == "---" ]]; then
 		return 1
 	fi
-	for PID in "$@"; do
+
+	while IFS= read -r PID; do
 		kill -"$SELECTED_SIG" "$PID"
-	done
+	done <<<"$@"
 }
 
 kill_procs_by_port_interactive() {
-	local pids=$(find_pid_by_port)
+	local pids=$(find_pid_by_port "$1")
 	# TODO display proc pick list, multi-select, before passing to kill
 	kill_procs_by_pid_interactive "$pids"
 }
@@ -3976,7 +3994,10 @@ get_cert_type() {
 		echo "URL"
 		return
 	elif [[ -f "$cert_file_or_url" ]]; then
-		if (file "$cert_file_or_url" | grep --silent "SSH"); then
+		if (file "$cert_file_or_url" | grep --silent "certificate request"); then
+			echo "CSR"
+			return
+		elif (file "$cert_file_or_url" | grep --silent "SSH"); then
 			if (grep --silent -E "^-----BEGIN OPENSSH PRIVATE KEY-----" "$cert_file_or_url"); then
 				echo "SSH:PRIVATE"
 				return
@@ -3989,6 +4010,9 @@ get_cert_type() {
 		elif (file "$cert_file_or_url" | grep --silent "PEM"); then
 			echo "SSL:PUBLIC"
 			return
+		# DER, as a binary format, we can't know much about until parsed
+		elif [[ "$cert_file_or_url"	== *.der ]] && (file "$cert_file_or_url" | grep --silent "Certificate"); then
+			echo "SSL:UNKNOWN"
 		# This makes some assumptions
 		elif (file "$cert_file_or_url" | grep --silent "ASCII text") && (grep --silent -E "^-----BEGIN PRIVATE KEY-----" "$cert_file_or_url"); then
 			echo "SSL:PRIVATE"
@@ -4005,16 +4029,21 @@ get_cert_info() {
 	echo "🧠 Determining type of $cert_file_or_url ..."
 	local cert_type=$(get_cert_type "$cert_file_or_url")
 
-
-	if ! [[ $? -eq 0 ]]; then
-		echo "Could not determine the type of certificate. Is $cert_file_or_url a valid input"
+	if ! [[ $? -eq 0 ]] || [[ -z "$cert_type" ]]; then
+		echo "Could not determine the type of certificate. Is $cert_file_or_url a valid input?"
+		return 1
 	fi
 
 	echo "ℹ️ Type mapped as $cert_type"
 	echo "🔨 Extracting information for $cert_type"
 
 	# SSL
-	if [[ $cert_type == "SSL:PUBLIC" ]] || [[ $cert_type == "SSL:PRIVATE" ]]; then
+	if [[ $cert_type == "CSR" ]]; then
+		echo "🔨 Extracting cert request info"
+		openssl req -in "$cert_file_or_url" -noout -text
+		return
+	fi
+	if [[ $cert_type == "SSL:PUBLIC" ]] || [[ $cert_type == "SSL:PRIVATE" ]] || [[ $cert_type == "SSL:UNKNOWN" ]]; then
 		echo "🔨 Extracting SSL cert info"
 		compose_ssl_cert_query "$cert_file_or_url" -text -pubkey
 		return
@@ -4081,6 +4110,10 @@ top_snapshot() {
 	fi
 }
 
+# TODO - add:
+# - HW info (num cores, more arch info)
+# - uptime
+# - local IP
 splash_screen() {
 	local INFO_TEXT=""
 	if [[ $IS_MAC -eq 1 ]]; then
