@@ -76,6 +76,7 @@
 	"gitlens.codeLens.includeSingleLineSymbols": false,
 	// Terminal Settings
 	"terminal.integrated.shell.windows": "C:\\Program Files\\Git\\bin\\bash.exe",
+	"terminal.integrated.rightClickBehavior": "nothing",
 	// XO formatter
 	"xo.enable": true,
 	"xo.format.enable": true,
@@ -348,10 +349,14 @@
 	"python.linting.pylintArgs": [
 		"--enable=W0614" // Remove unused imports
 	],
+	"black-formatter.args": [
+		"--line-length",
+		"100",
+		"--skip-string-normalization",
+		"--preview",
+		"--enable-unstable-feature=string_processing"
+	],
 	// @TODO - python.formatting deprecated --- need to cleap up
-	"python.formatting.provider": "black",
-	"python.formatting.blackPath": "/Users/joshua/jtzdev/python-scratch/venv/bin/black",
-	"python.formatting.blackArgs": ["--line-length", "79", "--skip-string-normalization"],
 	"python.formatting.autopep8Path": "/Users/joshua/jtzdev/python-scratch/venv/bin/autopep8",
 	"python.formatting.autopep8Args": ["--max-line-length", "79", "--experimental"],
 	"python.formatting.yapfPath": "/Users/joshua/jtzdev/python-scratch/venv/bin/yapf",
@@ -445,6 +450,9 @@
 	// Disables the new three-way merge conflict editor
 	"git.mergeEditor": false,
 	"jest.autoRun": "off",
+	// Enable "commonly used" command tracking and suggestions
+	// NOTE: If this suddenly stops working, try clearing command history
+	// (with `Clear Command History`)
 	"workbench.commandPalette.experimental.suggestCommands": true,
 	// No manually attaching debugger (if === 'always')
 	// ISSUE: on Windows, this tends to eat up a LOT (!!!) of CPU....
@@ -512,13 +520,18 @@
 		// sed / regex, and I generally prefer using those
 		"2001"
 	],
-	"diffEditor.ignoreTrimWhitespace": false,
+	"diffEditor.ignoreTrimWhitespace": true,
 	"search.defaultViewMode": "tree",
 	"search.searchEditor.defaultNumberOfContextLines": 6,
 	"search.maxResults": 2000,
 	"search.smartCase": true,
 	"typescriptExplorer.typeTree.maxRecursionDepth": 4,
 	"typescript.experimental.expandableHover": true,
+	// https://github.com/paolotiu/tailwind-intellisense-regex-list
+	"tailwindCSS.experimental.classRegex": [
+		// https://github.com/paolotiu/tailwind-intellisense-regex-list/blob/44c8c4bbaa17da07bc13e379a5a8dcd409a9d391/README.md#typescript-or-javascript-variables-strings-or-arrays-with-keyword
+		"Styles\\s*(?::\\s*[^=]+)?\\s*=\\s*([^;]*);"
+	],
 	// https://github.com/sabitovvt/vscode-favorites-panel
 	// - Select icons from: https://code.visualstudio.com/api/references/icons-in-labels#icon-listing
 	// - You can use `blank` for no icon. Or `gripper` is another good choice
@@ -574,7 +587,14 @@
 					"description": "",
 					"command": "runCommand",
 					"icon": "chevron-left",
-					"arguments": ["gitlens.diffWithPreviousInDiffLeft"]
+					"arguments": ["gitlens.diffWithPrevious"]
+				},
+				{
+					"label": "Git: Diff against next revision",
+					"description": "",
+					"command": "runCommand",
+					"icon": "chevron-right",
+					"arguments": ["gitlens.diffWithNext"]
 				},
 				{
 					"label": "Git: Stage Selected",

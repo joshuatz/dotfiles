@@ -22,13 +22,14 @@ docs() {
 search_fuzzy() {
 	local search_dir="$1"
 	local search_pattern="$2"
+	shift 2
 
 	if ! [[ -d "$search_dir" ]]; then
 		return 1
 	fi
 
 	local RG_ARGS=(
-		"$search_dir"
+		'--follow'
 		'--glob'
 		'!**/node_modules/'
 		'--glob'
@@ -45,14 +46,49 @@ search_fuzzy() {
 		'!**/.git/'
 	)
 
-	echo "RG args: ${RG_ARGS[*]}"
+
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-o|--out-dir)
+				OUT_DIR=$2
+				shift
+				;;
+			-r|--remote)
+				REMOTE=$2
+				shift
+				;;
+			-b|--branch)
+				BRANCH=$2
+				shift
+				;;
+			# Assume that all other args passed in are for rg
+			# If adding new args for this function specifically,
+			# they should be popped off before passing to rg
+			*)
+				RG_ARGS+=("$1")
+				shift
+				;;
+		esac
+		shift
+	done
+	# The search path should always come LAST
+	RG_ARGS+=("$search_dir")
+
 	echo "Searching in $search_dir"
 
-	results=$(rg --files-with-matches -e "$search_pattern" "${RG_ARGS[@]}" 2>/dev/null)
+	local results=""
+	if [[ -z "$ONLY_FILENAMES" ]]; then
+		local RG_ARGS__CONTENT=("--files-with-matches" "-e" "$search_pattern" "${RG_ARGS[@]}")
+		echo "RG Args: ${RG_ARGS__CONTENT[*]}"
+		results=$(rg "${RG_ARGS__CONTENT[@]}" 2>/dev/null)
+	fi
 
 	if [[ -z "$ONLY_CONTENT" ]]; then
 		# Check filenames too
-		local filename_results=$(rg --files --glob "$search_pattern" "${RG_ARGS[@]}")
+		local RG_ARGS__FILENAMES=("--files" "--glob" "$search_pattern" "${RG_ARGS[@]}")
+		echo "RG Args: ${RG_ARGS__FILENAMES[*]}"
+		local filename_results=$(rg "${RG_ARGS__FILENAMES[@]}")
 		if [[ -z "$results" ]]; then
 			results="$filename_results"
 		elif [[ -n "$filename_results" ]]; then
@@ -227,6 +263,7 @@ resolve_symlink() {
 }
 alias symlink_resolve="resolve_symlink"
 
+# TODO: auto-resolve asdf shims
 resolve_alias() {
 	local ALIAS="$1"
 	shift
@@ -800,6 +837,7 @@ moz_lz4json_to_json() {
 # WARNING: This produces a *huge* (multi-MB) JSON file
 firefox_dump_restore_file() {
 	local BACKUP_DIR=~/backups/ff
+	mkdir -p "$BACKUP_DIR"
 	local OUT_DIR="$(pwd)"
 	while true; do
 		printf "Where to export? ENTER / [Bb]ackup dir, [Pp]wd, [Tt]emp dir?\n"
@@ -817,6 +855,11 @@ firefox_dump_restore_file() {
 		return 1
 	fi
 	local firefox_recovery_file_path="${firefox_profile_dir}/sessionstore-backups/recovery.jsonlz4"
+
+	if ! [[ -f $firefox_recovery_file_path ]]; then
+		echo "Could not locate session backup file"
+		return 1
+	fi
 
 	cp "$firefox_recovery_file_path" "$OUT_DIR/"
 	local OUT_FILE="$OUT_DIR/$(date_iso)__firefox_recovery.json"
@@ -1716,6 +1759,21 @@ tmux_kill_pane() {
 	tmux kill-pane -t "$pane"
 }
 
+tmux_kill_server() {
+	printf "This will kill all sessions and the tmux server. Are you _sure_ you want to continue? [Yy]es / ENTER, [Nn]o / [Cc]ancel"
+	while true; do
+		read -r answer
+		case $answer in
+			[Yy]*) break ;;
+			"") break ;;
+			[Nn]*) return 0 ;;
+			[Cc]*) return 0 ;;
+		esac
+	done
+	tmux kill-server
+}
+alias tmux_kill_all="tmux_kill_server"
+
 tmux_scrollback_dump() {
 	: "${NUM_LINES:="500"}"
 	pane=$(tmux_pane_select)
@@ -1755,10 +1813,38 @@ tmux_passthrough_escape() {
 }
 
 tmux_set_theme() {
-	# TODO: use get or select
 	local session_name="$1"
+	if [[ -z "$session_name" ]]; then
+		session_name=$(tmux_session_select)
+	fi
 	# TODO: Offer interactive picker if not specified
 	local selected_theme="$2"
+	if [[ -z "$selected_theme" ]]; then
+		local theme_options=$(cat <<- "EOF"
+		conf
+		favorite
+		alt
+		EOF
+		)
+		selected_theme=$(echo "$theme_options" | fzf --reverse)
+		if [[ -z "$selected_theme" ]]; then
+			return 1
+		fi
+	fi
+
+	if [[ "$selected_theme" == "conf" ]]; then
+		tmux set-option -t "$session_name" window-style "$(tmux_get_global_option_value "window-style")"
+		tmux set-option -t "$session_name" window-active-style "$(tmux_get_global_option_value "window-active-style")"
+	elif [[ "$selected_theme" == "favorite" ]]; then
+		tmux set-option -t "$session_name" window-style 'fg=colour240,bg=default'
+		tmux set-option -t "$session_name" window-active-style 'fg=colour255,bg=#000000'
+	elif [[ "$selected_theme" == "alt" ]]; then
+		tmux set-option -t "$session_name" window-style 'fg=colour247,bg=colour236'
+		tmux set-option -t "$session_name" window-active-style 'fg=colour250,bg=black'
+	else
+		echo "\"$selected_theme\" is not a valid theme option"
+		return 1
+	fi
 }
 
 tmux_attach_with_init() {
@@ -1786,15 +1872,6 @@ tmux_attach_with_init() {
 		echo "Set $tmux_var_name to $local_var_name val of $local_var_val"
 	done
 
-	# For Rio, use different color schemes to avoid conflicts with shader renderers
-	if [[ "$TERM_PROGRAM" == "rio" ]]; then
-		tmux set-option -t "$session_name" window-style 'fg=colour240,bg=default'
-		tmux set-option -t "$session_name" window-active-style 'fg=colour255,bg=#000000'
-	else
-		# Reset back to defaults
-		tmux set-option -t "$session_name" window-style "$(tmux_get_global_option_value "window-style")"
-		tmux set-option -t "$session_name" window-active-style "$(tmux_get_global_option_value "window-active-style")"
-	fi
 	sleep 1
 	tmux attach-session -t "$tmux_session_name"
 }
@@ -2117,7 +2194,20 @@ git_copy_commit_msg() {
 # Use this to interactively select a past commit to target for `git commit --fixup=`
 git_fixup() {
 	local commit_hash=$(git_select_commit)
-	git commit --fixup="$commit_hash"
+	if ! (git commit --fixup="$commit_hash"); then
+		return 1
+	fi
+	printf "Would you like to auto-rebase? [Yy]es / ENTER, [Nn]o / [Cc]ancel"
+	while true; do
+		read -r answer
+		case $answer in
+			[Yy]*) break ;;
+			"") break ;;
+			[Nn]*) return 0 ;;
+			[Cc]*) return 0 ;;
+		esac
+	done
+	git_auto_rebase
 }
 
 
@@ -3112,9 +3202,16 @@ run_raw_cmd_in_dotfiles_venv() {
 	fi
 	(
 		cd "$DOTFILES_DIR" || exit
-		activate || exit
+		if ! [[ -d ./.venv ]]; then
+			if ! (python3 -m venv ./.venv); then
+				echo "Virtual environment is missing in $DOTFILES_DIR and could not be auto-created" 1>&2
+				exit 1
+			fi
+		fi
+		activate || exit 1
 		$SHELL -c "$RAW_CMD_TO_RUN"
 	)
+	return $?
 }
 
 run_python_repl_in_dotfiles_venv() {
@@ -3142,7 +3239,7 @@ ensure_pkg_in_dotfiles_venv() {
 		case $answer in
 			[Yy]*)
 				run_raw_cmd_in_dotfiles_venv "pip install $pkg_name"
-				return 0
+				return $?
 				;;
 			*)
 				return 1
@@ -3975,6 +4072,9 @@ trust_cert_fingerprint() {
 }
 
 compose_ssl_cert_query() {
+	local OPEN_SSL_ARGS=(
+		"x509"
+	)
 	local CERT_FILE_OR_DOMAIN_URL=$1
 	local CERT_FILE=$1
 	shift
@@ -3982,22 +4082,29 @@ compose_ssl_cert_query() {
 		local CERT_FILE=$(mktemp)
 		# Remap 'https://example.com' -> 'example.com:443'
 		openssl s_client -connect "$CERT_FILE_OR_DOMAIN_URL" </dev/null 2>/dev/null > "$CERT_FILE"
+		OPEN_SSL_ARGS+=("-pubkey")
 	fi
-	openssl x509 -pubkey -in "$CERT_FILE" "$@"
+	OPEN_SSL_ARGS+=("-in" "$CERT_FILE")
+	declare -p OPEN_SSL_ARGS
+	openssl "${OPEN_SSL_ARGS[@]}" "$@"
 }
 
 SSH_PUBLIC_KEY_START_PATTERN="^ssh-[a-zA-Z]{2,}[a-zA-Z0-9-]*"
 
 get_cert_type() {
 	local cert_file_or_url="$1"
+	# local ssl_fallback_filename_patterns=(
+	# 	*der
+	# )
 	if [[ $1 =~ ^https://.* ]]; then
 		echo "URL"
 		return
 	elif [[ -f "$cert_file_or_url" ]]; then
-		if (file "$cert_file_or_url" | grep --silent "certificate request"); then
+		local FILE_TYPE=$(file "$cert_file_or_url")
+		if (echo "$FILE_TYPE" | grep --silent "certificate request"); then
 			echo "CSR"
 			return
-		elif (file "$cert_file_or_url" | grep --silent "SSH"); then
+		elif (echo "$FILE_TYPE" | grep --silent "SSH"); then
 			if (grep --silent -E "^-----BEGIN OPENSSH PRIVATE KEY-----" "$cert_file_or_url"); then
 				echo "SSH:PRIVATE"
 				return
@@ -4007,16 +4114,21 @@ get_cert_type() {
 			fi
 			# Unknown format
 			return 1
-		elif (file "$cert_file_or_url" | grep --silent "PEM"); then
+		elif (echo "$FILE_TYPE" | grep --silent "PEM"); then
 			echo "SSL:PUBLIC"
 			return
 		# DER, as a binary format, we can't know much about until parsed
-		elif [[ "$cert_file_or_url"	== *.der ]] && (file "$cert_file_or_url" | grep --silent "Certificate"); then
+		elif [[ "$cert_file_or_url"	== *.der ]] && (echo "$FILE_TYPE" | grep --silent "Certificate"); then
 			echo "SSL:UNKNOWN"
-		# This makes some assumptions
-		elif (file "$cert_file_or_url" | grep --silent "ASCII text") && (grep --silent -E "^-----BEGIN PRIVATE KEY-----" "$cert_file_or_url"); then
-			echo "SSL:PRIVATE"
-			return
+		elif (echo "$FILE_TYPE" | grep --silent "ASCII text"); then
+			if (grep --silent -E "^-----BEGIN ENCRYPTED PRIVATE KEY-----" "$cert_file_or_url"); then
+				echo "SSL:PRIVATE:ENCRYPTED"
+				return
+			# This makes some assumptions
+			elif [[ "$cert_file_or_url" == *.pem ]] || (grep --silent -E "^-----BEGIN PRIVATE KEY-----" "$cert_file_or_url"); then
+				echo "SSL:PRIVATE"
+				return
+			fi
 		fi
 	fi
 
@@ -4043,9 +4155,16 @@ get_cert_info() {
 		openssl req -in "$cert_file_or_url" -noout -text
 		return
 	fi
-	if [[ $cert_type == "SSL:PUBLIC" ]] || [[ $cert_type == "SSL:PRIVATE" ]] || [[ $cert_type == "SSL:UNKNOWN" ]]; then
+
+	if (echo "$cert_type" | grep -E --silent '^SSL:'); then
 		echo "🔨 Extracting SSL cert info"
-		compose_ssl_cert_query "$cert_file_or_url" -text -pubkey
+		if [[ $cert_type == "SSL:PUBLIC" ]]; then
+			compose_ssl_cert_query "$cert_file_or_url" -text -noout -pubkey
+		elif [[ $cert_type == "SSL:PRIVATE:ENCRYPTED" ]]; then
+			openssl pkey -in "$cert_file_or_url" -text -noout
+		elif [[ $cert_type == "SSL:PRIVATE" ]]; then
+			compose_ssl_cert_query "$cert_file_or_url" -text -noout
+		fi
 		return
 	fi
 
@@ -4058,6 +4177,17 @@ get_cert_info() {
 	# Unknown type / unmapped type
 	echo "Could not determine how to extract info from $cert_type, $cert_file_or_url"
 	return 1
+}
+
+
+verify_cert_pair() {
+	local ITEM_A="$1"
+	local ITEM_B="$2"
+	# TODO
+}
+
+convert_cert() {
+	:
 }
 
 is_cert_not_expired() {

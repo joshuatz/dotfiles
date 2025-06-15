@@ -6,7 +6,10 @@ alias devdocs="open https://devdocs.io/"
 
 # === File management ===
 alias is_symlink="test -L"
-alias list="ls -halt"
+alias list="ls -halt -L"
+if [[ $IS_MAC -eq 1 ]]; then
+	alias list="ls -halt -l@ -L"
+fi
 alias folders_by_size="du -h -d 1 | sort -h"
 alias folder_size="du -hs"
 # tar flags:

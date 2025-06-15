@@ -292,13 +292,16 @@ if [[ "$computer_name" == "Joshua’s MacBook Pro" ]]; then
 	export PATH="$PATH:$PG_CONFIG_PATH"
 fi
 
+# How many levels deep to recursively add sub-dirs to the PATH?
+USER_BIN_OVERRIDES_DIR_MAX_RECURSION=0
+
 # Finally, any thing in `~/.local/bin`, *recursively* should take priority
 if [[ -d "$USER_BIN_OVERRIDES_DIR" ]]; then
 	export PATH="$USER_BIN_OVERRIDES_DIR:$PATH"
 	RECURSIVE_PATH_ADDITIONS=0
 	# Recursively add all subdirs to path, but bail out if a large number are detected
 	# (e.g. if a user has a lot of random stuff in there)
-	for dir in $(find "$USER_BIN_OVERRIDES_DIR" -type d); do
+	for dir in $(find "$USER_BIN_OVERRIDES_DIR" -type d -maxdepth $USER_BIN_OVERRIDES_DIR_MAX_RECURSION); do
 		if [[ $RECURSIVE_PATH_ADDITIONS -gt 100 ]]; then
 			echo "A large amount of subdirectories were found in $USER_BIN_OVERRIDES_DIR; please investigate"
 			break
