@@ -1047,7 +1047,7 @@ get_workspace_json() {
 	local CONSIDER_ONLY_ACTIVE_WORKSPACES=$(
 		{ [[ -n "$ALL_WORKSPACES" ]] || [[ $* == *--all* ]]; } && echo "y" || echo "n"
 	)
-	local workspaces_file=~/.workspaces.json
+	local workspaces_file="$HOME/.workspaces.json"
 	if ! [[ -f "$workspaces_file" ]]; then
 		echo "ERROR: Could not find workspaces file at $workspaces_file"
 		return 1
@@ -1082,7 +1082,13 @@ get_workspace_json() {
 
 open_workspace() {
 	local WORKSPACE_NAME=$1
-	local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME")
+	if [[ -z "$WORKSPACE_NAME" ]]; then
+		echo "You didn't specify a workspace name!"
+		return 1
+	fi
+	if ! local WORKSPACE_JSON=$(get_workspace_json "$WORKSPACE_NAME"); then
+		return 1
+	fi
 
 	if [[ -z "$WORKSPACE_JSON" ]]; then
 		return 1
@@ -3619,6 +3625,11 @@ ffmpeg_resize() {
 	INPUT_FILE_NO_EXT=$(basename "$INPUT_FILE" | sed -E 's/\.[^.]+$//')
 	: "${OUTPUT_FILE:="$INPUT_FILE_NO_EXT"_resized"$INPUT_FILE_EXT"}"
 
+	if ! (which ffmpeg > /dev/null); then
+		echo "Could not find ffmpeg!"
+		return 1
+	fi
+
 	# If target width, not provided, use choices
 	if [[ -z "$TARGET_WIDTH" ]]; then
 		printf "What should the target width be?\n\t[Aa])1920\n\t[Bb])1280\n\t[Cc])720\n\t[Dd])480\n"
@@ -4117,6 +4128,7 @@ get_cert_type() {
 		return
 	elif [[ -f "$cert_file_or_url" ]]; then
 		local FILE_TYPE=$(file "$cert_file_or_url")
+		local LEADING_BYTES_HEX=$(hexdump -n 4 -e '4/1 "%02x"' "$cert_file_or_url")
 		if (echo "$FILE_TYPE" | grep --silent "certificate request"); then
 			echo "CSR"
 			return
@@ -4130,6 +4142,10 @@ get_cert_type() {
 			fi
 			# Unknown format
 			return 1
+		# Magic bytes for DER cert
+		elif [[ "$LEADING_BYTES_HEX" == 3082* ]]; then
+			echo "SSL:PUBLIC"
+			return
 		elif (echo "$FILE_TYPE" | grep --silent "PEM"); then
 			echo "SSL:PUBLIC"
 			return
@@ -4145,6 +4161,8 @@ get_cert_type() {
 				echo "SSL:PRIVATE"
 				return
 			fi
+		elif [[ "$cert_file_or_url"	== *.mobileprovision ]]; then
+			echo "APPLE:PROVISIONING_PROFILE"
 		fi
 	fi
 
@@ -4187,6 +4205,14 @@ get_cert_info() {
 	# SSH
 	if [[ $cert_type == "SSH:PUBLIC" ]] || [[ $cert_type == "SSH:PRIVATE" ]]; then
 		ssh-keygen -lf "$cert_file_or_url"
+		return
+	fi
+
+	# Apple
+	if (echo "$cert_type" | grep -E --silent '^APPLE:'); then
+		if [[ $cert_type == "APPLE:PROVISIONING_PROFILE" ]]; then
+			security cms -D -i "$cert_file_or_url"
+		fi
 		return
 	fi
 
