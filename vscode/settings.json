@@ -50,7 +50,10 @@
 	"workbench.editor.limit.perEditorGroup": false,
 	// WOO! Keep layout (e.g. three column), even if you *close* all the tabs within the editors! NOTE: This won't stop the action "Close all editor ***groups***" from closing the layout - instead use "close all ***editors***"
 	"workbench.editor.closeEmptyGroups": false,
-	"accessibility.dimUnfocused.enabled": true,
+	// It would be nice to have this be enabled, but unfortunately it prevents tooltips
+	// from working on unfocused panes if enabled, which is too useful of a feature
+	// to lose
+	"accessibility.dimUnfocused.enabled": false,
 	"accessibility.dimUnfocused.opacity": 0.8,
 	// Hide "open editors"
 	// "explorer.openEditors.visible": 0,
@@ -77,6 +80,13 @@
 	// Terminal Settings
 	"terminal.integrated.shell.windows": "C:\\Program Files\\Git\\bin\\bash.exe",
 	"terminal.integrated.rightClickBehavior": "nothing",
+	"terminal.integrated.gpuAcceleration": "auto",
+	"terminal.integrated.environmentChangesIndicator": "on",
+	// Inheriting can mess up a bunch of things, like $TMUX
+	"terminal.integrated.inheritEnv": false,
+	"terminal.integrated.enablePersistentSessions": false,
+	"python.terminal.activateEnvInCurrentTerminal": false,
+	"python.terminal.activateEnvironment": false,
 	// XO formatter
 	"xo.enable": true,
 	"xo.format.enable": true,
@@ -265,6 +275,7 @@
 	// Bookmarks - start expanded
 	// Note: If you edit this, it seems like you need to reload to get it to take affect
 	"bookmarks.sideBar.expanded": true,
+	// Styling
 	"workbench.colorCustomizations": {
 		"editorError.foreground": "#ff00006e",
 		"diffEditor.removedTextBorder": "#FF000055",
@@ -276,13 +287,6 @@
 		// Some themes override this... argh.
 		"terminal.ansiBlack": "#000000"
 	},
-	"terminal.integrated.gpuAcceleration": "auto",
-	"terminal.integrated.environmentChangesIndicator": "on",
-	// Inheriting can mess up a bunch of things, like $TMUX
-	"terminal.integrated.inheritEnv": false,
-	"terminal.integrated.enablePersistentSessions": false,
-	"python.terminal.activateEnvInCurrentTerminal": false,
-	"python.terminal.activateEnvironment": false,
 	"workbench.iconTheme": "vscode-icons",
 	"peacock.favoriteColors": [
 		{
@@ -469,14 +473,15 @@
 		".prettierrc": "json"
 	},
 	// Set this to false to disable live as-you-type copilot suggestions, which is helpful for not conflicting with intellisense as much
-	"editor.inlineSuggest.enabled": false,
+	"editor.inlineSuggest.enabled": true,
 	"github.copilot.enable": {
-		"*": true,
-		"plaintext": true,
-		"markdown": true,
+		"*": false,
+		"plaintext": false,
+		"markdown": false,
 		"scminput": false,
-		"yaml": true
+		"yaml": false
 	},
+	"github.copilot.nextEditSuggestions.enabled": false,
 	"[typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
@@ -502,7 +507,8 @@
 		"**/node_modules": false,
 		"**/bower_components": true
 	},
-	"explorer.sortOrder": "modified",
+	// It would be nice if there was an option for top-level sorted by default, and nested by last modified...
+	"explorer.sortOrder": "default",
 	"editor.minimap.renderCharacters": false,
 	// Helps with wayland stuff
 	"window.titleBarStyle": "custom",
@@ -520,7 +526,7 @@
 		// sed / regex, and I generally prefer using those
 		"2001"
 	],
-	"diffEditor.ignoreTrimWhitespace": true,
+	"diffEditor.ignoreTrimWhitespace": false,
 	"search.defaultViewMode": "tree",
 	"search.searchEditor.defaultNumberOfContextLines": 6,
 	"search.maxResults": 2000,
@@ -529,8 +535,16 @@
 	"typescript.experimental.expandableHover": true,
 	// https://github.com/paolotiu/tailwind-intellisense-regex-list
 	"tailwindCSS.experimental.classRegex": [
-		// https://github.com/paolotiu/tailwind-intellisense-regex-list/blob/44c8c4bbaa17da07bc13e379a5a8dcd409a9d391/README.md#typescript-or-javascript-variables-strings-or-arrays-with-keyword
-		"Styles\\s*(?::\\s*[^=]+)?\\s*=\\s*([^;]*);"
+		// https://github.com/paolotiu/tailwind-intellisense-regex-list/blob/44c8c4bbaa17da07bc13e379a5a8dcd409a9d391/README.md#string-endings-most-useful
+		["\\b\\w*Style\\b\\s*=\\s*[\"'`]([^\"'`]*)[\"'`]"],
+		["\\b\\w*ClassName\\b\\s*=\\s*[\"'`]([^\"'`]*)[\"'`]"],
+		["\\b\\w*ClassNames\\b\\s*=\\s*[\"'`]([^\"'`]*)[\"'`]"],
+		// clsx
+		["clsx\\(.*?\\)(?!\\])", "(?:'|\"|`)([^\"'`]*)(?:'|\"|`)"],
+		["clsx\\(([^)]*)\\)", "'([^']*)'"],
+		// tv / tva / cva
+		// https://github.com/paolotiu/tailwind-intellisense-regex-list/blob/b24ec14623e116920e4a502dc0a6be7c50482327/README.md#tailwind-variants
+		["[ct]va?\\(([^)]*)\\)", "{?\\s?[\\w].*:\\s*?[\"'`]([^\"'`]*).*?,?\\s?}?"]
 	],
 	// https://github.com/sabitovvt/vscode-favorites-panel
 	// - Select icons from: https://code.visualstudio.com/api/references/icons-in-labels#icon-listing
@@ -542,6 +556,21 @@
 			"icon": "arrow-left",
 			"command": "runCommand",
 			"arguments": ["workbench.action.navigateBack"]
+		},
+		{
+			"label": "Reveal TS Type",
+			"description": "",
+			"icon": "zoom-in",
+			"sequence": [
+				{
+					"command": "runCommand",
+					"arguments": ["type-tree.focus"]
+				},
+				{
+					"command": "runCommand",
+					"arguments": ["typescriptExplorer.selection.select"]
+				}
+			]
 		},
 		{
 			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
@@ -603,6 +632,22 @@
 					"icon": "diff-insert",
 					"arguments": ["git.stageSelectedRanges"]
 				},
+				// TODO: Get this to work
+				{
+					"label": "Git: Browse Repo at Ref / Rev",
+					"description": "",
+					"command": "runCommand",
+					"icon": "remote-explorer",
+					"arguments": ["gitlens.browseRepoAtRevision", "TODO"]
+				},
+				// TODO: Get this to work
+				{
+					"label": "Git: Browse Repo at Ref / Rev (New Window)",
+					"description": "",
+					"command": "runCommand",
+					"icon": "remote-explorer",
+					"arguments": ["gitlens.browseRepoBeforeRevisionInNewWindow", "TODO"]
+				},
 				{
 					"label": "Git: Commit",
 					"description": "",
@@ -623,6 +668,14 @@
 			"icon": "terminal-bash",
 			"command": "runCommand",
 			"arguments": ["workbench.action.createTerminalEditor"]
+		},
+		// TODO: This needs to be multi-command, to first select a pane
+		{
+			"label": "Increase pane size",
+			"description": "",
+			"icon": "screen-full",
+			"command": "runCommand",
+			"arguments": ["workbench.action.increaseViewSize"]
 		},
 		{
 			"label": "Replace line breaks in Clipboard",
@@ -663,6 +716,13 @@
 			"command": "runCommand",
 			"icon": "debug",
 			"arguments": ["workbench.action.debug.selectandstart"]
+		},
+		{
+			"label": "Debug: Toggle File Skip (JS)",
+			"description": "",
+			"command": "runCommand",
+			"icon": "",
+			"arguments": ["extension.js-debug.toggleSkippingFile"]
 		},
 		{
 			"label": "⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙⦙",
@@ -741,6 +801,7 @@
 			]
 		}
 	],
+	"docker.extension.enableComposeLanguageServer": false,
 	"window.zoomLevel": -1
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1

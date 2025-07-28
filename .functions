@@ -263,6 +263,17 @@ resolve_symlink() {
 }
 alias symlink_resolve="resolve_symlink"
 
+add_bin_entry() {
+	local BIN_PATH="$1"
+	if ! [[ -f $BIN_PATH ]] || ! [[ -x $BIN_PATH ]]; then
+		echo "$BIN_PATH is not a valid executable"
+	fi
+	# Get the absolute path
+	BIN_PATH=$(realpath "$BIN_PATH")
+	# symlink into custom bin overrides / PATH
+	ln -s "$BIN_PATH" "${USER_BIN_OVERRIDES_DIR}/"
+}
+
 # TODO: auto-resolve asdf shims
 resolve_alias() {
 	local ALIAS="$1"
@@ -2643,6 +2654,7 @@ git_stats() {
 	local REMOTE_BRANCH=$(git_remote_branch)
 	local TRUNK_BRANCH=$(git_trunk_branch)
 	local trunk_diff_stats=$(git diff --staged --stat "origin/$TRUNK_BRANCH" | tail -n 1)
+	local trunk_diff_stats_exclude_vendor=$(git diff --staged --stat "origin/$TRUNK_BRANCH" -- ':!*/package-lock.json' | tail -n 1)
 
 	local remote_diff_stats=""
 	if [[ -n "$REMOTE_BRANCH" ]]; then
@@ -2657,6 +2669,7 @@ git_stats() {
 
 		Trunk Branch = $TRUNK_BRANCH
 		    Trunk Diff Stats = $trunk_diff_stats
+		    Trunk Diff Stats (exclude vendor) = $trunk_diff_stats_exclude_vendor
 
 		Remote Branch = ${REMOTE_BRANCH}
 		    Remote Diff Stats = ${remote_diff_stats}

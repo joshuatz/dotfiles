@@ -21,6 +21,20 @@
 							},
 							"title": {
 								"type": "string"
+							},
+							"tasks": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "integer"
+										},
+										"title": {
+											"type": "string"
+										}
+									}
+								}
 							}
 						},
 						"required": ["id", "title"]
@@ -60,5 +74,5 @@
 			}
 		}
 	},
-	"required": ["active", "scratchDir", "ideProjectRoots"]
+	"required": ["active", "scratchDir"]
 }
