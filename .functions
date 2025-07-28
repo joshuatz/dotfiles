@@ -574,12 +574,15 @@ copy_to_clipboard() {
 copy_to_clipboard_if_not_empty() {
 	text="$1"
 	# make sure to remove both space AND trailing line breaks
-	if [[ -z $(trim_whitespace "$1") ]]; then
-		alert "Empty Selection"
+	if [[ -z $(trim_whitespace "$text") ]]; then
+		if [[ $FAIL_LOUDLY -eq 1 ]]; then
+			toast "❌ Empty Selection"
+			return 1
+		fi
 		return 0
 	fi
 	echo "$text" | copy_to_clipboard
-	alert "Copied to clipboard"
+	toast "✅ Copied to clipboard"
 }
 
 copy_html_to_clipboard() {
