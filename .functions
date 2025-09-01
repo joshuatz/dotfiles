@@ -235,9 +235,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 		IS_MAC_SILICON=1
 	fi
 fi
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	IS_MAC=1
-fi
 IS_WAYLAND=0
 if [[ $IS_MAC -ne 1 ]] && (loginctl show-session "$(loginctl | grep $(whoami) | awk '{print $1}')" -p Type | grep -q wayland); then
 	IS_WAYLAND=1
@@ -810,6 +807,14 @@ firefox_get_profile_dir() {
 		return 1
 	fi
 	dirname "$firefox_db_location"
+}
+
+firefox_find_audio_procs() {
+	local ff_proc_list=$(lsof -c firefox -a -d txt,mem,fd | grep 'CoreAudio')
+	if [[ $? -ne 0 ]] || [[ -z $ff_proc_list ]]; then
+		return 1
+	fi
+	echo "$ff_proc_list"
 }
 
 # Convert Mozilla's non-standard LZ4 files (jsonlz4 or mozlz4) to JSON
@@ -1731,6 +1736,11 @@ tmux_session_select_or_current() {
 }
 
 tmux_session_select_and_attach() {
+	# If a session name was passed in as arg, see if it exists and we can attach
+	local session_name="$1"
+	if [[ -n "$session_name" ]] && (tmux_check_if_session_name_exists "$session_name"); then
+		tmux_attach_with_init "$session_name"
+	fi
 	tmux_attach_with_init "$(tmux_session_select)"
 }
 alias taos="tmux_session_select_and_attach"
@@ -1796,7 +1806,7 @@ alias tmux_kill_all="tmux_kill_server"
 
 tmux_scrollback_dump() {
 	: "${NUM_LINES:="500"}"
-	pane=$(tmux_pane_select)
+	local pane=$(tmux_pane_select)
 	if [[ -z "$pane" ]]; then
 		return
 	fi
@@ -1964,6 +1974,22 @@ tmux_auto_open() {
 	tmux_attach_with_init "$tmux_session_name"
 }
 # TODO - add zsh completions
+
+tmux_check_if_session_name_exists() {
+	local session_name="$1"
+	if [[ -z "$session_name" ]]; then
+		return 1
+	fi
+	active_sessions=()
+	while IFS='' read -r line; do active_sessions+=("$line"); done < <(tmux list-sessions -F "#{session_name}" 2>/dev/null)
+	for session in "${active_sessions[@]}"; do
+		if [[ "$session" == "$session_name" ]]; then
+			return 0
+		fi
+	done
+
+	return 1
+}
 
 # This function scans for active tmux sessions where at least one pane
 # has a working directory scoped to the current one - which is useful if you
@@ -2332,7 +2358,8 @@ git_squash_diff_log() {
 # Options:
 #	(flag) `--editor`: Don't skip the editor (_DO_ stop on editor)
 git_auto_rebase() {
-	local skip_editor=$([[ $* == *--editor ]] && echo "false" || echo "true")
+	local skip_editor=$(check_args_for_value "--editor" "$@" && echo "false" || echo "true")
+	local keep_dates_as_is=$(check_args_for_value "--keep-dates" "$@" && echo "false" || echo "true")
 	local new_target_base=$(git_find_fixup_base)
 
 	if [[ $? -ne 0 ]]; then
@@ -2355,21 +2382,27 @@ git_auto_rebase() {
 		esac
 	done
 
-	local git_version=$(git_version_parsed)
+	git_branch_backup
 
-	if [[ "$skip_editor" != "true" ]]; then
-		git rebase --autosquash --interactive "$new_target_base"
-		return
-	fi
+	local git_version=$(git_version_parsed)
+	local GIT_REBASE_ARGS=("--autosquash")
 
 	# New in git 2.44 - auto-squash support in non-interactive mode
-	if [[ $(parse_version_string "$git_version") -ge $(parse_version_string "2.44") ]]; then
-		git rebase --autosquash "$new_target_base"
-	else
-		# Use `GIT_SEQUENCE_EDITOR=true` to skip editor
-		GIT_SEQUENCE_EDITOR=true git rebase --autosquash --interactive "$new_target_base"
+	if [[ "$skip_editor" == "false" ]] || [[ $(parse_version_string "$git_version") -lt $(parse_version_string "2.44") ]]; then
+		GIT_REBASE_ARGS+=("--interactive")
 	fi
 
+	if [[ "$keep_dates_as_is" == "true" ]]; then
+		GIT_REBASE_ARGS+=("--committer-date-is-author-date")
+	fi
+	GIT_REBASE_ARGS+=("$new_target_base")
+
+	if [[ "$skip_editor" == "true" ]]; then
+		# Use `GIT_SEQUENCE_EDITOR=true` to *force* skip editor
+		GIT_SEQUENCE_EDITOR=true git rebase "${GIT_REBASE_ARGS[@]}"
+	else
+		git rebase "${GIT_REBASE_ARGS[@]}"
+	fi
 }
 
 
@@ -2406,8 +2439,8 @@ git_branch_backup() {
 			return 1
 		fi
 	fi
-	local backup_branch_name="backup/$branch_to_backup--$(date '+%Y-%m-%d--%I-%M-%p')"
-	git branch "$branch_to_backup" "$backup_branch_name"
+	local backup_branch_name="backups/$branch_to_backup--$(date '+%Y-%m-%d--%I-%M-%p')"
+	git branch "$backup_branch_name" "$branch_to_backup"
 	echo "✅ Backed up branch $branch_to_backup to $backup_branch_name"
 }
 alias git_backup_branch="git_branch_backup"
@@ -3498,10 +3531,37 @@ find_procs_by_string() {
 	echo "$ps_output" | tail -n +2 | grep "$SEARCH_STRING" | grep --invert "grep"
 }
 
+find_procs_by_parent() {
+	local PID="$1"
+	if (which pstree > /dev/null); then
+		pstree "$PID"
+		return
+	fi
+
+	pidtree "$PID"
+}
+
 pick_procs_by_string() {
 	local proc_list=$(find_procs_by_string "$1")
 	pick_procs_interactive "$proc_list"
 }
+
+# Credit: https://superuser.com/a/1721354/11447682
+pidtree() (
+	# lines of "parent child"
+	_PID_GRAPH="$(ps -e -o ppid= -o pid=)"
+
+	_walk() {
+		echo $1
+		# iterate direct children of "$1"
+		# awk: if the parent field matches $1, then print child field
+		echo "$_PID_GRAPH" | awk -F' ' "\$1==\"$1\" {print \$2;}" | while read child_pid; do
+			_walk "$child_pid"
+		done
+	}
+
+	for i in "$@"; do _walk $i; done
+)
 
 pick_procs_interactive() {
 	local proc_list="$1"
@@ -3915,6 +3975,9 @@ EOF
 }
 
 
+# For using this with rsync, you _could_ use shell expansion with `-e`,
+# but an easier way is to call this command first, let it inject an alias
+# into the ssh config, and then call the alias with rsync
 aws_ec2_instance_connect_generate_temp_ssh_command() {
 	local INSTANCE_ID=""
 	local SSH_CONFIG_ALIAS=""
@@ -4290,8 +4353,12 @@ splash_screen() {
 	local INFO_TEXT=""
 	if [[ $IS_MAC -eq 1 ]]; then
 		INFO_TEXT="$(uname -snrom)"
+		INFO_TEXT+=$'\n'
+		INFO_TEXT+="Local IP = $(ipconfig getifaddr en0)"
 	else
 		INFO_TEXT="$(uname -snriom)"
+		INFO_TEXT+=$'\n'
+		INFO_TEXT+="Local IP = $(hostname -I)"
 	fi
 	if (which lsb_release > /dev/null); then
 		INFO_TEXT+=$'\n'

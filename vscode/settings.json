@@ -99,6 +99,12 @@
 	/**
 	 * ==== File Specific Settings ====
 	 */
+	"[diff]": {
+		"files.trimFinalNewlines": false,
+		"files.trimTrailingWhitespace": false,
+		"files.trimTrailingWhitespaceInRegexAndStrings": false,
+		"editor.formatOnSave": false
+	},
 	"[yaml]": {
 		"editor.insertSpaces": true,
 		"editor.tabSize": 2,
@@ -482,6 +488,11 @@
 		"yaml": false
 	},
 	"github.copilot.nextEditSuggestions.enabled": false,
+	"github.copilot.chat.agent.runTasks": false,
+	// Fixes chat ignoring ask vs edit settings and doing things like the below bug
+	// see: https://github.com/microsoft/vscode/issues/254918
+	"chat.detectParticipant.enabled": false,
+	"chat.editRequests": "hover",
 	"[typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
@@ -747,6 +758,25 @@
 					"arguments": ["workbench.action.openSnippets"]
 				},
 				{
+					"label": "Save current search",
+					"description": "",
+					"icon": "search-fuzzy",
+					"sequence": [
+						{
+							"command": "runCommand",
+							"arguments": ["workbench.view.search.focus"]
+						},
+						{
+							"command": "runCommand",
+							"arguments": ["search.action.openInEditor"]
+						},
+						{
+							"command": "runCommand",
+							"arguments": ["workbench.action.files.save"]
+						}
+					]
+				},
+				{
 					"label": "Pull to Dotfiles",
 					"description": "",
 					"command": "run",
@@ -802,7 +832,8 @@
 		}
 	],
 	"docker.extension.enableComposeLanguageServer": false,
-	"window.zoomLevel": -1
+	"window.zoomLevel": -1,
+	"scm.diffDecorationsGutterWidth": 4
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
 	// Things that there are no exposed settings for in `settings.json`, but are worth changing

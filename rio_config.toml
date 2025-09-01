@@ -8,8 +8,9 @@
 #############################
 
 # Padding SHOULD be useful if using a shader that over-projects / clips the edges
-padding-x = 12
-padding-y = [12, 12]
+padding-x = 2
+padding-y = [2, 2]
+# ^ Text selection still not quite right when using shaders, probably related to https://github.com/raphamorim/rio/issues/1101
 
 [renderer]
 strategy = "events"
