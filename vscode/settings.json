@@ -85,8 +85,11 @@
 	// Inheriting can mess up a bunch of things, like $TMUX
 	"terminal.integrated.inheritEnv": false,
 	"terminal.integrated.enablePersistentSessions": false,
+	"terminal.integrated.shellIntegration.enabled": true,
 	"python.terminal.activateEnvInCurrentTerminal": false,
 	"python.terminal.activateEnvironment": false,
+	"python.terminal.shellIntegration.enabled": true,
+	"python.analysis.supportAllPythonDocuments": false,
 	// XO formatter
 	"xo.enable": true,
 	"xo.format.enable": true,
