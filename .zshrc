@@ -158,6 +158,10 @@ if [[ $IS_MAC -eq 1 ]]; then
 	export PATH="$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin:$PATH"
 fi
 
+# Set `--mouse` as default with `less` to avoid paging issues when combined with tmux (and elsewhere)
+# (related: https://github.com/NHDaly/tmux-better-mouse-mode/issues/27)
+export LESS="--RAW-CONTROL-CHARS --mouse"
+
 # Set aliases for g* (GNU) versions of programs
 USE_MAC_COREUTILS=0
 if [[ $IS_MAC -eq 1 ]]; then
