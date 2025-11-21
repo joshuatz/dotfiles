@@ -208,6 +208,11 @@
 		"description": "Pick an Emoji Log Emoji to use as a prefix",
 		"body": "${1|📦 NEW,👌 IMPROVE,🐛 FIX,📖 DOC,🚀 RELEASE,🤖 TEST,‼️ BREAKING|}: ${2:IMPERATIVE_MESSAGE_GOES_HERE}"
 	},
+	"ASCII Art Picker": {
+		"prefix": "ASCII Art Picker",
+		"description": "¯\\_(ツ)_/¯",
+		"body": "${1|¯\\_(ツ)_/¯,(ノ ゜Д゜)ノ ︵ ┻━┻,ʕノ•ᴥ•ʔノ ︵ ┻━┻|}"
+	},
 	"Svelte TypeScript SFC": {
 		"prefix": "Svelte TypeScript TS SFC",
 		"scope": "svelte, markdown",

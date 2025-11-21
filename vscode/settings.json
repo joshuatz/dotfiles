@@ -82,10 +82,14 @@
 	"terminal.integrated.rightClickBehavior": "nothing",
 	"terminal.integrated.gpuAcceleration": "auto",
 	"terminal.integrated.environmentChangesIndicator": "on",
+	"terminal.integrated.smoothScrolling": true,
+	"terminal.integrated.enableVisualBell": true,
 	// Inheriting can mess up a bunch of things, like $TMUX
 	"terminal.integrated.inheritEnv": false,
 	"terminal.integrated.enablePersistentSessions": false,
 	"terminal.integrated.shellIntegration.enabled": true,
+	"terminal.integrated.suggest.enabled": true,
+	"terminal.integrated.suggest.showStatusBar": true,
 	"python.terminal.activateEnvInCurrentTerminal": false,
 	"python.terminal.activateEnvironment": false,
 	"python.terminal.shellIntegration.enabled": true,
@@ -492,6 +496,8 @@
 	},
 	"github.copilot.nextEditSuggestions.enabled": false,
 	"github.copilot.chat.agent.runTasks": false,
+	// STOP DEFAULTING TO THIS! (ノ ゜Д゜)ノ ︵ ┻━┻
+	"chat.agent.enabled": false,
 	// Fixes chat ignoring ask vs edit settings and doing things like the below bug
 	// see: https://github.com/microsoft/vscode/issues/254918
 	"chat.detectParticipant.enabled": false,
@@ -526,7 +532,6 @@
 	"editor.minimap.renderCharacters": false,
 	// Helps with wayland stuff
 	"window.titleBarStyle": "custom",
-	"terminal.integrated.enableVisualBell": true,
 	"[shellscript]": {
 		"editor.defaultFormatter": "foxundermoon.shell-format"
 	},
@@ -836,7 +841,21 @@
 	],
 	"docker.extension.enableComposeLanguageServer": false,
 	"window.zoomLevel": -1,
-	"scm.diffDecorationsGutterWidth": 4
+	"scm.diffDecorationsGutterWidth": 4,
+	"[dockercompose]": {
+		"editor.insertSpaces": true,
+		"editor.tabSize": 2,
+		"editor.autoIndent": "advanced",
+		"editor.quickSuggestions": {
+			"other": true,
+			"comments": false,
+			"strings": true
+		},
+		"editor.defaultFormatter": "redhat.vscode-yaml"
+	},
+	"[github-actions-workflow]": {
+		"editor.defaultFormatter": "redhat.vscode-yaml"
+	}
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
 	// Things that there are no exposed settings for in `settings.json`, but are worth changing

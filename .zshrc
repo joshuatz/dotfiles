@@ -219,7 +219,8 @@ fi
 # asdf mods
 if [[ $has_asdf -eq 1 ]]; then
 	# Main shimming
-	PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"
+	ASDF_SHIMS_DIR="${ASDF_DATA_DIR:-$HOME/.asdf}/shims"
+	PATH="${ASDF_SHIMS_DIR}:$PATH"
 
 	# golang
 	export ASDF_GOLANG_MOD_VERSION_ENABLED=true
@@ -316,6 +317,9 @@ if [[ -d "$USER_BIN_OVERRIDES_DIR" ]]; then
 		fi
 	done
 fi
+
+# https://code.visualstudio.com/docs/terminal/shell-integration
+[[ "$TERM_PROGRAM" == "vscode" ]] && . "$(code --locate-shell-integration-path zsh)"
 
 # === Dynamic Injection Section ===
 

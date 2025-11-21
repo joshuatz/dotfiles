@@ -50,18 +50,8 @@ search_fuzzy() {
 	while [[ ! $# -eq 0 ]]
 	do
 		case "$1" in
-			-o|--out-dir)
-				OUT_DIR=$2
-				shift
-				;;
-			-r|--remote)
-				REMOTE=$2
-				shift
-				;;
-			-b|--branch)
-				BRANCH=$2
-				shift
-				;;
+			# TODO: some helpful flags
+
 			# Assume that all other args passed in are for rg
 			# If adding new args for this function specifically,
 			# they should be popped off before passing to rg
@@ -75,18 +65,42 @@ search_fuzzy() {
 	# The search path should always come LAST
 	RG_ARGS+=("$search_dir")
 
+	selected_options=$(echo -e "File Paths\nFile Contents" | fzf \
+		--multi \
+		--bind load:select-all+clear-query \
+		--header="What would you like to search?" \
+		--preview 'case {} in
+			"File Paths") echo "Search File Paths" ;;
+			"File Contents") echo "Search File Contents" ;;
+		esac')
+
+	SEARCH_FILE_PATHS_ENABLED=0
+	SEARCH_FILE_CONTENTS_ENABLED=0
+
+	# Parse the selected options and set corresponding variables
+	if echo "$selected_options" | grep -q "File Paths"; then
+		SEARCH_FILE_PATHS_ENABLED=1
+	fi
+
+	if echo "$selected_options" | grep -q "File Contents"; then
+		SEARCH_FILE_CONTENTS_ENABLED=1
+	fi
+
 	echo "Searching in $search_dir"
 
 	local results=""
-	if [[ -z "$ONLY_FILENAMES" ]]; then
+	if [[ $SEARCH_FILE_CONTENTS_ENABLED -eq 1  ]]; then
 		local RG_ARGS__CONTENT=("--files-with-matches" "-e" "$search_pattern" "${RG_ARGS[@]}")
 		echo "RG Args: ${RG_ARGS__CONTENT[*]}"
 		results=$(rg "${RG_ARGS__CONTENT[@]}" 2>/dev/null)
 	fi
 
-	if [[ -z "$ONLY_CONTENT" ]]; then
+	if [[ $SEARCH_FILE_PATHS_ENABLED -eq 1 ]]; then
 		# Check filenames too
-		local RG_ARGS__FILENAMES=("--files" "--glob" "$search_pattern" "${RG_ARGS[@]}")
+		# WARNING: The use of `--glob SEARCH --glob *SEARCH*` is an ugly workaround for the fact that rg does NOT
+		# currently support regex-style (or even just partial) filename matching.
+		# See: https://github.com/BurntSushi/ripgrep/issues/193 and https://github.com/BurntSushi/ripgrep/issues/2314
+		local RG_ARGS__FILENAMES=("--files" "--glob" "$search_pattern" --glob "*$search_pattern*" "${RG_ARGS[@]}")
 		echo "RG Args: ${RG_ARGS__FILENAMES[*]}"
 		local filename_results=$(rg "${RG_ARGS__FILENAMES[@]}")
 		if [[ -z "$results" ]]; then
@@ -181,10 +195,12 @@ if (which tput >/dev/null) && [[ -n $TERM ]]; then
 	TERM_STYLE_RESET="$(tput sgr0)"
 fi
 
+# Example invocation (red text):
+# > colorize_text colorize_text 196 'ERROR! Oh no!'
 colorize_text() {
-	local hex_code=$1
+	local color_code=$1
 	local text=$2
-	echo -e "\e[38;2;${hex_code}m${text}\e[0m"
+	echo -e "\e[38;2;${color_code}m${text}\e[0m"
 }
 
 # === /Styling ===
@@ -631,6 +647,9 @@ copy_last_command_to_clipboard() {
 
 markdown_to_html() {
 	local md="$1"
+	if [[ -f "$md" ]]; then
+		md=$(cat "$md")
+	fi
 	if (which pandoc > /dev/null); then
 		echo "$md" | pandoc -f gfm -t html
 		return
@@ -638,6 +657,17 @@ markdown_to_html() {
 		npx marked --gfm -s "$md"
 		return
 	fi
+}
+
+markdown_to_pdf() {
+	local pdf_out_filename="converted.pdf"
+	local md="$1"
+	if [[ -f "$md" ]]; then
+		pdf_out_filename="$md.pdf"
+		md=$(cat "$md")
+	fi
+	echo "$md" | pandoc -f gfm -t pdf --output "$pdf_out_filename"
+
 }
 
 html_to_markdown() {
@@ -1197,7 +1227,7 @@ make_venv() {
 		echo "${VENV_PATH} already exists"
 	else
 		echo "Preparing virtual environment in ${VENV_PATH}"
-		python3 -m venv $VENV_PATH
+		python -m venv $VENV_PATH
 		source $VENV_PATH/bin/activate
 	fi
 }
@@ -1663,6 +1693,15 @@ tmux_reload_config() {
 	tmux source-file ~/.tmux.conf
 }
 
+tmux_restart() {
+	if (is_in_tmux); then
+		tmux detach
+		exit 1
+	fi
+	tmux_kill_server || true
+	tmux
+}
+
 tmux_inspect() {
 	local session_name=$1
 	if [[ -z "$session_name" ]]; then
@@ -1811,6 +1850,16 @@ tmux_scrollback_dump() {
 		return
 	fi
 	tmux capture-pane -t "$pane" -pJS "-$NUM_LINES"
+}
+
+tmux_tail_pane() {
+	local pane=$(tmux_pane_select)
+	if [[ -z "$pane" ]]; then
+		return
+	fi
+	tmux pipe-pane -o -t "$pane"
+	# TODO
+	# https://www.reddit.com/r/commandline/comments/263afq/bashtmux_pipe_the_output_of_a_detached_tmux/
 }
 
 tmux_do_in_session_for_all_panes() {
@@ -2066,6 +2115,22 @@ git_revert_last() {
 	git reset HEAD~1
 }
 
+# Checkout the previous revision of a file
+git_revert_file() {
+	git checkout HEAD~1 -- "$@"
+}
+
+# Applies the changes from a specific commit, onto a specific file
+git_file_cherry_pick_apply() {
+	local TARGET_FILE="$1"
+	if ! [[ -f "$TARGET_FILE" ]]; then
+		echo "Invalid file $TARGET_FILE"
+		return 1
+	fi
+	local commit_to_apply=$(git_select_or_pass_commit "$2")
+	git show "$commit_to_apply" -- "$TARGET_FILE" | git apply -
+}
+
 git_sha_short() {
 	git rev-parse --short HEAD
 }
@@ -2202,6 +2267,24 @@ git_select_commit() {
 	local commit_hash=$(echo "$commit" | awk '{print $1}')
 
 	echo "$commit_hash"
+}
+
+# Wrapper around `git_select_commit` that only prompts for a commit if one is
+# not already passed via arg
+git_select_or_pass_commit() {
+	# check if passed via arg
+	if [[ -n "$1" ]]; then
+		if (git cat-file -e "$1"); then
+			# Commit exists in repo
+			echo "$1"
+			return 0
+		else
+			echo "Invalid commit ref $1" 1>&2
+			return 1
+		fi
+	fi
+
+	git_select_commit
 }
 
 # Given a stash string like `stash@{0}: On main: do x and y`,
@@ -2403,6 +2486,11 @@ git_auto_rebase() {
 	else
 		git rebase "${GIT_REBASE_ARGS[@]}"
 	fi
+}
+
+git_fix_dates() {
+	COMMIT_TO_REBASE_TO=$1
+	GIT_SEQUENCE_EDITOR=true git rebase --committer-date-is-author-date --autosquash "$COMMIT_TO_REBASE_TO"
 }
 
 
@@ -2934,6 +3022,9 @@ docker_pick_image() {
 		return 1
 	fi
 	image_id=$(echo "$selected_image" | awk '{print $2}')
+	if [[ -z "$image_id" ]]; then
+		return 1
+	fi
 	echo "$image_id"
 }
 alias docker_image_select="docker_pick_image"
@@ -3125,7 +3216,7 @@ docker_image_exec() {
 	if [[ -z $DOCKER_SHELL ]]; then
 		DOCKER_SHELL="bash"
 	fi
-	docker run --name "$CONTAINER_NAME" --rm -it "$@" "$image_id" "/bin/$DOCKER_SHELL"
+	docker run --name "$CONTAINER_NAME" "$@" --rm -it "$image_id" "/bin/$DOCKER_SHELL"
 }
 alias docker_exec_image="docker_image_exec"
 alias docker_run_image_interactive="docker_exec_image"
@@ -3938,7 +4029,7 @@ aws_ec2_instance_connect_send_pub_key_temp() {
 		fi
 		echo "Adding entry (alias = $SSH_CONFIG_ALIAS) to ~/.ssh/config" 1>&2
 		if ! (manssh add "$SSH_CONFIG_ALIAS" "${EC2_USERNAME}@${DNS_ADDR}" -i "$PRIVATE_KEY" 1>&2); then
-			echo "Error: Failure updating SSH config via manssh"
+			echo "Error: Failure updating SSH config via manssh" 1>&2
 			return 1
 		fi
 
@@ -4190,6 +4281,11 @@ get_cert_type() {
 		echo "URL"
 		return
 	elif [[ -f "$cert_file_or_url" ]]; then
+		if [[ "$cert_file_or_url"	== *.mobileprovision ]]; then
+			echo "APPLE:PROVISIONING_PROFILE"
+			return
+		fi
+
 		local FILE_TYPE=$(file "$cert_file_or_url")
 		local LEADING_BYTES_HEX=$(hexdump -n 4 -e '4/1 "%02x"' "$cert_file_or_url")
 		if (echo "$FILE_TYPE" | grep --silent "certificate request"); then
@@ -4224,8 +4320,6 @@ get_cert_type() {
 				echo "SSL:PRIVATE"
 				return
 			fi
-		elif [[ "$cert_file_or_url"	== *.mobileprovision ]]; then
-			echo "APPLE:PROVISIONING_PROFILE"
 		fi
 	fi
 
@@ -4257,10 +4351,8 @@ get_cert_info() {
 		echo "🔨 Extracting SSL cert info"
 		if [[ $cert_type == "SSL:PUBLIC" ]]; then
 			compose_ssl_cert_query "$cert_file_or_url" -text -noout -pubkey
-		elif [[ $cert_type == "SSL:PRIVATE:ENCRYPTED" ]]; then
+		elif [[ $cert_type == "SSL:PRIVATE:ENCRYPTED" ]] || [[ $cert_type == "SSL:PRIVATE" ]]; then
 			openssl pkey -in "$cert_file_or_url" -text -noout
-		elif [[ $cert_type == "SSL:PRIVATE" ]]; then
-			compose_ssl_cert_query "$cert_file_or_url" -text -noout
 		fi
 		return
 	fi
@@ -4293,6 +4385,7 @@ verify_cert_pair() {
 
 convert_cert() {
 	:
+	# TODO
 }
 
 is_cert_not_expired() {

@@ -51,6 +51,7 @@ ms-vscode.remote-explorer
 ms-vscode.remote-server
 ms-vsliveshare.vsliveshare
 mxsdev.typescript-explorer
+mylesmurphy.prettify-ts
 njpwerner.autodocstring
 orta.vscode-jest
 pomber.git-file-history
