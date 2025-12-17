@@ -20,13 +20,8 @@ docs() {
 }
 
 search_fuzzy() {
-	local search_dir="$1"
-	local search_pattern="$2"
-	shift 2
-
-	if ! [[ -d "$search_dir" ]]; then
-		return 1
-	fi
+	local search_dir=""
+	local search_pattern=""
 
 	local RG_ARGS=(
 		'--follow'
@@ -50,8 +45,18 @@ search_fuzzy() {
 	while [[ ! $# -eq 0 ]]
 	do
 		case "$1" in
-			# TODO: some helpful flags
-
+			-d|--dir)
+				search_dir=$2
+				shift 2
+				;;
+			-p|--pattern)
+				search_pattern=$2
+				shift 2
+				;;
+			--all)
+				RG_ARGS+=("--no-ignore" "hidden")
+				shift
+				;;
 			# Assume that all other args passed in are for rg
 			# If adding new args for this function specifically,
 			# they should be popped off before passing to rg
@@ -60,10 +65,19 @@ search_fuzzy() {
 				shift
 				;;
 		esac
-		shift
 	done
 	# The search path should always come LAST
 	RG_ARGS+=("$search_dir")
+
+	if [[ -z "$search_dir" ]] || ! [[ -d "$search_dir" ]]; then
+		echo "No search directory specified" 1>&2
+		return 1
+	fi
+
+	if [[ -z "$search_pattern" ]]; then
+		echo "No search pattern specified" 1>&2
+		return 1
+	fi
 
 	selected_options=$(echo -e "File Paths\nFile Contents" | fzf \
 		--multi \
@@ -100,7 +114,9 @@ search_fuzzy() {
 		# WARNING: The use of `--glob SEARCH --glob *SEARCH*` is an ugly workaround for the fact that rg does NOT
 		# currently support regex-style (or even just partial) filename matching.
 		# See: https://github.com/BurntSushi/ripgrep/issues/193 and https://github.com/BurntSushi/ripgrep/issues/2314
-		local RG_ARGS__FILENAMES=("--files" "--glob" "$search_pattern" --glob "*$search_pattern*" "${RG_ARGS[@]}")
+		# ALSO, `**/*SEARCH*/**` is to work around that this partial search issue extends to the middle of the search too,
+		# in case you are looking to search for directory matches. I feel like there *has* to be a better way to do this.
+		local RG_ARGS__FILENAMES=("--files" "--glob" "$search_pattern" --glob "*$search_pattern*" --glob "**/*$search_pattern*/**" "${RG_ARGS[@]}")
 		echo "RG Args: ${RG_ARGS__FILENAMES[*]}"
 		local filename_results=$(rg "${RG_ARGS__FILENAMES[@]}")
 		if [[ -z "$results" ]]; then
@@ -116,7 +132,7 @@ search_fuzzy() {
 	fi
 
 	# Display results with FZF, with a fancy preview pane
-	echo "$results" | fzf --reverse --preview-window=wrap --preview "rg --with-filename --line-number --context=10 --no-heading --column --color=always --smart-case -e $search_pattern {}"
+	echo "$results" | fzf --multi --reverse --preview-window=wrap --preview "rg --with-filename --line-number --context=10 --no-heading --column --color=always --smart-case -e $search_pattern {}"
 
 	# TODO: Copy selected file path to clipboard and/or offer options menu (open in $EDITOR, etc.)
 }
@@ -126,15 +142,15 @@ search_docs_fuzzy() {
 		echo "DOCS_DIR is unset!"
 		return 1
 	fi
-	search_fuzzy "$DOCS_DIR" "$@"
+	search_fuzzy --dir "$DOCS_DIR" "$@"
 }
 
 search_dev_fuzzy() {
-	search_fuzzy "$HOME/jtzdev" "$@"
+	search_fuzzy --dir "$HOME/jtzdev" "$@"
 }
 
 search_home_fuzzy() {
-	search_fuzzy "$HOME" "$@"
+	search_fuzzy --dir "$HOME" "$@"
 }
 
 search_vscode_backups_fuzzy() {
@@ -1779,6 +1795,7 @@ tmux_session_select_and_attach() {
 	local session_name="$1"
 	if [[ -n "$session_name" ]] && (tmux_check_if_session_name_exists "$session_name"); then
 		tmux_attach_with_init "$session_name"
+		return
 	fi
 	tmux_attach_with_init "$(tmux_session_select)"
 }
@@ -2545,6 +2562,7 @@ if [[ $SHELL_TYPE == "ZSH" ]]; then
 fi
 
 git_sparse_checkout() {
+	local RECURSE=1
 	local OUT_DIR=""
 	local REMOTE=""
 	local BRANCH=""
@@ -2565,9 +2583,11 @@ git_sparse_checkout() {
 				BRANCH=$2
 				shift
 				;;
+			-n|--no-recurse)
+				RECURSE=0
+				;;
 			*)
 				SUB_PATHS+=("$1")
-				shift
 				;;
 		esac
 		shift
@@ -2581,7 +2601,11 @@ git_sparse_checkout() {
 	if [[ -z "$OUT_DIR" ]]; then
 		echo "You must specify the destination directory (-o / --out-dir)"
 		ERR=1
+	elif [[ -d "$OUT_DIR" ]]; then
+		echo "$OUT_DIR already exists"
+		ERR=1
 	fi
+
 	[[ $ERR -eq 1 ]] && return 1
 
 	local GIT_ARGS=(clone --filter=blob:none --no-checkout --depth 1)
@@ -2596,7 +2620,36 @@ git_sparse_checkout() {
 
 	# Selectively add the sub paths
 	for sub_path in "${SUB_PATHS[@]}"; do
-		git sparse-checkout add "$sub_path"
+		if [[ $RECURSE -eq 1 ]]; then
+			# For recursive spare-checkout, we can use the less optimized
+			# non-cone-mode, which lets you use patterns.
+			# However, we should first force the user-provided path to match a
+			# recursive pattern
+
+			# Edge-case: if user supplied glob like "a/b/c/**", then
+			# we should map to just "a/b/c/*", since sparse-checkout
+			# uses single wildcard for recursive glob (will err on double)
+			if (echo "$sub_path" | grep -E -q '\/\*{2}$'); then
+				# Remove last asterisk / wildcard
+				sub_path="${sub_path%?}"
+			# More standard scenario: User forgot to end with recursive glob
+			elif ! (echo "$sub_path" | grep -E -q '\/\*{1}$'); then
+				# Edge-case: if user supplied glob like "a/b/c/**", then
+				# we should map to just "a/b/c/*", since sparse-checkout
+				# uses single wildcard for recursive glob (will err on double)
+				if ! (echo "$sub_path" | grep -E -q '\/$'); then
+					# Replace `a/b/c` with `a/b/c/*`
+					sub_path="${sub_path}/*"
+				else
+					# Replace `a/b/c/` with `a/b/c/*`
+					sub_path="${sub_path}*"
+				fi
+			fi
+			git -c core.sparseCheckoutCone=false sparse-checkout add "$sub_path"
+		else
+			git sparse-checkout add "$sub_path"
+
+		fi
 	done
 	git checkout
 	popd || exit
@@ -2778,6 +2831,7 @@ git_branch_delete_pattern() {
 	echo "$matching_branches" | xargs git branch -d
 }
 
+# TODO: Display info about hooks
 git_stats() {
 	git fetch
 	local CURRENT_BRANCH=$(git_branch_name)
@@ -3143,13 +3197,31 @@ docker_pick_minimal_image_name() {
 }
 
 docker_sandbox() {
-	local shared_dir="$1"
+	local shared_dir=""
 	local used_temp_dir=0
+
+	local PASS_THROUGH_ARGS=()
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-m|--mount)
+				shared_dir=$2
+				shift
+				shift
+				;;
+			*)
+				PASS_THROUGH_ARGS+=("$1")
+				shift
+				;;
+		esac
+	done
+
 	if ! [[ -d "$shared_dir" ]]; then
 		used_temp_dir=1
 		shared_dir=$(mktemp -d)
 	fi
-	docker_inspect_volume "$shared_dir"
+
+	docker_inspect_volume --volume "$shared_dir" "${PASS_THROUGH_ARGS[@]}"
 	if [[ $used_temp_dir -eq 1 ]]; then
 		echo "Deleting temp dir $shared_dir"
 		rm -r "$shared_dir"
@@ -3159,8 +3231,30 @@ docker_sandbox() {
 
 # Uses a temporary (small) docker container to mount a volume for inspection
 docker_inspect_volume() {
-	local VOLUME_NAME=$1
+	local VOLUME_NAME=""
 	local VOLUME_IS_DIR=0
+
+	local PASS_THROUGH_ARGS=()
+	while [[ ! $# -eq 0 ]]
+	do
+		case "$1" in
+			-v|--volume)
+				VOLUME_NAME="$2"
+				shift
+				shift
+				;;
+			*)
+				PASS_THROUGH_ARGS+=("$1")
+				shift
+				;;
+		esac
+	done
+
+	if [[ -z "$VOLUME_NAME" ]]; then
+		echo "Volume not provided. Pass with -v or --volume"
+		return 1
+	fi
+
 	if [[ -d "$VOLUME_NAME" ]]; then
 		VOLUME_IS_DIR=1
 	fi
@@ -3178,7 +3272,10 @@ docker_inspect_volume() {
 
 		Have fun inspecting!
 	EOF
-	docker run --rm -it -v "$VOLUME_NAME":/tmp/volume "$IMAGE_NAME" "$IMAGE_SHELL" -c "cd /tmp/volume; exec $IMAGE_SHELL"
+	docker run --rm -it \
+		"${PASS_THROUGH_ARGS[@]}" \
+		-v "$VOLUME_NAME":/tmp/volume \
+		"$IMAGE_NAME" "$IMAGE_SHELL" -c "cd /tmp/volume; exec $IMAGE_SHELL"
 }
 
 docker_list_binds() {
