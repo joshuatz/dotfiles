@@ -93,7 +93,7 @@ pull() {
 
 	# OBS - Mac
 	obs_settings_dir="$HOME/Library/Application Support/obs-studio/basic"
-	if (stat "$obs_settings_dir" > /dev/null); then
+	if [[ -d "$obs_settings_dir" ]]; then
 		obs_backup_dir="$SCRIPT_DIR/obs/$COMPUTER_NAME"
 		mkdir -p "$obs_backup_dir"
 		cp -R "$obs_settings_dir" "$obs_backup_dir"
@@ -154,7 +154,6 @@ push() {
 		cat <<- "EOF"
 		WARNING: You are missing a user .gitconfig file!
 		  You can copy the template in dotfiles and fill in the details
-		    For signingKey, 
 		EOF
 	fi
 

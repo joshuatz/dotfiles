@@ -495,9 +495,11 @@
 		"yaml": false
 	},
 	"github.copilot.nextEditSuggestions.enabled": false,
-	"github.copilot.chat.agent.runTasks": false,
 	// STOP DEFAULTING TO THIS! (ノ ゜Д゜)ノ ︵ ┻━┻
-	"chat.agent.enabled": false,
+	//  Disable the default behavior of adding current file to context (ALSO ANNOYING)
+	"chat.implicitContext.enabled": {
+		"panel": "never"
+	},
 	// Fixes chat ignoring ask vs edit settings and doing things like the below bug
 	// see: https://github.com/microsoft/vscode/issues/254918
 	"chat.detectParticipant.enabled": false,
@@ -533,7 +535,7 @@
 	// Helps with wayland stuff
 	"window.titleBarStyle": "custom",
 	"[shellscript]": {
-		"editor.defaultFormatter": "foxundermoon.shell-format"
+		"editor.defaultFormatter": "lumirelle.shell-format-rev"
 	},
 	"shellcheck.exclude": [
 		// Disable "Declare and assign separately to avoid masking return values."
@@ -549,6 +551,9 @@
 	"search.defaultViewMode": "tree",
 	"search.searchEditor.defaultNumberOfContextLines": 6,
 	"search.maxResults": 2000,
+	// Controls default case sensitivity matching
+	// WARNING: If this is enabled, you should always leave the case-sensitive matching setting
+	// turned OFF in the search panel, otherwise it will conflict / lead to confusing behavior
 	"search.smartCase": true,
 	"typescriptExplorer.typeTree.maxRecursionDepth": 4,
 	"typescript.experimental.expandableHover": true,

@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../",
+			"name": "dotfiles"
+		},
+		{
+			"path": "../../../cheatsheets-and-misc",
+			"name": "cheatsheets-and-misc"
+		}
+	]
+}
