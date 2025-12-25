@@ -54,7 +54,7 @@ search_fuzzy() {
 				shift 2
 				;;
 			--all)
-				RG_ARGS+=("--no-ignore" "hidden")
+				RG_ARGS+=("--no-ignore" "--hidden")
 				shift
 				;;
 			# Assume that all other args passed in are for rg
@@ -172,7 +172,7 @@ search_vscode_backups_fuzzy() {
 		return 1
 	fi
 
-	search_fuzzy "$search_path" "$@"
+	search_fuzzy --dir "$search_path" "$@"
 }
 
 search_fuzzy_all() {
@@ -1688,6 +1688,11 @@ wezterm_set_var() {
 	tmux_passthrough_escape "$var_setter_str"
 }
 
+rio_toggle_shader() {
+	# TODO
+	:
+}
+
 set_title() {
 	local title=$1
 	if ($OH_MY_ZSH_ACTIVE) && [[ $DISABLE_AUTO_TITLE != true ]]; then
@@ -2867,6 +2872,12 @@ git_stats() {
 	render_text_overlay "$GIT_LOGO" "$INFO_TEXT"
 }
 
+code_stats() {
+	:
+	# Todo
+	# tokei (tree dir)
+}
+
 # Display most touched and/or most recently touched
 git_heatmap() {
 	echo "TODO"
@@ -3069,6 +3080,24 @@ docker_pick_container() {
 	echo "$container_id"
 }
 
+docker_pick_container_or_volume() {
+	local container_list=$(docker ps --format "{{.ID}}\t{{.Image}}\t{{.Names}}")
+	local volume_list=$(docker volume ls --format "{{.Name}}\t{{.Mountpoint}}\t{{.Driver}}")
+	# Virtual combined table is:
+	# | type (container, volume) | ID / Name | Image / Mountpoint | Alias / Driver
+	local pick_table=$'Type\tID\tImage or Mnt\tName or Driver'
+	while IFS= read -r line; do
+		pick_table+=$(printf "\nContainer\t%s" "$line")
+	done <<<"$container_list"
+	while IFS= read -r line; do
+		pick_table+=$(printf "\nVolume\t%s" "$line")
+	done <<<"$volume_list"
+
+	local fzf_args=("--header-lines=1" "--reverse")
+	local picked=$(echo "$pick_table" | fzf "${fzf_args[@]}")
+	echo "$picked"
+}
+
 docker_pick_image() {
 	all_images=$(docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}")
 	selected_image=$(echo "$all_images" | fzf --height 40% --reverse --header-lines=1)
@@ -3121,7 +3150,7 @@ docker_restart() {
 	fi
 }
 
-docker_copy_to_container() {
+docker_copy() {
 	local host_source="$1"
 	local container_destination="${2:="/tmp/"}"
 	if [[ -z "$host_source" ]]; then
@@ -3132,14 +3161,59 @@ docker_copy_to_container() {
 		echo "Source file does not exist"
 		return 1
 	fi
-	[[ -z "$CONTAINER_REF" ]] && local CONTAINER_REF="$(docker_pick_container)"
+
+	local is_file=0
+	if [[ -f "$host_source" ]]; then
+		is_file=1
+	fi
+
+	local VOLUME_REF=""
+	if [[ -z "$CONTAINER_REF" ]]; then
+		local TARGET_REF="$(docker_pick_container_or_volume)"
+		local TARGET_TYPE=$(echo "$TARGET_REF" | awk '{print $1}')
+		if [[ "$TARGET_TYPE" == "Volume" ]]; then
+			VOLUME_REF=$(echo "$TARGET_REF" | awk '{print $2}')
+		elif [[ "$TARGET_TYPE" == "Container" ]]; then
+			CONTAINER_REF=$(echo "$TARGET_REF" | awk '{print $2}')
+		else
+			echo "Invalid option"
+			return 1
+		fi
+	fi
+
+	if [[ -n "$VOLUME_REF" ]]; then
+		# Use a tiny container to act as a mount for the volume, temporarily,
+		# since Docker doesn't support directly copying into un-mounted volumes
+		# https://github.com/moby/moby/issues/25245
+		local host_source_tmp_mount="/tmp/host_source"
+		local volume_tmp_mount="/tmp/volume_mount"
+		local docker_run_args=(--rm --name dummy_volume_mount_container)
+		# Bind-mount the volume itself
+		docker_run_args+=(--volume "${VOLUME_REF}:${volume_tmp_mount}")
+		# Bind mount the file (or directory)
+		local file_or_dir_name=$(basename "$host_source")
+		docker_run_args+=(--volume "${host_source}:${host_source_tmp_mount}/${file_or_dir_name}")
+		# Set our working directory to be the root of the mounted source directory
+		docker_run_args+=(--workdir "$host_source_tmp_mount")
+		# Run on a lightweight image
+		docker_run_args+=(alpine)
+		# And auto-copy on run
+		if [[ $is_file -eq 1 ]]; then
+			docker_run_args+=(cp "$file_or_dir_name" "$volume_tmp_mount")
+		else
+			docker_run_args+=(cp -r "$file_or_dir_name" "$volume_tmp_mount")
+		fi
+		declare -p docker_run_args
+		docker run "${docker_run_args[@]}"
+		return 0
+	fi
+
 	if [[ -z "$CONTAINER_REF" ]]; then
 		return 1
 	fi
 	echo "Copying $host_source to $CONTAINER_REF:$container_destination"
 	docker cp "$host_source" "$CONTAINER_REF:$container_destination"
 }
-alias docker_copy="docker_copy_to_container"
 
 # Note: For debugging usage, the new `docker debug` command looks promising,
 # but requires a paid plan to use
@@ -3317,6 +3391,20 @@ docker_image_exec() {
 }
 alias docker_exec_image="docker_image_exec"
 alias docker_run_image_interactive="docker_exec_image"
+
+docker_image_export() {
+	local image_id=$1
+	if [[ -n "$image_id" ]] && ! (echo "$image_id" | grep -q -E "^-"); then
+		shift
+	else
+		image_id=$(docker_pick_image)
+	fi
+	if [[ -z "$image_id" ]]; then
+		return 1
+	fi
+
+	echo "TODO"
+}
 
 # Throwaway container for PostgreSQL
 docker_temp_pg() {
@@ -4609,9 +4697,3 @@ EOF
 	fi
 	echo "$STATUS_STRING"
 }
-
-if [[ "$SHELL_TYPE" == "ZSH" ]]; then
-	# This has a lot of zsh-isms in it
-	# shellcheck disable=SC1091
-	source "$DOTFILES_DIR/utils/large_llm_query.sh"
-fi
