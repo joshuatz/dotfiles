@@ -2,6 +2,7 @@
 set -e
 
 SCRIPT_DIR=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
+DOTFILES_HOME_PROD_DIR="$HOME/dotfiles"
 
 COMPUTER_NAME=""
 if (which scutil > /dev/null); then
@@ -30,7 +31,8 @@ inject_dynamic_values_into_profile() {
 	local profile_path="$1"
 	cat >> "$profile_path" <<- EOF
 	# Dynamic variables, injected by manage.sh (jtz dotfiles)
-	DOTFILES_DIR="$SCRIPT_DIR"
+	DOTFILES_DEV_DIR="$SCRIPT_DIR"
+	DOTFILES_HOME_PROD_DIR="$DOTFILES_HOME_PROD_DIR"
 	EOF
 }
 
@@ -140,11 +142,10 @@ push() {
 	cp "$SCRIPT_DIR/rio_config.toml" ~/.config/rio/config.toml
 	sed -i --follow-symlinks "s#\$HOME#${HOME}#g" ~/.config/rio/config.toml
 
-
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)
-	for DIR_NAME in "scripts" "utils" "ascii_art" "shims"; do
-		cp -r "$SCRIPT_DIR/$DIR_NAME" ~/dotfiles/
+	for DIR_NAME in "scripts" "utils" "ascii_art" "shims" "docs"; do
+		cp -r "${SCRIPT_DIR}/${DIR_NAME}" "${DOTFILES_HOME_PROD_DIR}/"
 	done
 
 	# Todo: This needs to be merged, not overwritten, because it contains stuff like

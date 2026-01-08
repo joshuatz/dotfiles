@@ -139,7 +139,7 @@ export USER_BIN_OVERRIDES_DIR="${HOME}/.local/bin"
 if ! [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
 	mkdir -p $USER_BIN_OVERRIDES_DIR
 fi
-export DOTFILES_DIR="${HOME}/dotfiles"
+export DOTFILES_DEV_DIR="${HOME}/dotfiles"
 
 # Autocomplete - ORDER MATTERS
 unsetopt complete_aliases
@@ -160,6 +160,7 @@ fi
 
 # Set `--mouse` as default with `less` to avoid paging issues when combined with tmux (and elsewhere)
 # (related: https://github.com/NHDaly/tmux-better-mouse-mode/issues/27)
+# --RAW-CONTROL-CHARS = -R
 export LESS="--RAW-CONTROL-CHARS --mouse"
 
 # Set aliases for g* (GNU) versions of programs
@@ -182,7 +183,7 @@ if [[ $USE_MAC_COREUTILS -eq 0 ]]; then
 fi
 
 # Load main customization files
-[[ -f "$DOTFILES_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DIR/ascii_art/loader.sh" || true
+[[ -f "$DOTFILES_DEV_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DEV_DIR/ascii_art/loader.sh" || true
 [[ -f ~/.aliases ]] && source ~/.aliases
 [[ -f ~/.env.public ]] && source ~/.env.public
 
@@ -247,7 +248,7 @@ fi
 # For example, for Apple development, some tools (e.g. CocoaPods) will
 # have high-priority system paths that have to be intelligently
 # overwritten
-export PATH="$DOTFILES_DIR/shims:$PATH"
+export PATH="$DOTFILES_DEV_DIR/shims:$PATH"
 
 
 # Wezterm

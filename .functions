@@ -3528,14 +3528,14 @@ docker_log_follow() {
 
 run_raw_cmd_in_dotfiles_venv() {
 	local RAW_CMD_TO_RUN=$1
-	if ! [[ -d "$DOTFILES_DIR" ]]; then
+	if ! [[ -d "$DOTFILES_DEV_DIR" ]]; then
 		return 1
 	fi
 	(
-		cd "$DOTFILES_DIR" || exit
+		cd "$DOTFILES_DEV_DIR" || exit
 		if ! [[ -d ./.venv ]]; then
 			if ! (python3 -m venv ./.venv); then
-				echo "Virtual environment is missing in $DOTFILES_DIR and could not be auto-created" 1>&2
+				echo "Virtual environment is missing in $DOTFILES_DEV_DIR and could not be auto-created" 1>&2
 				exit 1
 			fi
 		fi
@@ -3551,11 +3551,11 @@ run_python_repl_in_dotfiles_venv() {
 
 run_raw_python_in_dotfiles_venv() {
 	local RAW_CODE_TO_RUN=$1
-	if ! [[ -d "$DOTFILES_DIR" ]]; then
+	if ! [[ -d "$DOTFILES_DEV_DIR" ]]; then
 		return 1
 	fi
 	(
-		cd "$DOTFILES_DIR" || exit
+		cd "$DOTFILES_DEV_DIR" || exit
 		activate || exit
 		python3 -c "$RAW_CODE_TO_RUN"
 	)

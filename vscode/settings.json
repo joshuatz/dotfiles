@@ -50,6 +50,11 @@
 	"workbench.editor.limit.perEditorGroup": false,
 	// WOO! Keep layout (e.g. three column), even if you *close* all the tabs within the editors! NOTE: This won't stop the action "Close all editor ***groups***" from closing the layout - instead use "close all ***editors***"
 	"workbench.editor.closeEmptyGroups": false,
+	// This is awesome - makes it much easier to read ${somedir}/index.{ext} repo patterns
+	"workbench.editor.customLabels.enabled": true,
+	"workbench.editor.customLabels.patterns": {
+		"**/index.{ts,tsx,js,jsx,md,html}": "${dirname} (${filename}.${extname})"
+	},
 	// It would be nice to have this be enabled, but unfortunately it prevents tooltips
 	// from working on unfocused panes if enabled, which is too useful of a feature
 	// to lose
@@ -504,11 +509,13 @@
 	// see: https://github.com/microsoft/vscode/issues/254918
 	"chat.detectParticipant.enabled": false,
 	"chat.editRequests": "hover",
+	"chat.tools.terminal.enableAutoApprove": false,
 	"[typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"editor.stickyScroll.enabled": true,
 	"workbench.tree.enableStickyScroll": true,
+	"workbench.tree.renderIndentGuides": "always",
 	"githubPullRequests.fileListLayout": "tree",
 	"githubPullRequests.showPullRequestNumberInTree": true,
 	// Huge improvement - without this on (defaults to off) the gutter highlights
@@ -549,6 +556,7 @@
 	],
 	"diffEditor.ignoreTrimWhitespace": false,
 	"search.defaultViewMode": "tree",
+	"editor.find.findOnType": true,
 	"search.searchEditor.defaultNumberOfContextLines": 6,
 	"search.maxResults": 2000,
 	// Controls default case sensitivity matching
