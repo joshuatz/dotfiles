@@ -823,6 +823,16 @@ print(json.dumps(output_list, indent=indent_spaces))
 EOF
 }
 
+spreadsheet_to_html() {
+	local md=$(spreadsheet_to_markdown "$1")
+	markdown_to_html "$md"
+}
+
+spreadsheet_to_html_clipboard() {
+	local md=$(spreadsheet_to_markdown "$1")
+	markdown_to_html_clipboard "$md"
+}
+
 firefox() {
 	if [[ "IS_MAC" -eq 1 ]]; then
 		/Applications/Firefox.app/Contents/MacOS/firefox "$@"
@@ -1950,6 +1960,17 @@ tmux_set_theme() {
 
 tmux_attach_with_init() {
 	local tmux_session_name=$1
+
+	if [[ -z "$tmux_session_name" ]]; then
+		echo "Cannot attach (no session name provided)"
+		return 1
+	fi
+
+	if ! (tmux_check_if_session_name_exists "$tmux_session_name"); then
+		printf 'Cannot attach to "%s", no session with that name found' "$tmux_session_name"
+		return 1
+	fi
+
 	set_title "$(printf "%s %s" "\Uebc8" "$tmux_session_name")"
 
 	# Get the list of allowed pass-through vars
@@ -2662,7 +2683,7 @@ git_sparse_checkout() {
 
 # TODO: would be nice if this could separately stash dropped changes (even if just in a patch file)
 git_do_while_dirty() {
-	git_operation="$*"
+	local git_operation="$*"
 	IFS=
 
 	# If no operation was provided, default to very last command
@@ -2693,7 +2714,7 @@ git_do_while_dirty() {
 	# Error out when command is NOT run from root of git repo, as this can cause issues with things
 	# like `git checkout ${PATHSPEC}`, as the paths git's stdout uses are relative to repo root,
 	# even if you running command from subdirectory
-	git_root=$(git rev-parse --show-toplevel)
+	local git_root=$(git rev-parse --show-toplevel)
 	if [[ "$git_root" != "$PWD" ]]; then
 		echo "ERROR: You are not running this command from the root of a git repository"
 		echo "This can cause issues with things like \`git checkout\`, as the paths git's stdout"
@@ -2703,21 +2724,21 @@ git_do_while_dirty() {
 		return 1
 	fi
 
-	git_operation_results=$($SHELL -c "$git_operation" 2>&1)
+	local git_operation_results=$($SHELL -c "$git_operation" 2>&1)
 
 	# If operation was clean, nothing to do
-	error_string_test=$(echo "$git_operation_results" | grep -E "error: Your local changes to the following files would be overwritten by")
+	local error_string_match=$(echo "$git_operation_results" | grep -E "^error: Your local changes to the following files would be overwritten by")
+	if [[ -z "$error_string_match" ]]; then
+		error_string_match=$(echo "$git_operation_results" | grep -E "^error: The following untracked working tree files would be overwritten by merge")
+	fi
 
-	# TODO: Add check for `error: The following untracked working tree files would be overwritten by merge:`
-
-	echo "$error_string_test"
-	if [[ "$error_string_test" == "" ]]; then
+	if [[ -z "$error_string_match" ]]; then
 		echo "✅🚀 Operation was clean"
 		return 0
 	fi
 
-	# Get list of conflicting file paths
-	dirty_files=$(echo "$git_operation_results" | grep -E -o "^[[:blank:]]+.*" | sed -e 's/^[[:space:]]*//')
+	# Get list of conflicting file paths (note: this pattern works for both error string matchers)
+	local dirty_files=$(echo "$git_operation_results" | grep -E -o "^[[:blank:]]+.*" | sed -e 's/^[[:space:]]*//')
 	cat << EOF
 ========= DIRTY FILES =========
 $dirty_files
@@ -2726,8 +2747,8 @@ EOF
 
 	# Use stash to temporarily stash changes
 	# Newer versions of git can support stashing just staged changes
-	use_staged_stash=false
-	git_version=$(git_version_parsed)
+	local use_staged_stash=false
+	local git_version=$(git_version_parsed)
 	if [[ $(parse_version_string "$git_version") -ge $(parse_version_string "2.35") ]]; then
 		echo "Found git version >= 2.3"
 		echo "💡 Your git version supports staged stashes."
@@ -2745,9 +2766,9 @@ EOF
 		done
 	fi
 
-	ITEMS_PRESERVED=0
+	local ITEMS_PRESERVED=0
 	# Go through list of conflicting files and ask what the user wants to do
-	preserve="unsure"
+	local preserve="unsure"
 	# different fd (`<&9`) is to avoid conflict with inner `read`
 	# https://stackoverflow.com/q/6911520/11447682
 	while IFS= read -r dirty_file <&9; do
@@ -2769,26 +2790,39 @@ EOF
 			done
 		fi
 
+		# `keep` or `remove``
+		local ACTION_TO_EXECUTE=""
+
 		if [[ $preserve == "none" ]]; then
-			git checkout "$dirty_file"
+			ACTION_TO_EXECUTE="remove"
 		elif [[ $preserve == "all" ]]; then
+			ACTION_TO_EXECUTE="keep"
+		else
+			if [[ $preserve == "yes" ]]; then
+				ACTION_TO_EXECUTE="keep"
+			else
+				ACTION_TO_EXECUTE="remove"
+			fi
+			# Reset for next go-around
+			preserve="unsure"
+		fi
+
+		if [[ "$ACTION_TO_EXECUTE" == "keep" ]]; then
 			git add "$dirty_file"
 			ITEMS_PRESERVED=$((ITEMS_PRESERVED+1))
 		else
-			if [[ $preserve == "yes" ]]; then
-				git add "$dirty_file"
-				ITEMS_PRESERVED=$((ITEMS_PRESERVED+1))
-			else
+			if (git ls-files --error-unmatch "$dirty_file" > /dev/null 2>&1); then
 				git checkout "$dirty_file"
+			else
 				# There is an edge-case where this can fail; if the file that is conflicting
 				# is a previously / currently untracked file, but the upstream is now tracking
 				# it / has added it, then `git checkout file` will not work, because it isn't
 				# in git to begin with, but at the same time, you can't git pull if it now
 				# exists in the upstream.
-				# In this scenario, [...] TODO
+				# Trying the above will error out in this case with `error: pathspec '$dirty_file' did not match any file(s) known to git`
+				# In this scenario, we just need to delete the file outright
+				rm "$dirty_file"
 			fi
-			# Reset for next go-around
-			preserve="unsure"
 		fi
 	done 9<<< "$dirty_files"
 
@@ -2937,10 +2971,23 @@ git_pack_to_tarball_with_tracking() {
 
 	echo "At a minimum, there are $(git ls-files | wc -l) files to clone and pack"
 	local HAS_LFS_FILES=0
+	local EXPORT_LFS_FILES=0
 
 	if (git_has_lfs_files); then
 		echo "📎 Git LFS files detected"
 		HAS_LFS_FILES=1
+		EXPORT_LFS_FILES=1
+
+		printf "Include LFS files in archive? [Yy]es / ENTER, [Nn]o, [Cc]ancel\n"
+		while true; do
+			read -r answer
+			case $answer in
+				[Yy]*) break ;;
+				"") break ;;
+				[Nn]*) EXPORT_LFS_FILES=0 && break ;;
+				[Cc]*) return 0 ;;
+			esac
+		done
 	fi
 
 	# For backing up source code PLUS actual git history (`.git`) our options are actually pretty limited,
@@ -2965,11 +3012,16 @@ git_pack_to_tarball_with_tracking() {
 	fi
 
 	echo "💾 Cloning to temp bare repo..."
-	git push git-bare-clone "$TRUNK_BRANCH"
-
-	if [[ $HAS_LFS_FILES -eq 1 ]]; then
-		echo "  ↳ 💾 Pushing LFS objects to temp bare clone"
+	if [[ $EXPORT_LFS_FILES -eq 1 ]]; then
+		git push git-bare-clone "$TRUNK_BRANCH"
 		git lfs push --all git-bare-clone
+	else
+		# Note: GIT_LFS_SKIP_PUSH skips pushing actual resources and just uses pointers
+		GIT_LFS_SKIP_PUSH=1 git push git-bare-clone "$TRUNK_BRANCH"
+
+		if [[ $HAS_LFS_FILES -eq 1 ]]; then
+			echo "⚠️ LFS files were detected, but excluded from archive export."
+		fi
 	fi
 
 	local UNPACKED_SIZE=$(du -hs "$TMP_DIR/$BARE_REPO_DIR_NAME" | awk '{print $1}')

@@ -487,6 +487,7 @@
 	// in the debugger REPL with all past entries, when I'm often using autocomplete as an
 	// investigatory tool and am not interested in unrelated past entries
 	"debug.console.historySuggestions": false,
+	"debug.breakpointsView.presentation": "tree",
 	"files.associations": {
 		".prettierrc": "json"
 	},
@@ -510,6 +511,11 @@
 	"chat.detectParticipant.enabled": false,
 	"chat.editRequests": "hover",
 	"chat.tools.terminal.enableAutoApprove": false,
+	"claudeCode.environmentVariables": [],
+	"gitlens.ai.model": "vscode",
+	"gitlens.ai.vscode.model": "copilot:gpt-4.1",
+	"claudeCode.preferredLocation": "sidebar",
+	"claudeCode.selectedModel": "opus",
 	"[typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
