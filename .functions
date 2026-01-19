@@ -259,12 +259,23 @@ USER_CONFIG_DIR=$HOME/.config
 OS_NAME="linux"
 IS_MAC=0
 IS_MAC_SILICON=0
+IS_MAC_ROSETTA_ACTIVE=0
+ARCH_NAME="$(uname -p)"
+ARCH_NAME_PRETTY="$ARCH_NAME"
+# E.g. `darwin25.0`
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	USER_CONFIG_DIR=$HOME/Library/Application\ Support
 	OS_NAME="mac"
 	IS_MAC=1
-	if [[ "$(uname -p)" == "arm" ]]; then
+	# Rather than check `arch` or `uname -p`, better to  use full string in case
+	# this is running under rosetta
+	if (uname -a | grep -q ARM64_); then
 		IS_MAC_SILICON=1
+		ARCH_NAME_PRETTY="arm64 (Apple)"
+		if [[ "$ARCH_NAME" == "i386" ]]; then
+			IS_MAC_ROSETTA_ACTIVE=1
+			ARCH_NAME_PRETTY="i386 (Apple, Rosetta)"
+		fi
 	fi
 fi
 IS_WAYLAND=0

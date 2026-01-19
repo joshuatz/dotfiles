@@ -127,6 +127,7 @@ push() {
 	fi
 
 	# Single files
+	cp "$SCRIPT_DIR/.p10k.zsh" ~
 	cp "$SCRIPT_DIR/Taskfile.global.yml" ~
 	cp "$SCRIPT_DIR/.functions" ~
 	cp "$SCRIPT_DIR/.aliases" ~
