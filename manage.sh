@@ -146,6 +146,9 @@ push() {
 	# Dirs
 	# TODO, make this more streamlined (symlinks? dynamic resolution?)
 	for DIR_NAME in "scripts" "utils" "ascii_art" "shims" "docs"; do
+		if ! [[ -d "${SCRIPT_DIR}/${DIR_NAME}" ]]; then
+			continue
+		fi
 		cp -r "${SCRIPT_DIR}/${DIR_NAME}" "${DOTFILES_HOME_PROD_DIR}/"
 	done
 
@@ -169,7 +172,9 @@ push() {
 		uninstalled_extensions=$(comm -23 "$VSCODE_TEMP_DIR/dotfiles_extensions.txt" "$VSCODE_TEMP_DIR/installed_extensions.txt")
 		if [[ -n "$uninstalled_extensions" ]]; then
 			echo "There are $(echo "$uninstalled_extensions" | wc -l) uninstalled extensions to install"
-			echo "$uninstalled_extensions" | tr '\n' '\0' | xargs -0 -L 1 code --install-extension
+			if ! (echo "$uninstalled_extensions" | tr '\n' '\0' | xargs -0 -L 1 code --install-extension); then
+				echo "WARNING: Failed to fully install all VS Code extensions"
+			fi
 		fi
 
 		# Sync config files
