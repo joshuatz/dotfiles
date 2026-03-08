@@ -4,3 +4,7 @@
 
 nodejs 22.15.0
 python 3.13.3
+
+# Java versions can be found in a few places, but here is one list: https://github.com/joschi/asdf-vm-bot/tree/main/toots/java
+# (e.g. zulu-17.58.21)
+java adoptopenjdk-25.0.2+10.0.LTS

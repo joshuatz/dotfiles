@@ -199,7 +199,7 @@ docs_signals() {
 }
 
 # === Styling ===
-# For ANSI, this is a helpful guide - https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+# For ANSI, this is a helpful guide - https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797. Or https://github.com/paoloricciuti/learn-ansi
 # However, `tput` seems to be generally preferred over ANSI escape sequences now
 
 # A style reset can take many different forms:
@@ -313,6 +313,75 @@ add_bin_entry() {
 	# symlink into custom bin overrides / PATH
 	ln -s "$BIN_PATH" "${USER_BIN_OVERRIDES_DIR}/"
 }
+
+mac_quarantine_remove() {
+	local file_path="$1"
+	if [[ $IS_MAC -ne 1 ]]; then
+		echo "This is a mac-only command"
+		return 1
+	fi
+	if ! [[ -f "$file_path" ]]; then
+		echo "Could not find file at $file_path"
+		return 1
+	fi
+	xattr -d com.apple.quarantine "$file_path"
+}
+
+apple_ipa_meta_extract() {
+	local ipa_file_path="$1"
+
+	if [[ -z "$ipa_file_path" ]]; then
+		echo "Error: IPA file path was not provided." >&2
+		echo "Usage: apple_ipa_meta_extract <path_to_ipa>" >&2
+		return 1
+	fi
+
+	if [[ ! -f "$ipa_file_path" ]]; then
+		echo "Error: File not found at '$ipa_file_path'" >&2
+		return 1
+	fi
+
+	# Extract the entire IPA into a temporary directory (persists after exit).
+	local extract_dir
+	extract_dir=$(mktemp -d "${TMPDIR:-/tmp}/ipa_extract.XXXXXX")
+	unzip -q "$ipa_file_path" -d "$extract_dir"
+
+	# Locate Info.plist inside the extracted Payload.
+	local plist_path
+	plist_path=$(find "$extract_dir/Payload" -maxdepth 2 -name 'Info.plist' -path '*.app/*' | head -n 1)
+
+	if [[ -z "$plist_path" ]]; then
+		echo "Error: Could not find Info.plist in '$ipa_file_path'" >&2
+		return 1
+	fi
+
+	# Print Info.plist as readable XML (or raw if plutil is unavailable).
+	echo "--- Info.plist ---"
+	if which plutil > /dev/null 2>&1; then
+		plutil -convert xml1 -o - "$plist_path"
+	else
+		echo "plutil is not available; falling back to direct contents of plist" >&2
+		cat "$plist_path"
+	fi
+
+	# Detect a React Native JS bundle.
+	echo ""
+	echo "--- React Native ---"
+	local jsbundle_path
+	jsbundle_path=$(find "$extract_dir/Payload" -maxdepth 2 -name '*.jsbundle' -path '*.app/*' | head -n 1)
+
+	if [[ -n "$jsbundle_path" ]]; then
+		echo "RN Bundle: $jsbundle_path"
+	else
+		echo "RN Bundle: Not Detected"
+	fi
+
+	# Print the persistent extraction directory.
+	echo ""
+	echo "--- Extracted IPA ---"
+	echo "Extracted to: $extract_dir"
+}
+
 
 # TODO: auto-resolve asdf shims
 resolve_alias() {
@@ -2499,6 +2568,11 @@ git_auto_rebase() {
 	local keep_dates_as_is=$(check_args_for_value "--keep-dates" "$@" && echo "false" || echo "true")
 	local new_target_base=$(git_find_fixup_base)
 
+	# Also allow for flags to be set via env var
+	if [[ -n "$EDIT" ]]; then
+		skip_editor="false"
+	fi
+
 	if [[ $? -ne 0 ]]; then
 		echo "$new_target_base"
 		echo "Could not auto-find new base. Cancelling auto-rebase"
@@ -2555,6 +2629,16 @@ git_branch_name() {
 # WARNING: This errors if no corresponding tag can be found
 git_tag_name() {
 	git describe --tags --abbrev=0
+}
+
+# Finds the previous (most recent) tag in the git history. If the current commit / HEAD is already used by a tag, the tag
+# before that one will be returned, not the current tag.
+git_find_previous_tag() {
+	if (check_args_for_value "--current-branch-only" "$@"); then
+		git describe --tags --abbrev=0
+		return 0
+	fi
+	git describe --tags "$(git rev-list --tags --max-count=1)"
 }
 
 # NOTE: This returns the remote branch name, prefixed with the name of the remote itself
@@ -3162,7 +3246,7 @@ docker_pick_container_or_volume() {
 }
 
 docker_pick_image() {
-	all_images=$(docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}")
+	all_images=$(docker image ls --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}" | grep --invert-match '<none>:<none>')
 	selected_image=$(echo "$all_images" | fzf --height 40% --reverse --header-lines=1)
 	if [[ -z "$selected_image" ]]; then
 		return 1
@@ -4347,7 +4431,7 @@ aws_ec2_instance_connect_generate_temp_ssh_command() {
 			-c|--code)
 				OPEN_VS_CODE=1
 				;;
-			-cd|--change-directory|--code-dir)
+			-cd|--cwd|--dir|--change-directory|--code-dir)
 				CHANGE_DIR=$2
 				shift
 				;;
@@ -4491,13 +4575,13 @@ trust_cert_fingerprint() {
 		return 1
 	fi
 
-	if (check_args_for_value "--chrome" "$@"); then
-		chrome --ignore-certificate-errors-spki-list="$PUBLIC_CERT_FINGERPRINT" --user-data-dir=/tmp
-		return 0
+	if (check_args_for_value "--firefox" "$@"); then
+		echo "TODO: Add Firefox support. This might not even be possible - need to comb through https://wiki.mozilla.org/Firefox/CommandLineOptions"
+		return 1
 	fi
 
-	echo "TODO: Add Firefox support. This might not even be possible - need to comb through https://wiki.mozilla.org/Firefox/CommandLineOptions"
-	return 1
+	chrome --ignore-certificate-errors-spki-list="$PUBLIC_CERT_FINGERPRINT" --user-data-dir=/tmp &
+	return 0
 }
 
 compose_ssl_cert_query() {

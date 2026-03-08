@@ -203,7 +203,7 @@ if [[ "$ZSH_THEME" == "powerlevel10k/powerlevel10k" ]]; then
 	prompt_powerlevel10k_arch_name_segment() {
 		p10k segment -t "$ARCH_NAME_PRETTY" -b 'black' -f 'white'
 	}
-	typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon powerlevel10k_arch_name_segment dir vcs newline)
+	typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon powerlevel10k_arch_name_segment dir vcs virtualenv newline)
 fi
 
 # GPG signing
@@ -319,6 +319,9 @@ fi
 USER_BIN_OVERRIDES_DIR_MAX_RECURSION=0
 
 # Finally, any thing in `~/.local/bin`, *recursively* should take priority
+# NOTE: For subdirectory handling / executables embedded deeply in another folder structure,
+# it is often easiest to just symlink the executable file into `~/.local/bin` instead of trying
+# to move things around
 if [[ -d "$USER_BIN_OVERRIDES_DIR" ]]; then
 	export PATH="$USER_BIN_OVERRIDES_DIR:$PATH"
 	RECURSIVE_PATH_ADDITIONS=0
