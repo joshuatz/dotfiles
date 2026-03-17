@@ -58,3 +58,23 @@ op item get ${ITEM_NAME} --vault Private --fields label=${FIELD_NAME}
 - [My Bash / Shell Scripting Cheatsheet](https://docs.joshuatz.com/cheatsheets/bash-and-shell/)
 - On Linux, ZSH completions should be under `/usr/share/zsh/functions/Completion/Unix/`. On macOS, they are under `/usr/share/zsh/${version}/functions`
 	- To explore with VS Code: `code "/usr/share/zsh/$ZSH_VERSION/functions"`
+
+### Setting Up a New Computer / Workspace
+
+In general, for any OS, I'm going to be installing:
+
+- [Task](https://taskfile.dev/) (task orchestration)
+- [asdf](https://github.com/asdf-vm/asdf) or [mise](https://github.com/jdx/mise) (version management)
+- [zsh](https://github.com/ohmyzsh/ohmyzsh/wiki/Installing-ZSH) (shell)
+	- + [ohmyzsh](https://ohmyz.sh/)
+- [Visual Studio Code](https://code.visualstudio.com/) (IDE)
+- [Firefox](https://www.firefox.com/en-US/) (browser)
+- [Rio](https://rioterm.com/) (terminal)
+- [git](https://git-scm.com/)
+	- [git credential manager (GCM)](https://github.com/git-ecosystem/git-credential-manager)
+
+> For macOS, some of my go-to extra installations are:
+> - [Homebrew](https://brew.sh/)
+> - [Rectangle](https://rectangleapp.com/)
+
+> For linux-specifics, see: [linux.md](./linux.md).
