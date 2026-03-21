@@ -223,12 +223,16 @@ colorize_text() {
 
 get_shell_type() {
 	# Make sure bash check comes first, to reduce issues when using subshells
-	if [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
+	if echo $SHELL | grep --silent -E "\/bash$"; then
 		echo "BASH"
-	elif [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
+		return
+	elif echo $SHELL | grep --silent -E "\/zsh$"; then
 		echo "ZSH"
 		return
 	fi
+
+	echo "Unknown shell"
+	return 1
 }
 SHELL_TYPE=$(get_shell_type)
 

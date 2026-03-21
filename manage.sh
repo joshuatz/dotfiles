@@ -27,6 +27,21 @@ fi
 CODE_USER_DIR=$USER_CONFIG_DIR/Code/User
 TABBY_CONFIG_FILE=$USER_CONFIG_DIR/tabby/config.yaml
 
+get_shell_type() {
+	# Make sure bash check comes first, to reduce issues when using subshells
+	if echo $SHELL | grep --silent -E "\/bash$"; then
+		echo "BASH"
+		return
+	elif echo $SHELL | grep --silent -E "\/zsh$"; then
+		echo "ZSH"
+		return
+	fi
+
+	echo "Unknown shell"
+	return 1
+}
+SHELL_TYPE=$(get_shell_type)
+
 inject_dynamic_values_into_profile() {
 	local profile_path="$1"
 	cat >> "$profile_path" <<- EOF
@@ -37,12 +52,12 @@ inject_dynamic_values_into_profile() {
 }
 
 bootstrap() {
-	if [[ -n "$ZSH_VERSION" ]] || echo $SHELL | grep --silent -E "\/zsh$"; then
+	if [[ "$SHELL_TYPE" == "ZSH" ]]; then
 		echo "Bootstrapping for ZSH"
 		cp "$SCRIPT_DIR/.zshrc" ~/.zshrc
 		inject_dynamic_values_into_profile ~/.zshrc
 		exec zsh
-	elif [[ -n "$BASH_VERSION" ]] || echo $SHELL | grep --silent -E "\/bash$"; then
+	elif [[ "$SHELL_TYPE" == "BASH" ]]; then
 		echo "Bootstrapping for Bash"
 		cp "$SCRIPT_DIR/.bash_profile" ~/.bash_profile
 		inject_dynamic_values_into_profile ~/.bash_profile
@@ -108,7 +123,70 @@ pull() {
 	toast --title "dotfiles sync" --message "Pull complete!"
 }
 
+ensure_system_prerequisites() {
+	local system_checks=()
+	local has_error=0
+	local msg=""
+
+	# Most of the setup is currently oriented towards ZSH
+	if ! [[ "$SHELL_TYPE" == "ZSH" ]]; then
+		has_error=1
+		msg=$(cat <<- "EOF"
+		ZSH:             ❌
+
+		    You don't seem to be running zsh as your shell!
+
+		    Here is handy guide for installing zsh: https://github.com/ohmyzsh/ohmyzsh/wiki/Installing-ZSH
+		EOF
+		)
+		system_checks+=("$msg")
+
+	else
+		system_checks+=("ZSH:             ✅")
+	fi
+
+	# oh-my-zsh, and favorite theme
+	if ! [[ -d "$HOME/.oh-my-zsh" ]]; then
+		has_error=1
+		msg=$(cat <<- "EOF"
+		oh-my-zsh:       ❌
+
+		    Could not find oh-my-zsh directory. Has it been installed?
+
+		    See: https://github.com/ohmyzsh/ohmyzsh
+		EOF
+		)
+		system_checks+=("$msg")
+	else
+		system_checks+=("oh-my-zsh:       ✅")
+	fi
+
+	if ! [[ -d "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" ]]; then
+		has_error=1
+		msg=$(cat <<- "EOF"
+		oh-my-zsh theme: ❌
+
+		    Could not find powerlevel10k theme. Has it been installed?
+
+		    See: https://github.com/romkatv/powerlevel10k#installation
+		EOF
+		)
+		system_checks+=("$msg")
+	else
+		system_checks+=("oh-my-zsh theme: ✅")
+	fi
+
+
+	printf "====== System Checks ======\n\n"
+	printf "%s\n" "${system_checks[@]}"
+	printf "\n===========================\n\n"
+
+	return $has_error
+}
+
 push() {
+	ensure_system_prerequisites
+
 	mkdir -p $HOME/dotfiles
 	# Make sure env files are scaffolded
 	for env_file in "$SCRIPT_DIR"/.env.*.example; do
@@ -187,12 +265,17 @@ push() {
 		fi
 		echo "✅ Pushed VS Code"
 	else
+		# Edge-case: VS Code that is installed, but not yet added to PATH
+		if [[ $IS_MAC -eq 1 ]] && (ls /Applications | grep --silent "Visual Studio Code"); then
+			printf 'Visual Studio Code is installed, but CLI installation missing. Please use the command palette to "Install Code command" in PATH'
+			return 1
+		fi
 		echo "⏩ Skipped: VS Code"
 	fi
 
 	# For files that require sudo, let's diff first to avoid password prompt if we don't have to use it
-	LIBINPUT_QUIRKS_FILE="$SCRIPT_DIR/libinput-local-overrides.quirks"
 	if [[ "$OS_NAME" == "linux" ]]; then
+		local LIBINPUT_QUIRKS_FILE="$SCRIPT_DIR/libinput-local-overrides.quirks"
 		if ! [[ -f "$LIBINPUT_QUIRKS_FILE" ]] || ! (diff /etc/libinput/local-overrides.quirks "$LIBINPUT_QUIRKS_FILE" > /dev/null); then
 			sudo cp "$LIBINPUT_QUIRKS_FILE" /etc/libinput/local-overrides.quirks
 		fi

@@ -1,6 +1,8 @@
 [user]
 	name = Joshua Tzucker
 	email = REDACTED
+	# This should be the path to a SSH public key, since gpg.format = ssh
+	# If you don't already have a key created and configured, see: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#generating-a-new-ssh-key
 	signingKey = REDACTED
 [init]
 	defaultBranch = main

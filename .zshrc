@@ -14,7 +14,7 @@ export OH_MY_ZSH_ACTIVE=true
 
 if ! [[ -d "$ZSH" ]]; then
 	cat <<-  "EOF"
-	Could not find ZSH directory. Has it been installed?
+	Could not find oh-my-zsh directory. Has it been installed?
 	    See: https://github.com/ohmyzsh/ohmyzsh
 	EOF
 	exit 0

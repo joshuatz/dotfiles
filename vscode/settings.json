@@ -294,12 +294,22 @@
 	// Note: If you edit this, it seems like you need to reload to get it to take affect
 	"bookmarks.sideBar.expanded": true,
 	// Styling
+	"scm.diffDecorationsGutterWidth": 4,
 	"workbench.colorCustomizations": {
 		"editor.selectionHighlightBackground": "#5b8df977",
 		"editorError.foreground": "#ff00006e",
 		"diffEditor.removedTextBorder": "#FF000055",
 		"diffEditor.insertedTextBorder": "#ffff0055",
 		"diffEditor.diagonalFill": "#ff000030",
+		// This hides / disables gutter decoration for _staged_ changes, by setting
+		// the color to something with a fully-transparent alpha setting. This works
+		// around that there is only a right-click UX to disable these gutter decorations,
+		// and no exposed direct setting.
+		// See: https://github.com/microsoft/vscode/issues/247395#issuecomment-2887332957
+		// See: https://github.com/microsoft/vscode/issues/252067
+		"editorGutter.addedSecondaryBackground": "#ffffff00",
+		"editorGutter.modifiedSecondaryBackground": "#ffffff00",
+		"editorGutter.deletedSecondaryBackground": "#ffffff00",
 		"editorBracketMatch.border": "#2711a0b9",
 		// Declutter scrollbar overview ruler
 		"editorOverviewRuler.infoForeground": "#0400ff2f",
@@ -863,7 +873,6 @@
 	],
 	"docker.extension.enableComposeLanguageServer": false,
 	"window.zoomLevel": -1,
-	"scm.diffDecorationsGutterWidth": 4,
 	"[dockercompose]": {
 		"editor.insertSpaces": true,
 		"editor.tabSize": 2,
