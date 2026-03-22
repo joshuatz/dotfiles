@@ -73,6 +73,13 @@ In general, for any OS, I'm going to be installing:
 - [git](https://git-scm.com/)
 	- [git credential manager (GCM)](https://github.com/git-ecosystem/git-credential-manager)
 
+And, common preferred setting changes are:
+
+- (Laptops) Turn on "tap to click" for trackpad
+- Increase cursor size (makes it easier to find, especially if using multi-monitor setup)
+- Adjust keyboard bindings to preference
+- Set theme preference to dark mode
+
 > For macOS, some of my go-to extra installations are:
 > - [Homebrew](https://brew.sh/)
 > - [Rectangle](https://rectangleapp.com/)
