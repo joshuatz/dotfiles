@@ -176,6 +176,21 @@ ensure_system_prerequisites() {
 		system_checks+=("oh-my-zsh theme: ✅")
 	fi
 
+	if ! which fzf > /dev/null; then
+		has_error=1
+		msg=$(cat <<- "EOF"
+		fzf:             ❌
+
+		    Could not find fzf. Has it been installed?
+
+		    See: https://github.com/junegunn/fzf?tab=readme-ov-file#installation
+		EOF
+		)
+		system_checks+=("$msg")
+	else
+		system_checks+=("fzf:             ✅")
+	fi
+
 
 	printf "====== System Checks ======\n\n"
 	printf "%s\n" "${system_checks[@]}"
