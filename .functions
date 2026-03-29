@@ -640,6 +640,10 @@ toast() {
 	return 0
 }
 
+warn() {
+	colorize_text 208 "$1" 1>&2
+}
+
 get_clipboard_contents() {
 	if (which pbpaste > /dev/null); then
 		pbpaste
@@ -3962,6 +3966,30 @@ find_procs_by_string() {
 	echo "$ps_output" | tail -n +2 | grep "$SEARCH_STRING" | grep --invert "grep"
 }
 
+find_procs_by_string_multi() {
+	local first_term="$1"
+	[[ -z "$first_term" ]] && return
+
+	# Get the full output of the first search to extract the header
+	local first_output=$(find_procs_by_string "$first_term")
+
+	# Print the Header (the first line only)
+	echo "$first_output" | head -n 1
+
+	# Collect all data rows (excluding headers) from all search terms
+	#    Then sort them uniquely to remove duplicates
+	{
+		# Data from the first search (excluding its header)
+		echo "$first_output" | tail -n +2
+
+		# Data from all remaining search terms (excluding their headers)
+		shift # Remove the first term from the argument list
+		for search_term in "$@"; do
+			find_procs_by_string "$search_term" | tail -n +2
+		done
+	} | sort -u
+}
+
 find_procs_by_parent() {
 	local PID="$1"
 	if (which pstree > /dev/null); then
@@ -3973,7 +4001,7 @@ find_procs_by_parent() {
 }
 
 pick_procs_by_string() {
-	local proc_list=$(find_procs_by_string "$1")
+	local proc_list=$(find_procs_by_string_multi "$@")
 	pick_procs_interactive "$proc_list"
 }
 
@@ -3997,6 +4025,13 @@ pidtree() (
 pick_procs_interactive() {
 	local proc_list="$1"
 	local header_row=$(echo $proc_list | head -n 1)
+
+	local proc_count=$(($(echo "$proc_list" | wc -l)))
+	# If line count == 1, then there is just the column headers - no results
+	if [[ $proc_count -le 1 ]]; then
+		warn "No processes to select from"
+		return 1
+	fi
 
 	# Detect proc list format
 	local proc_list_format="ps".
@@ -4060,9 +4095,11 @@ kill_procs_by_string_interactive() {
 }
 
 restart_vscode() {
-	local CODE_PIDS=$(pick_procs_by_string "Visual Studio Code.app/Contents/MacOS/Electron")
+	local CODE_PIDS=$(pick_procs_by_string "Visual Studio Code.app/Contents/MacOS/Electron" "Visual Studio Code.app/Contents/MacOS/Code")
 	kill_procs_by_pid_interactive "$CODE_PIDS"
+	warn "Waiting 10s before restarting vscode..."
 	sleep 10
+	warn "Starting vscode back up"
 	code
 }
 
