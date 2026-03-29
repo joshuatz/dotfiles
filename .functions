@@ -211,13 +211,17 @@ if (which tput >/dev/null) && [[ -n $TERM ]]; then
 	TERM_STYLE_RESET="$(tput sgr0)"
 fi
 
+# Colorize text by utilizing the 256 color palette / IDs
 # Example invocation (red text):
-# > colorize_text colorize_text 196 'ERROR! Oh no!'
-colorize_text() {
+# > colorize_text_id 196 'ERROR! Oh no!'
+colorize_text_id() {
 	local color_code=$1
 	local text=$2
-	echo -e "\e[38;2;${color_code}m${text}\e[0m"
+	echo -e "\e[38;5;${color_code}m${text}\e[0m"
 }
+alias colorize_text="colorize_text_id"
+
+# ^ For RGB / Truecolor, see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797#rgb-colors
 
 # === /Styling ===
 
