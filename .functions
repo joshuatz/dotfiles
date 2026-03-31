@@ -20,6 +20,11 @@ docs() {
 }
 
 search_fuzzy() {
+	if ! which rg; then
+		warn "Could not find rg (ripgrep) in PATH"
+		return 1
+	fi
+
 	local search_dir=""
 	local search_pattern=""
 

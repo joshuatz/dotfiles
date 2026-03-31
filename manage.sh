@@ -191,6 +191,21 @@ ensure_system_prerequisites() {
 		system_checks+=("fzf:             ✅")
 	fi
 
+	if ! which rg > /dev/null; then
+		has_error=1
+		msg=$(cat <<- "EOF"
+		rg:              ❌
+
+		    Could not find rg (ripgrep). Has it been installed?
+
+		    See: https://github.com/burntsushi/ripgrep?tab=readme-ov-file#installation
+		EOF
+		)
+		system_checks+=("$msg")
+	else
+		system_checks+=("rg:              ✅")
+	fi
+
 
 	printf "====== System Checks ======\n\n"
 	printf "%s\n" "${system_checks[@]}"
