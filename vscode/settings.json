@@ -307,6 +307,7 @@
 		// and no exposed direct setting.
 		// See: https://github.com/microsoft/vscode/issues/247395#issuecomment-2887332957
 		// See: https://github.com/microsoft/vscode/issues/252067
+		// See: https://github.com/microsoft/vscode/issues/249184
 		"editorGutter.addedSecondaryBackground": "#ffffff00",
 		"editorGutter.modifiedSecondaryBackground": "#ffffff00",
 		"editorGutter.deletedSecondaryBackground": "#ffffff00",
@@ -444,12 +445,21 @@
 	"liveshare.presence": false,
 	// For "go to" to open in new tab
 	"editor.gotoLocation.multipleReferences": "gotoAndPeek",
+	// See: https://github.com/vscode-icons/vscode-icons/wiki/FineTuning
 	"vsicons.associations.files": [
 		{
 			"icon": "makefile",
 			"extensions": ["justfile"],
 			"filename": true,
 			"format": "svg",
+		},
+	],
+	"vsicons.associations.folders": [
+		{
+			"icon": "docs",
+			"extensions": ["context", ".context"],
+			"format": "svg",
+			"light": true,
 		},
 	],
 	"[svelte]": {
@@ -494,7 +504,7 @@
 	// Also, will cause issues if running `npm install` inside a VSCode terminal
 	// with set to "always"
 	// Thus, recommend generally keeping off and just with flag
-	"debug.javascript.autoAttachFilter": "onlyWithFlag",
+	"debug.javascript.autoAttachFilter": "smart",
 	// Although sometimes handy, this gets _really_ annoying quickly, as this triggers autocomplete
 	// in the debugger REPL with all past entries, when I'm often using autocomplete as an
 	// investigatory tool and am not interested in unrelated past entries
@@ -513,6 +523,7 @@
 		"yaml": false,
 	},
 	"github.copilot.nextEditSuggestions.enabled": false,
+	"github.copilot.chat.agentHistorySummarizationInline": true,
 	// STOP DEFAULTING TO THIS! (ノ ゜Д゜)ノ ︵ ┻━┻
 	//  Disable the default behavior of adding current file to context (ALSO ANNOYING)
 	"chat.implicitContext.enabled": {
@@ -523,12 +534,12 @@
 	"chat.detectParticipant.enabled": false,
 	"chat.editRequests": "hover",
 	"chat.tools.terminal.enableAutoApprove": false,
-	"claudeCode.environmentVariables": [],
 	"gitlens.ai.model": "vscode",
 	"gitlens.ai.vscode.model": "copilot:gpt-4.1",
 	"claudeCode.preferredLocation": "panel",
 	"claudeCode.selectedModel": "opus",
-	"claudeCode.initialPermissionMode": "plan",
+	"claudeCode.initialPermissionMode": "default",
+	"claudeCode.disableLoginPrompt": true,
 	"[typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode",
 	},
@@ -895,6 +906,9 @@
 		"https://json-schema.org/": true,
 		"http://cyclonedx.org": true,
 	},
+	"roo-cline.debug": true,
+	"roo-cline.allowedCommands": ["git log", "git diff", "git show"],
+	"roo-cline.deniedCommands": [],
 	// macOS, BT mouse only (comment out if using trackpad)
 	// "editor.mouseWheelScrollSensitivity": 0.1
 	// Things that there are no exposed settings for in `settings.json`, but are worth changing

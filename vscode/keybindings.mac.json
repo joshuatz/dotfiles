@@ -85,5 +85,26 @@
 	{
 		"key": "cmd+.",
 		"command": "-problems.action.showQuickFixes"
+	},
+	// Also free up CMD + L / CMD + R, for window snapping shortcuts
+	{
+		"key": "cmd+left",
+		"command": "-workbench.action.browser.goBack",
+		"when": "browserCanGoBack && activeEditor == 'workbench.editor.browser'"
+	},
+	{
+		"key": "cmd+right",
+		"command": "-workbench.action.browser.goForward",
+		"when": "browserCanGoForward && activeEditor == 'workbench.editor.browser'"
+	},
+	{
+		"key": "cmd+right",
+		"command": "-cursorEnd",
+		"when": "textInputFocus"
+	},
+	{
+		"key": "cmd+left",
+		"command": "-cursorHome",
+		"when": "textInputFocus"
 	}
 ]

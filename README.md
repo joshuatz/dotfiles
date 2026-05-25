@@ -82,6 +82,6 @@ And, common preferred setting changes are:
 
 > For macOS, some of my go-to extra installations are:
 > - [Homebrew](https://brew.sh/)
-> - [Rectangle](https://rectangleapp.com/)
+> - [Rectangle](https://rectangleapp.com/) (only if on older macos without built-in)
 
 > For linux-specifics, see: [linux.md](./linux.md).

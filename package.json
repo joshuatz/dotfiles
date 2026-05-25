@@ -1,0 +1,10 @@
+{
+	"devDependencies": {
+		"@tsconfig/recommended": "^1.0.13",
+		"@types/node": "^25.5.0"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "^0.80.0",
+		"zx": "^8.8.5"
+	}
+}

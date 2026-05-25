@@ -219,23 +219,23 @@ fi
 # Note that this is coming before brew, so that asdf plugins will be preferred
 # over global brew installs (e.g., if accidentally installed some bin through
 # both tools)
-has_asdf=0
+HAS_ASDF=0
 # LEGACY installer / setup for asdf
 if [[ -f /usr/local/opt/asdf/libexec/asdf.sh ]]; then
 	# Homebrew
 	source /usr/local/opt/asdf/libexec/asdf.sh
-	has_asdf=1
+	HAS_ASDF=1
 elif [[ -f ~/.asdf/asdf.sh ]]; then
 	# Manual install (e.g. git cloned)
 	source ~/.asdf/asdf.sh
-	has_asdf=1
+	HAS_ASDF=1
 elif (which asdf > /dev/null); then
 	# Non-legacy installer, no setup script to source
-	has_asdf=1
+	HAS_ASDF=1
 fi
 
 # asdf mods
-if [[ $has_asdf -eq 1 ]]; then
+if [[ $HAS_ASDF -eq 1 ]]; then
 	# Main shimming
 	ASDF_SHIMS_DIR="${ASDF_DATA_DIR:-$HOME/.asdf}/shims"
 	PATH="${ASDF_SHIMS_DIR}:$PATH"
@@ -259,6 +259,13 @@ if [[ $has_asdf -eq 1 ]]; then
 	# (ノ ゜Д゜)ノ ︵ ┻━┻
 	export ASDF_FORCE_PREPEND=
 	PATH="/usr/local/bin:$PATH"
+fi
+
+# mise
+HAS_MISE=0
+if which mise > /dev/null; then
+	HAS_MISE=1
+	eval "$(mise activate zsh)"
 fi
 
 # Make sure shims / overrides come first, which handle some edge-cases.

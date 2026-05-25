@@ -2,11 +2,15 @@
 	"folders": [
 		{
 			"path": "../../",
-			"name": "dotfiles"
+			"name": "dotfiles",
 		},
 		{
 			"path": "../../../cheatsheets-and-misc",
-			"name": "cheatsheets-and-misc"
-		}
-	]
+			"name": "cheatsheets-and-misc",
+		},
+		{
+			"path": "../../../joshuatz.com",
+			"name": "portfolio",
+		},
+	],
 }

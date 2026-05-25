@@ -46,6 +46,23 @@ search_fuzzy() {
 		'!**/.git/'
 	)
 
+	local RG_IGNORE_GLOBS_ARGS=(
+		'--glob'
+		'!**/node_modules/'
+		'--glob'
+		'!**/.venv/'
+		'--glob'
+		'!**/venv/'
+		'--glob'
+		'!package-lock.json'
+		'--glob'
+		'!yarn.lock'
+		'--glob'
+		'!poetry.lock'
+		'--glob'
+		'!**/.git/'
+	)
+
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -427,7 +444,7 @@ bin_info() {
 	local is_homebrew=0
 	local has_homebrew=0
 	local is_asdf=0
-	local has_asdf=0
+	local has_asdf=$HAS_ASDF
 	local is_python=0
 	local has_python=0
 	local is_node=0
@@ -587,6 +604,23 @@ remove_all_line_breaks() {
 
 replace_all_line_breaks() {
 	echo "$1" | tr '\n\r' ' '
+}
+
+get_line_endings() {
+	local verbose_cat_out=""
+	if [[ -f "$1" ]]; then
+		verbose_cat_out=$(cat -e "$1")
+	else
+		verbose_cat_out=$(echo "$1" | cat -e)
+	fi
+
+	if (echo "$verbose_cat_out" | grep --silent -E '\^M\$$'); then
+		echo "CRLF"
+	elif (echo "$verbose_cat_out" | grep --silent -E '\^M$'); then
+		echo "CR"
+	else
+		echo "LF"
+	fi
 }
 
 reload() {
@@ -2638,6 +2672,17 @@ git_fix_dates() {
 	GIT_SEQUENCE_EDITOR=true git rebase --committer-date-is-author-date --autosquash "$COMMIT_TO_REBASE_TO"
 }
 
+# See: https://stackoverflow.com/questions/16217801/git-rebase-change-author#comment136290342_16218264
+git_fix_author() {
+	COMMIT_TO_REBASE_TO=$1
+	# shellcheck disable=SC2016
+	git rebase \
+		--committer-date-is-author-date \
+		--autosquash \
+		--exec 'git commit --amend --reset-author --no-edit --date="$(git log -n 1 --format=%aD)"' \
+		"$COMMIT_TO_REBASE_TO"
+}
+
 
 git_branch_name() {
 	git rev-parse --abbrev-ref HEAD
@@ -3783,7 +3828,13 @@ npm_find_npx_global_pkg_dir() {
 # For npx, use `npm_find_npx_global_pkg_dir`, for which each package gets an isolated
 # subdir, not a shared node_modules
 npm_find_global_node_modules() {
-	asdf_exec_with_global_version npm root -g
+	if [[ $HAS_ASDF -eq 1 ]]; then
+		asdf_exec_with_global_version npm root -g
+		return
+	elif [[ $HAS_MISE -eq 1 ]]; then
+		mise --cd ~ exec node --no-prepare --command "npm root -g"
+	fi
+
 }
 
 npm_find_global_pkg_dir() {
@@ -3791,7 +3842,7 @@ npm_find_global_pkg_dir() {
 	local GLOBAL_NODE_MODULES=$(npm_find_global_node_modules)
 	# Make sure to scan for symlinks as well, to handle `npm link` and friends
 	found_dir=$(find -L "$GLOBAL_NODE_MODULES" -type d -depth 1 -name "$PACKAGE_NAME")
-	if [[ -z "$found_dir" ]]; then
+	if [[ -z "$found_dir" ]] || ! [[ -d "$found_dir" ]]; then
 		echo "ERROR: Could not find $PACKAGE_NAME in global node_modules ($GLOBAL_NODE_MODULES)"
 		return 1
 	fi
@@ -4683,6 +4734,9 @@ get_cert_type() {
 			fi
 			# Unknown format
 			return 1
+		elif (echo "$FILE_TYPE" | grep --silent -E "PEM.+private key"); then
+			echo "SSL:PRIVATE"
+			return
 		# Magic bytes for DER cert
 		elif [[ "$LEADING_BYTES_HEX" == 3082* ]]; then
 			echo "SSL:PUBLIC"
@@ -4721,6 +4775,12 @@ get_cert_info() {
 
 	echo "ℹ️ Type mapped as $cert_type"
 	echo "🔨 Extracting information for $cert_type"
+
+	# Check for incorrect permissions on private keys - warn if found
+	# TODO
+
+	# Check for bad formatting of keys (CRLF instead of LF, missing trailing line)
+	# TODO
 
 	# SSL
 	if [[ $cert_type == "CSR" ]]; then

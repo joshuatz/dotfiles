@@ -56,6 +56,16 @@
 		"prefix": "HTML Video Element - Generic Template",
 		"body": "<!-- Change preload to 'none' for true lazy-load, leave as metadata for length -->\n<!-- if you use autoplay, that overrides preload -->\n<video controls loop muted preload=\"metadata\" style=\"display:block; width:94%; margin:auto;\" title=\"\">\n\t<source src=\"REPLACEME.mp4\" type=\"video/mp4\">\n\tSorry, your browser doesn't support embedded videos.\n</video>"
 	},
+	"HTML Table": {
+		"scope": "html, markdown, svelte, php",
+		"prefix": "HTML Table - Header Row + Body",
+		"body": "<table>\n\t<thead>\n\t\t<tr>\n\t\t\t<th>COLUMN_A</th>\n\t\t\t<th>COLUMN_B</th>\n\t\t</tr>\n\t</thead>\n\t<tbody>\n\t\t<tr>\n\t\t\t<td>A1</td>\n\t\t\t<td>B1</td>\n\t\t</tr>\n\t\t<tr>\n\t\t\t<td>A2</td>\n\t\t\t<td>B2</td>\n\t\t</tr>\n\t</tbody>\n</table>\n"
+	},
+	"HTML Table with Markdown Content": {
+		"scope": "markdown",
+		"prefix": "HTML Table with Markdown Content (non-indented, empty line spacers)",
+		"body": "<table>\n<thead>\n<tr>\n<th>COLUMN_A</th>\n<th>COLUMN_B</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>\n\nMARKDOWN_A1\n\n</td>\n<td>\n\nMARKDOWN_B1\n\n</td>\n</tr>\n</tbody>\n</table>"
+	},
 	"Ignore Table of Contents Comment": {
 		"scope": "markdown, html, svelte",
 		"prefix": "Ignore or exclude section from table of contents",
