@@ -25,8 +25,14 @@ search_fuzzy() {
 		return 1
 	fi
 
+	# Options = `interactive|json|filenames_list`
+	local output_mode="interactive"
 	local search_dir=""
 	local search_pattern=""
+	# Really just an alias for `--glob`
+	# If used, will filter results to ONLY those within these globs, as opposed to `!patt` globs,
+	# which just add to / override negated matches.
+	local EXCLUSIVE_filter_globs=()
 
 	local RG_ARGS=(
 		'--follow'
@@ -71,12 +77,27 @@ search_fuzzy() {
 				search_dir=$2
 				shift 2
 				;;
-			-p|--pattern)
+			-s|--search|--string)
+				# TODO separate this out better from --path
 				search_pattern=$2
+				shift 2
+				;;
+			-p|--path|--glob)
+				EXCLUSIVE_filter_globs+=("$2")
+				RG_ARGS+=("--glob" "$2")
+				# TODO: conflicting with file path search
 				shift 2
 				;;
 			--all)
 				RG_ARGS+=("--no-ignore" "--hidden")
+				shift
+				;;
+			--json)
+				output_mode="json"
+				shift
+				;;
+			--list)
+				output_mode="filenames_list"
 				shift
 				;;
 			# Assume that all other args passed in are for rg
@@ -110,8 +131,8 @@ search_fuzzy() {
 			"File Contents") echo "Search File Contents" ;;
 		esac')
 
-	SEARCH_FILE_PATHS_ENABLED=0
-	SEARCH_FILE_CONTENTS_ENABLED=0
+	local SEARCH_FILE_PATHS_ENABLED=0
+	local SEARCH_FILE_CONTENTS_ENABLED=0
 
 	# Parse the selected options and set corresponding variables
 	if echo "$selected_options" | grep -q "File Paths"; then
@@ -140,7 +161,7 @@ search_fuzzy() {
 		# in case you are looking to search for directory matches. I feel like there *has* to be a better way to do this.
 		local RG_ARGS__FILENAMES=("--files" "--glob" "$search_pattern" --glob "*$search_pattern*" --glob "**/*$search_pattern*/**" "${RG_ARGS[@]}")
 		echo "RG Args: ${RG_ARGS__FILENAMES[*]}"
-		local filename_results=$(rg "${RG_ARGS__FILENAMES[@]}")
+		local filename_results=$(rg "${RG_ARGS__FILENAMES[@]}" 2>/dev/null)
 		if [[ -z "$results" ]]; then
 			results="$filename_results"
 		elif [[ -n "$filename_results" ]]; then
@@ -153,8 +174,19 @@ search_fuzzy() {
 		return 1
 	fi
 
-	# Display results with FZF, with a fancy preview pane
-	echo "$results" | fzf --multi --reverse --preview-window=wrap --preview "rg --with-filename --line-number --context=10 --no-heading --column --color=always --smart-case -e $search_pattern {}"
+	if [[ "$output_mode" == "json" ]]; then
+		# TODO
+		# Record<FileName, PreviewResults>
+		:
+	elif [[ "$output_mode" == "filenames_list" ]]; then
+		echo "$results"
+	elif [[ "$output_mode" == "interactive" ]]; then
+		# Display results with FZF, with a fancy preview pane
+		echo "$results" | fzf --multi --reverse --preview-window=wrap --preview "rg --with-filename --line-number --context=10 --no-heading --column --color=always --smart-case -e $search_pattern {}"
+	else
+		echo "Do not understand output_mode of $output_mode"
+		return 1
+	fi
 
 	# TODO: Copy selected file path to clipboard and/or offer options menu (open in $EDITOR, etc.)
 }
@@ -635,10 +667,16 @@ reload() {
 	fi
 }
 
+# Hello? Is anyone home? It's me, your terminal.
+play_bell_sound() {
+	# WARNING: If this is running through the VS Code integrated terminal, "accessibility.signals.terminalBell" must have `sound` set to `on`, or else
+	# this will only trigger the "visual" bell
+	echo -e "\a"
+}
+
 alert() {
 	msg="$1"
-	# Hello? Is anyone home? It's me, your terminal.
-	echo -e "\a"
+	play_bell_sound
 	if [[ -n "$msg" ]]; then
 		if (is_in_tmux); then
 			tmux display-message "$1"
@@ -652,6 +690,8 @@ alert() {
 toast() {
 	local message="$1"
 	local title="From Your Shell"
+	local use_speak=0
+	local use_bell=0
 
 	while [[ ! $# -eq 0 ]]
 	do
@@ -664,6 +704,12 @@ toast() {
 				message=$2
 				shift
 				;;
+			-s|--speak)
+				use_speak=1
+				;;
+			-b|--bell)
+				use_bell=1
+				;;
 		esac
 		shift
 	done
@@ -671,6 +717,15 @@ toast() {
 	if [[ $IS_MAC -eq 1 ]]; then
 		# https://apple.stackexchange.com/a/115373/428959
 		osascript -e "display notification \"$message\" with title \"$title\""
+
+		if [[ $use_bell -eq 1 ]]; then
+			play_bell_sound
+		fi
+
+		if [[ $use_speak -eq 1 ]]; then
+			say "$title"
+		fi
+
 		return 0
 	fi
 
@@ -680,7 +735,7 @@ toast() {
 }
 
 warn() {
-	colorize_text 208 "$1" 1>&2
+	colorize_text_id 208 "$1" 1>&2
 }
 
 get_clipboard_contents() {
@@ -1461,6 +1516,17 @@ wipe() {
 	clear
 }
 
+exif_remove() {
+	IMAGE_PATH=$1
+
+	if ! [[ -f "$IMAGE_PATH" ]]; then
+		warn "Invalid image path ($IMAGE_PATH)"
+		return 1
+	fi
+
+	exiftool -exif:all= -iptc:all= -time:all= "$IMAGE_PATH"
+}
+
 render_image() {
 	IMAGE_PATH=$1
 
@@ -1811,6 +1877,10 @@ is_in_wezterm() {
 		return 1
 	fi
 	return 0
+}
+
+is_in_vscode_integrated_terminal() {
+	[[ "$TERM_PROGRAM" == "vscode" ]]
 }
 
 # Sets a user variable inside the WezTerm variable space
@@ -2796,6 +2866,26 @@ git_sparse_checkout() {
 		GIT_ARGS+=(--branch "$BRANCH")
 	fi
 	GIT_ARGS+=(--sparse)
+
+	# Check if a Github URL, with a subdirectory pre-selected, was used as the REMOTE URI
+	# Capture groups:
+	# /1 = remote URI
+	# /2 = branch / ref
+	# /3 = subdirectory
+	local GITHUB_SUBDIR_PATTERN='(https:\/\/github\.com\/[^/]+\/[^/]+)\/tree\/([^/]+)\/(.+)$'
+	if (echo "$REMOTE" | grep --silent -E "$GITHUB_SUBDIR_PATTERN"); then
+		local FULL_URI="$REMOTE"
+		REMOTE=$(echo "$FULL_URI" | sed -E "s#$GITHUB_SUBDIR_PATTERN#\1.git#")
+		BRANCH=$(echo "$FULL_URI" | sed -E "s#$GITHUB_SUBDIR_PATTERN#\2#")
+		local SUBDIRECTORY=$(echo "$FULL_URI" | sed -E "s#$GITHUB_SUBDIR_PATTERN#\3#")
+		SUB_PATHS+=("$SUBDIRECTORY")
+		cat <<- EOF
+		Automatically detected a Github URL with a subdirectory pre-selected. Adjusting the REMOTE URI and BRANCH accordingly.
+		    REMOTE       | $REMOTE
+		    BRANCH       | $BRANCH
+		    SUBDIRECTORY | $SUBDIRECTORY
+		EOF
+	fi
 
 	# Clone into out_dir and cd to it
 	git "${GIT_ARGS[@]}" "$REMOTE" "$OUT_DIR"
