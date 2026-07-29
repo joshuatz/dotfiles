@@ -46,4 +46,6 @@ keys = [
   # Enable classic `CTRL+V` pasting
   { key = "V", with = "control | shift", action = "none" },
   { key = "V", with = "control", action = "Paste" },
+  # Make sure shift+enter sends escape sequences instead of a literal newline (which is the default behavior in rio)
+  { key = "return", with = "shift", esc = "\u001b[13;2u" },
 ]

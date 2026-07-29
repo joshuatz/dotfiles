@@ -5,6 +5,9 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.80.0",
+		"@clack/prompts": "^1.5.1",
+		"@mozilla/readability": "^0.6.0",
+		"jsdom": "^29.1.1",
 		"zx": "^8.8.5"
 	}
 }

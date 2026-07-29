@@ -874,7 +874,66 @@ markdown_to_pdf() {
 
 html_to_markdown() {
 	local html="$1"
-	echo "$html" | pandoc --from html --to gfm
+	if (check_args_for_value "--reduced"); then
+		printf '%s\n' "$html" | pandoc --from html --to markdown_github-raw_html
+	fi
+	printf '%s\n' "$html" | pandoc --from html --to gfm
+}
+
+get_human_user_agent() {
+	# uses https://github.com/jnrbsn/user-agents
+	curl --silent https://jnrbsn.github.io/user-agents/user-agents.json | jq -r '.[0]'
+}
+
+get_webpage_as_markdown() {
+	# TODO, control through arg, use different tools
+	local CONVERTER_MODE="hosted_jina"
+
+	local uri="$1"
+
+	if [[ "$CONVERTER_MODE" == "hosted_jina" ]]; then
+		if [[ -z "$JINA_AI_API_KEY" ]]; then
+			warn "JINA_AI_API_KEY is not set!"
+			return 1
+		fi
+		 curl "https://r.jina.ai/$uri" -H "Authorization: Bearer $JINA_AI_API_KEY"
+	elif [[ "$CONVERTER_MODE" == "hosted_firecrawl" ]]; then
+		curl -X POST 'https://api.firecrawl.dev/v2/scrape' \
+			-H 'Content-Type: application/json' \
+			-d "{
+				\"url\": \"$uri\",
+				\"formats\": [\"markdown\"]
+			}" | jq -r '.data.markdown'
+	elif [[ "$CONVERTER_MODE" == "local" ]]; then
+		# Fetch a human-like User-Agent string
+		local ua="$(get_human_user_agent)"
+
+		# Fallback if the request fails or returns empty
+		ua="${ua:-Mozilla/5.0 (compatible; curl)}"
+
+		# -s: silent, -L: follow redirects, -f: fail on HTTP errors, -A: custom user-agent
+		local html="$(curl -sLf -A "$ua" "$uri")"
+
+		local node_readability_script=$(cat <<- 'EOF'
+		const { Readability } = require('@mozilla/readability');
+		const { JSDOM } = require('jsdom');
+
+		let html = '';
+		process.stdin.on('data', chunk => { html += chunk; });
+		process.stdin.on('end', () => {
+			const dom = new JSDOM(html);
+			const reader = new Readability(dom.window.document);
+			const article = reader.parse();
+			process.stdout.write(article ? article.content : html);
+		});
+		EOF
+		)
+		local reduced_html="$(echo "$html" | run_raw_cmd_in_dotfiles_dir "node -e \"$node_readability_script\"")"
+
+		echo "$reduced_html"
+
+		html_to_markdown "$reduced_html" --reduced
+	fi
 }
 
 markdown_to_html_clipboard() {
@@ -2814,6 +2873,7 @@ if [[ $SHELL_TYPE == "ZSH" ]]; then
 	# compdef _git git_checkout_dirty=git-checkout
 fi
 
+# TODO: This is leaving files in the root...
 git_sparse_checkout() {
 	local RECURSE=1
 	local OUT_DIR=""
@@ -3823,6 +3883,18 @@ docker_inspect_networks() {
 docker_log_follow() {
 	CONTAINER_REF=$(docker_pick_container)
 	docker logs -f "$CONTAINER_REF"
+}
+
+run_raw_cmd_in_dotfiles_dir() {
+	local RAW_CMD_TO_RUN=$1
+	if ! [[ -d "$DOTFILES_DEV_DIR" ]]; then
+		return 1
+	fi
+	(
+		cd "$DOTFILES_DEV_DIR" || exit
+		$SHELL -c "$RAW_CMD_TO_RUN"
+	)
+	return $?
 }
 
 run_raw_cmd_in_dotfiles_venv() {

@@ -1,3 +1,10 @@
+# <DYNAMIC_INJECTION_SECTION>
+#         !!!!!!
+#     WARNING: Any content here will be replaced by injection
+#     from manage.sh
+#         !!!!!!
+# </DYNAMIC_INJECTION_SECTION>
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -146,7 +153,6 @@ export USER_BIN_OVERRIDES_DIR="${HOME}/.local/bin"
 if ! [[ -d $USER_BIN_OVERRIDES_DIR ]]; then
 	mkdir -p $USER_BIN_OVERRIDES_DIR
 fi
-export DOTFILES_DEV_DIR="${HOME}/dotfiles"
 
 # Autocomplete - ORDER MATTERS
 unsetopt complete_aliases
@@ -191,11 +197,12 @@ if [[ $USE_MAC_COREUTILS -eq 0 ]]; then
 fi
 
 # Load main customization files
-[[ -f "$DOTFILES_DEV_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DEV_DIR/ascii_art/loader.sh" || true
 [[ -f ~/.aliases ]] && source ~/.aliases
 [[ -f ~/.env.public ]] && source ~/.env.public
+[[ -f "$DOTFILES_DEV_DIR/.env.private" ]] && source "$DOTFILES_DEV_DIR/.env.private"
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+[[ -f "$DOTFILES_DEV_DIR/ascii_art/loader.sh" ]] && source "$DOTFILES_DEV_DIR/ascii_art/loader.sh" || true
 
 # Prompt customization
 if [[ "$ZSH_THEME" == "powerlevel10k/powerlevel10k" ]]; then
@@ -346,8 +353,16 @@ if [[ -d "$USER_BIN_OVERRIDES_DIR" ]]; then
 	done
 fi
 
+# OpenCode
+# TODO: whenever possible, config values should go in a dedicated config file (opencode.jsonc, agents MD files, etc.).
+# However, some config values can *currently* only be set via environment variables
+# Disable claude compatibility to reduce prompt size (e.g., to avoid AGENTS.md being read twice if Claude.md exists as symlink)
+# https://opencode.ai/docs/rules/#claude-code-compatibility
+export OPENCODE_DISABLE_CLAUDE_CODE=1
+# NOTE: These should be ignored due to the above line (which auto sets these to true), but just in case:
+export OPENCODE_DISABLE_CLAUDE_CODE_PROMPT=1
+export OPENCODE_DISABLE_CLAUDE_CODE_SKILLS=1
+
 # https://code.visualstudio.com/docs/terminal/shell-integration
 [[ "$TERM_PROGRAM" == "vscode" ]] && . "$(code --locate-shell-integration-path zsh)"
-
-# === Dynamic Injection Section ===
 

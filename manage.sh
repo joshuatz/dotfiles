@@ -44,11 +44,31 @@ SHELL_TYPE=$(get_shell_type)
 
 inject_dynamic_values_into_profile() {
 	local profile_path="$1"
-	cat >> "$profile_path" <<- EOF
+
+	if ! grep -qF '# <DYNAMIC_INJECTION_SECTION>' "$profile_path" || \
+	! grep -qF '# </DYNAMIC_INJECTION_SECTION>' "$profile_path"; then
+		echo "Warning: Injection markers not found in $profile_path. No changes made." >&2
+		exit 0
+	fi
+
+	# Content to inject
+	local CONTENT_TO_INJECT=$(cat <<- EOF
 	# Dynamic variables, injected by manage.sh (jtz dotfiles)
 	DOTFILES_DEV_DIR="$SCRIPT_DIR"
 	DOTFILES_HOME_PROD_DIR="$DOTFILES_HOME_PROD_DIR"
 	EOF
+	)
+
+	# Create tmpfile so we aren't modifying in place directly
+	TMPFILE=$(mktemp)
+	trap 'rm -f "$TMPFILE"' EXIT
+
+	# shellcheck disable=SC2016
+	OLD_CONTENT="$(cat "$profile_path")" CONTENT_TO_INJECT="$CONTENT_TO_INJECT" node -e 'console.log(process.env.OLD_CONTENT.replace(/(^# <DYNAMIC_INJECTION_SECTION>$).*(^# <\/DYNAMIC_INJECTION_SECTION>$)/gms, `$1\n${process.env.CONTENT_TO_INJECT}\n$2`))' > "$TMPFILE"
+
+	# Overwrite original file to preserve permissions & ownership
+	cat "$TMPFILE" > "$profile_path"
+	echo "✅ Successfully updated $profile_path"
 }
 
 bootstrap() {
