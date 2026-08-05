@@ -738,6 +738,10 @@ warn() {
 	colorize_text_id 208 "$1" 1>&2
 }
 
+success() {
+	colorize_text_id 154 "$1" 1>&2
+}
+
 get_clipboard_contents() {
 	if (which pbpaste > /dev/null); then
 		pbpaste
@@ -2873,7 +2877,6 @@ if [[ $SHELL_TYPE == "ZSH" ]]; then
 	# compdef _git git_checkout_dirty=git-checkout
 fi
 
-# TODO: This is leaving files in the root...
 git_sparse_checkout() {
 	local RECURSE=1
 	local OUT_DIR=""
@@ -2881,9 +2884,17 @@ git_sparse_checkout() {
 	local BRANCH=""
 	local SUB_PATHS=()
 
+	# We will update this once we know subpaths; we need to track this and use it
+	# at the end of the process to decide whether to discard root files _outside_
+	# the desired sub-paths
+	local KEEP_LOOSE_ROOT_FILES=0
+
 	while [[ ! $# -eq 0 ]]
 	do
 		case "$1" in
+			-t|--temp)
+				OUT_DIR="$(mktemp -d)"
+				;;
 			-o|--out-dir)
 				OUT_DIR=$2
 				shift
@@ -2901,6 +2912,9 @@ git_sparse_checkout() {
 				;;
 			*)
 				SUB_PATHS+=("$1")
+				if [[ "$1" == "." ]]; then
+					KEEP_LOOSE_ROOT_FILES=1
+				fi
 				;;
 		esac
 		shift
@@ -2912,9 +2926,9 @@ git_sparse_checkout() {
 		ERR=1
 	fi
 	if [[ -z "$OUT_DIR" ]]; then
-		echo "You must specify the destination directory (-o / --out-dir)"
+		echo "You must specify the destination directory (-o / --out-dir), or use --temp for temp dir"
 		ERR=1
-	elif [[ -d "$OUT_DIR" ]]; then
+	elif [[ -d "$OUT_DIR" ]] && [[ -z "$(find "$OUT_DIR" -maxdepth 0 -empty)" ]]; then
 		echo "$OUT_DIR already exists"
 		ERR=1
 	fi
@@ -2951,6 +2965,11 @@ git_sparse_checkout() {
 	git "${GIT_ARGS[@]}" "$REMOTE" "$OUT_DIR"
 	pushd "$OUT_DIR" || exit
 
+	# Check for zero sub-paths
+	if [[ ${#SUB_PATHS[@]} -eq 0 ]]; then
+		KEEP_LOOSE_ROOT_FILES=1
+	fi
+
 	# Selectively add the sub paths
 	for sub_path in "${SUB_PATHS[@]}"; do
 		if [[ $RECURSE -eq 1 ]]; then
@@ -2985,8 +3004,15 @@ git_sparse_checkout() {
 		fi
 	done
 	git checkout
+
+	if [[ $KEEP_LOOSE_ROOT_FILES -eq 0 ]]; then
+		find "$OUT_DIR" -maxdepth 1 -type f -delete
+	fi
+
 	popd || exit
+	success "Sparse clone complete. Output dir = $OUT_DIR"
 }
+alias git_clone_shallow="git_sparse_checkout"
 
 # TODO: would be nice if this could separately stash dropped changes (even if just in a patch file)
 git_do_while_dirty() {
