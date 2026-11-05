@@ -12,6 +12,8 @@ else
 fi
 
 USER_CONFIG_DIR=$HOME/.config
+USER_BACKUPS_DIR=$HOME/backups
+mkdir -p "$USER_BACKUPS_DIR"
 OS_NAME="linux"
 IS_MAC=0
 IS_MAC_SILICON=0

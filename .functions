@@ -1160,7 +1160,7 @@ moz_lz4json_to_json() {
 
 # WARNING: This produces a *huge* (multi-MB) JSON file
 firefox_dump_restore_file() {
-	local BACKUP_DIR=~/backups/ff
+	local BACKUP_DIR="${USER_BACKUPS_DIR}/ff"
 	mkdir -p "$BACKUP_DIR"
 	local OUT_DIR="$(pwd)"
 	while true; do
@@ -2734,13 +2734,12 @@ git_diff_pr() {
 }
 
 # TODO: I don't think this is quite right...
-git_log_pr() {
+git_log_pr_slim() {
 	git log --cherry-pick --right-only "$(_git_pr_base "$1")...HEAD"
 }
 
-# TODO: Blergh
-git_squash_diff_log() {
-	:
+git_log_pr() {
+	git log --cherry-pick --right-only --patch "$(_git_pr_base "$1")...HEAD"
 }
 
 # Use this with `--fixup` commits, to auto-target the last commit before fixup
@@ -3770,7 +3769,7 @@ docker_image_exec() {
 	local CONTAINER_NAME=$(docker_normalize_name_container "$image_id-$(date_ms)")
 	local DOCKER_SHELL="$DOCKER_SHELL"
 	if [[ -z $DOCKER_SHELL ]]; then
-		DOCKER_SHELL="bash"
+		DOCKER_SHELL=$(printf 'bash\nsh' | fzf)
 	fi
 	docker run --name "$CONTAINER_NAME" "$@" --rm -it "$image_id" "/bin/$DOCKER_SHELL"
 }
